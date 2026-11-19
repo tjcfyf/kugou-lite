@@ -10,6 +10,8 @@ struct LoginView: View {
     @State private var status = "正在生成二维码…"
     @State private var pollTask: Task<Void, Never>?
     @State private var vipText = "正在查询会员状态…"
+    @State private var probeText = ""
+    @State private var probing = false
 
     var body: some View {
         NavigationView {
@@ -58,14 +60,40 @@ struct LoginView: View {
                 .foregroundColor(Theme.accent)
                 .multilineTextAlignment(.center)
 
-            Button {
-                Task { vipText = await KGUser.vipText() ?? "未登录" }
-            } label: {
-                Text("刷新会员状态")
-                    .font(.system(size: 12))
-                    .foregroundColor(Theme.secondaryText)
+            HStack(spacing: 16) {
+                Button {
+                    Task { vipText = await KGUser.vipText() ?? "未登录" }
+                } label: {
+                    Text("刷新会员状态")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.secondaryText)
+                }
+
+                Button {
+                    guard !probing else { return }
+                    probing = true
+                    Task {
+                        probeText = await KGVIP.probeReport()
+                        probing = false
+                    }
+                } label: {
+                    Text(probing ? "诊断中…" : "诊断领取")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.secondaryText)
+                }
             }
             .padding(.top, 2)
+
+            if !probeText.isEmpty {
+                Text(probeText)
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.secondaryText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                    .padding(8)
+                    .background(Theme.card)
+                    .cornerRadius(8)
+            }
 
             Button {
                 auth.signOut()
