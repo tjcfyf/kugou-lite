@@ -9,6 +9,7 @@ struct LoginView: View {
     @State private var code: KugouQRCode?
     @State private var status = "正在生成二维码…"
     @State private var pollTask: Task<Void, Never>?
+    @State private var vipText = "正在查询会员状态…"
 
     var body: some View {
         NavigationView {
@@ -52,9 +53,19 @@ struct LoginView: View {
             Text("UID \(auth.userid)")
                 .font(.system(size: 12))
                 .foregroundColor(Theme.secondaryText)
-            Text("会员歌曲现在可以正常播放了")
+            Text(vipText)
                 .font(.system(size: 13))
-                .foregroundColor(Theme.secondaryText)
+                .foregroundColor(Theme.accent)
+                .multilineTextAlignment(.center)
+
+            Button {
+                Task { vipText = await KGUser.vipText() ?? "未登录" }
+            } label: {
+                Text("刷新会员状态")
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.secondaryText)
+            }
+            .padding(.top, 2)
 
             Button {
                 auth.signOut()
@@ -69,6 +80,11 @@ struct LoginView: View {
                     .overlay(Capsule().stroke(Theme.accent, lineWidth: 1))
             }
             .padding(.top, 8)
+        }
+        .task(id: auth.userid) {
+            if auth.isLoggedIn {
+                vipText = await KGUser.vipText() ?? "未获取到会员信息"
+            }
         }
     }
 
@@ -160,6 +176,7 @@ struct LoginView: View {
                         } else if claim == .failed {
                             player.showToast("今日会员领取失败，下次播放会再试")
                         }
+                        vipText = await KGUser.vipText() ?? "未获取到会员信息"
 
                         try? await Task.sleep(nanoseconds: 900_000_000)
                         dismiss()

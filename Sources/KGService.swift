@@ -78,16 +78,16 @@ enum KGService {
         throw KGError.server(info.error ?? "这首歌暂时拿不到播放地址")
     }
 
-    /// 先走移动端接口；会员曲拿不到地址时再走带签名的 `/v5/url`。
+    /// 登录后优先走概念版（lite）的签名取流；未登录或失败再回落到移动端接口。
     static func playURL(for song: Song) async throws -> URL {
+        if KGApi.shared.token != nil,
+           let url = try? await liteURL(hash: song.FileHash, albumID: song.AlbumID) {
+            return url
+        }
+
         let info = try? await playInfo(hash: song.FileHash, albumID: song.AlbumID)
         if let raw = info?.url, let url = URL(string: raw) { return url }
         if let raw = info?.backups.first, let url = URL(string: raw) { return url }
-
-        if KGApi.shared.token != nil,
-           let url = try? await vipURL(hash: song.FileHash, albumID: song.AlbumID) {
-            return url
-        }
 
         if song.needsPurchase && KGApi.shared.token == nil {
             throw KGError.server("这首歌需要酷狗会员，登录后就能听")
@@ -95,12 +95,15 @@ enum KGService {
         throw KGError.server(info?.error ?? "这首歌暂时拿不到播放地址")
     }
 
-    static func vipURL(hash: String, albumID: Int?) async throws -> URL? {
+    /// 概念版（lite）取流。畅听/概念会员只在 lite 的 appid 下被识别，
+    /// 用标准版 appid 请求会被当成免费用户。
+    static func liteURL(hash: String, albumID: Int?) async throws -> URL? {
+        let appid = 3116
         let key = KGSign.playKey(
             hash: hash,
             mid: KGApi.shared.mid,
             userid: KGApi.shared.userid,
-            appid: KGApi.shared.appid
+            appid: appid
         )
         let data = try await KGApi.shared.get(
             path: "/v5/url",
@@ -110,21 +113,22 @@ enum KGService {
                 "hash": hash.lowercased(),
                 "ssa_flag": "is_fromtrack",
                 "version": "11430",
-                "page_id": "151369488",
+                "page_id": "967177915",
                 "quality": "128",
                 "album_audio_id": "0",
                 "behavior": "play",
-                "pid": "2",
+                "pid": "411",
                 "cmd": "26",
                 "pidversion": "3001",
                 "IsFreePart": "0",
-                "ppage_id": "463467626,350369493,788954147",
+                "ppage_id": "356753938,823673182,967485191",
                 "cdnBackup": "1",
                 "module": "",
                 "clientver": "11430",
                 "key": key,
             ],
-            router: "trackercdn.kugou.com"
+            router: "trackercdn.kugou.com",
+            lite: true
         )
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         if let list = root["url"] as? [String], let first = list.first, let url = URL(string: first) {
