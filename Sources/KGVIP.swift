@@ -82,12 +82,19 @@ enum KGVIP {
         let vipRaw = await KGUser.rawVip()
         lines.append("⑦ 会员原文 " + vipRaw)
 
-        let deviceReply = await KGDevice.registerIfNeeded()
+        let deviceReply = await KGDevice.register()
         lines.append("⑧ 设备注册 " + deviceReply)
 
-        KGApi.shared.lastMixSongID = 0
-        let authProbe = await KGService.authProbe(hash: "", albumAudioID: 0)
+        let testHash = "B3A52A7A958BF0AED0EBFBA2E9A818B7"
+        let testAudioID = 32100650
+        let authProbe = await KGService.authProbe(hash: testHash, albumAudioID: testAudioID)
         lines.append("⑨ 授权链路 " + authProbe)
+
+        let privilege = await KGService.privilegeProbe(hash: testHash)
+        lines.append("⑩ 权益 " + privilege)
+
+        let stream = await KGService.streamProbe(hash: testHash, albumAudioID: testAudioID)
+        lines.append("⑪ 取流 " + stream)
 
         return lines.joined(separator: "\n")
     }

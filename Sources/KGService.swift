@@ -85,12 +85,12 @@ enum KGService {
             KGApi.shared.lastMixSongID = song.MixSongID ?? 0
             if let url = try? await liteURL(hash: song.FileHash,
                                              albumID: song.AlbumID,
-                                             albumAudioID: song.Audioid) {
+                                             albumAudioID: song.MixSongID ?? song.Audioid) {
                 return url
             }
             if let url = try? await authorizedURL(hash: song.FileHash,
                                                   albumID: song.AlbumID,
-                                                  albumAudioID: song.Audioid) {
+                                                  albumAudioID: song.MixSongID ?? song.Audioid) {
                 return url
             }
         }
@@ -208,6 +208,72 @@ enum KGService {
         } catch {
             return "授权失败：\((error as? LocalizedError)?.errorDescription ?? "未知")"
         }
+    }
+
+    /// 权益查询（/v2/get_res_privilege/lite），诊断面板用来确认真实能不能播。
+    static func privilegeProbe(hash: String) async -> String {
+        let body: [String: Any] = [
+            "appid": 3116,
+            "area_code": 1,
+            "behavior": "play",
+            "clientver": 11440,
+            "need_hash_offset": 1,
+            "relate": 1,
+            "support_verify": 1,
+            "resource": [["type": "audio", "page_id": 0, "hash": hash.lowercased(), "album_id": 0]],
+            "qualities": ["128", "320", "flac", "high"],
+        ]
+        guard let data = try? await KGApi.shared.post(
+            path: "/v2/get_res_privilege/lite",
+            params: [:],
+            body: body,
+            router: "media.store.kugou.com",
+            lite: true
+        ), let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return "权益查询失败"
+        }
+        guard let list = root["data"] as? [[String: Any]], let first = list.first else {
+            return "权益无数据：\(String(data: data.prefix(120), encoding: .utf8) ?? "")"
+        }
+        let privilege = Song.intValue(first["privilege"]) ?? -1
+        let status = Song.intValue(first["status"]) ?? -1
+        let payType = Song.intValue(first["pay_type"]) ?? -1
+        var qualities: [String] = []
+        if let goods = first["relate_goods"] as? [[String: Any]] {
+            for item in goods {
+                let q = Song.intValue(item["quality"]) ?? 0
+                let exists = Song.intValue(item["exists"]) ?? 0
+                qualities.append("\(q)@\(exists)")
+            }
+        }
+        return "privilege=\(privilege) status=\(status) pay_type=\(payType) goods=\(qualities.prefix(6).joined(separator: ","))"
+    }
+
+    /// 带授权的取流结果，把服务端返回码摊开。
+    static func streamProbe(hash: String, albumAudioID: Int?) async -> String {
+        guard let auth = try? await authorization(hash: hash, albumAudioID: albumAudioID) else {
+            return "授权失败"
+        }
+        let key = KGSign.playKey(hash: hash, mid: KGApi.shared.mid, userid: KGApi.shared.userid, appid: 3116)
+        let params: [String: String] = [
+            "album_id": "0", "area_code": "1", "hash": hash.lowercased(), "ssa_flag": "is_fromtrack",
+            "version": "11430", "open_time": "\(auth.openTime)", "page_id": "967177915",
+            "quality": "128", "album_audio_id": "\(albumAudioID ?? 0)", "behavior": "play",
+            "pid": "411", "module_id": "51", "cmd": "26", "mtype": "0", "ptype": "0",
+            "need_ogg": "1", "auth": auth.value, "ppage_id": "356753938,823673182,967485191",
+            "clientver": "11561", "pidversion": "3001", "cdnBackup": "1",
+            "dfid": KGApi.shared.dfid, "key": key,
+        ]
+        guard let data = try? await KGApi.shared.get(
+            path: "/v5/url", params: params, router: "trackercdn.kugou.com", lite: true
+        ), let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return "取流无响应"
+        }
+        let status = Song.intValue(root["status"]) ?? -1
+        let errcode = Song.intValue(root["errcode"]) ?? 0
+        let error = (root["error"] as? String) ?? ""
+        let urlCount = (root["url"] as? [String])?.count ?? 0
+        return "status=\(status) errcode=\(errcode) url=\(urlCount) error=\(error) dfid=\(KGApi.shared.dfid.prefix(6))"
     }
 
     private struct PlayAuth {

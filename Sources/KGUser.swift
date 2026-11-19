@@ -2,6 +2,20 @@ import Foundation
 
 enum KGUser {
     /// 查询概念版会员状态，用来确认 token 是否生效、会员有没有到账。
+    private static func describe(type: String, end: String) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        if let date = formatter.date(from: end) {
+            if date > Date() {
+                return "\(type.uppercased()) 有效期至 \(end)"
+            }
+            formatter.dateFormat = "yyyy-MM-dd"
+            return "会员已到期（\(formatter.string(from: date))），今日领取未生效"
+        }
+        return "\(type.uppercased()) 有效期至 \(end)"
+    }
+
     /// 会员接口的原文，面板里用来判断是不是解析问题。
     static func rawVip() async -> String {
         guard let data = try? await KGApi.shared.get(
@@ -41,7 +55,7 @@ enum KGUser {
             if isVip == 1 {
                 let type = (single["product_type"] as? String) ?? "vip"
                 let end = (single["vip_end_time"] as? String) ?? ""
-                return "\(type.uppercased()) 有效期至 \(end)"
+                return describe(type: type, end: end)
             }
             if let list = single["list"] as? [[String: Any]], !list.isEmpty {
                 for item in list {
@@ -49,7 +63,7 @@ enum KGUser {
                     if v == 1 {
                         let type = (item["product_type"] as? String) ?? "vip"
                         let end = (item["vip_end_time"] as? String) ?? ""
-                        return "\(type.uppercased()) 有效期至 \(end)"
+                        return describe(type: type, end: end)
                     }
                 }
             }
@@ -62,7 +76,7 @@ enum KGUser {
                 guard isVip == 1 else { continue }
                 let type = (item["product_type"] as? String) ?? "vip"
                 let end = (item["vip_end_time"] as? String) ?? ""
-                return "\(type.uppercased()) 有效期至 \(end)"
+                return describe(type: type, end: end)
             }
             return "未检测到有效会员"
         }
