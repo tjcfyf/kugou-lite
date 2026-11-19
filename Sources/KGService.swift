@@ -80,9 +80,18 @@ enum KGService {
 
     /// 登录后优先走概念版（lite）的签名取流；未登录或失败再回落到移动端接口。
     static func playURL(for song: Song) async throws -> URL {
-        if KGApi.shared.token != nil,
-           let url = try? await liteURL(hash: song.FileHash, albumID: song.AlbumID) {
-            return url
+        if KGApi.shared.token != nil, KGApi.shared.userid != 0 {
+            KGApi.shared.lastMixSongID = song.MixSongID ?? 0
+            if let url = try? await liteURL(hash: song.FileHash,
+                                             albumID: song.AlbumID,
+                                             albumAudioID: song.Audioid) {
+                return url
+            }
+            if let url = try? await authorizedURL(hash: song.FileHash,
+                                                  albumID: song.AlbumID,
+                                                  albumAudioID: song.Audioid) {
+                return url
+            }
         }
 
         // 拿不到完整流时，再要一次试听片段（概念版免费用户也能听 30~60 秒）。
@@ -102,7 +111,7 @@ enum KGService {
 
     /// 概念版（lite）取流。畅听/概念会员只在 lite 的 appid 下被识别，
     /// 用标准版 appid 请求会被当成免费用户。
-    static func liteURL(hash: String, albumID: Int?) async throws -> URL? {
+    static func liteURL(hash: String, albumID: Int?, albumAudioID: Int? = nil) async throws -> URL? {
         let appid = 3116
         let key = KGSign.playKey(
             hash: hash,
@@ -144,6 +153,105 @@ enum KGService {
         }
         return nil
     }
+    /// 会员取流：先拿播放授权（auth），再用授权换 /v5/url。概念版会员必须走这一步。
+    static func authorizedURL(hash: String, albumID: Int?, albumAudioID: Int?) async throws -> URL? {
+        guard let auth = try await authorization(hash: hash, albumAudioID: albumAudioID) else { return nil }
+        let key = KGSign.playKey(hash: hash, mid: KGApi.shared.mid, userid: KGApi.shared.userid, appid: 3116)
+        let data = try await KGApi.shared.get(
+            path: "/v5/url",
+            params: [
+                "album_id": "\(albumID ?? 0)",
+                "area_code": "1",
+                "hash": hash.lowercased(),
+                "ssa_flag": "is_fromtrack",
+                "version": "11430",
+                "open_time": "\(auth.openTime)",
+                "page_id": "967177915",
+                "quality": "128",
+                "album_audio_id": "\(albumAudioID ?? 0)",
+                "behavior": "play",
+                "pid": "411",
+                "module_id": "51",
+                "cmd": "26",
+                "mtype": "0",
+                "ptype": "0",
+                "need_ogg": "1",
+                "auth": auth.value,
+                "ppage_id": "356753938,823673182,967485191",
+                "clientver": "11561",
+                "pidversion": "3001",
+                "cdnBackup": "1",
+                "dfid": KGApi.shared.dfid,
+                "key": key,
+            ],
+            router: "trackercdn.kugou.com",
+            lite: true
+        )
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        if let list = root["url"] as? [String], let first = list.first, let url = URL(string: first) {
+            return url
+        }
+        if let single = root["url"] as? String, let url = URL(string: single) {
+            return url
+        }
+        return nil
+    }
+
+    private struct PlayAuth {
+        let value: String
+        let openTime: Int
+    }
+
+    private static var cachedAuth: String?
+    private static var cachedAuthTime: TimeInterval = 0
+
+    /// /v1/user_verify 拿设备级播放授权，缓存一小时。
+    private static func verifyAuth() async throws -> String {
+        if let cachedAuth = cachedAuth, Date().timeIntervalSince1970 - cachedAuthTime < 3600 {
+            return cachedAuth
+        }
+        let data = try await KGApi.shared.get(
+            path: "/v1/user_verify",
+            params: ["module_id": "51"],
+            router: "trackercdngz.kugou.com",
+            lite: true
+        )
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let payload = root["data"] as? [String: Any],
+              let auth = payload["auth"] as? String, !auth.isEmpty else {
+            throw KGError.server("没有拿到播放授权")
+        }
+        cachedAuth = auth
+        cachedAuthTime = Date().timeIntervalSince1970
+        return auth
+    }
+
+    /// 单曲授权：把设备授权换成这首歌的 auth + open_time。
+    private static func authorization(hash: String, albumAudioID: Int?) async throws -> PlayAuth? {
+        let device = try await verifyAuth()
+        let data = try await KGApi.shared.get(
+            path: "/v1/authorization",
+            params: [
+                "authorization": device,
+                "module_id": "51",
+                "album_audio_id": "\(albumAudioID ?? 0)",
+                "clientver": "11561",
+                "hash": hash.lowercased(),
+            ],
+            router: "trackercdngz.kugou.com",
+            lite: true
+        )
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        let payload = (root["data"] as? [String: Any]) ?? root
+        var value = (payload["auth"] as? String) ?? ""
+        if value.isEmpty, let inner = payload["data"] as? [String: Any], let auth = inner["auth"] as? String {
+            value = auth
+        }
+        if value.isEmpty { value = device }
+        let openTime = Song.intValue(payload["open_time"]) ?? 0
+        return PlayAuth(value: value, openTime: openTime)
+    }
+
     /// 试听流：IsFreePart=1，VIP 歌也能拿到一段可播的片段。
     static func trialURL(hash: String, albumID: Int?) async throws -> URL? {
         let appid = 3116

@@ -7,7 +7,11 @@ enum KGUser {
         guard let data = try? await KGApi.shared.get(
             path: "/v1/get_union_vip",
             host: "https://kugouvip.kugou.com",
-            params: ["busi_type": "concept"],
+            params: [
+                "busi_type": "concept",
+                "opt_product_types": "dvip,qvip",
+                "product_type": "svip",
+            ],
             lite: true
         ) else {
             return "会员状态查询失败"

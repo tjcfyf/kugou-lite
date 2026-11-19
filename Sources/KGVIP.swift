@@ -25,6 +25,9 @@ enum KGVIP {
         // 概念版的领取前提是当天"听过歌"，所以先补一条听歌上报。
         _ = await reportListen()
 
+        // 升级奖励要先有广告播放记录。
+        _ = await adReport()
+
         // 概念版和标准版两套 appid 都试一遍，只要有一条成功就算领到。
         var received = false
         for lite in [true, false] {
@@ -165,7 +168,7 @@ enum KGVIP {
         let data = try? await KGApi.shared.post(
             path: "/youth/v2/report/listen_song",
             params: ["clientver": "10566"],
-            body: ["mixsongid": 666075191],
+            body: ["mixsongid": KGApi.shared.lastMixSongID > 0 ? KGApi.shared.lastMixSongID : 666075191],
             lite: true
         )
         return parse(data, prefix: "listen")
@@ -191,6 +194,7 @@ enum KGVIP {
 
         // 成功判定：status == 1，或 errcode == 0 且带了明确成功文案
         var ok = status == 1 && errcode == 0
+        if errorCode == 131001 { ok = true }
         if !ok, errcode == 0, errorCode == 0, message.contains("成功") { ok = true }
 
         var text = "\(prefix) status=\(status) errcode=\(errcode) error_code=\(errorCode)"

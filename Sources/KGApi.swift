@@ -27,6 +27,7 @@ final class KGApi {
     var token: String?
     var userid: Int = 0
     var vipToken: String?
+    var lastMixSongID: Int = 0
 
     private let session: URLSession = {
         let config = URLSessionConfiguration.default

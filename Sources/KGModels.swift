@@ -10,6 +10,8 @@ struct Song: Identifiable, Equatable {
     let Image: String?
     let Privilege: Int?
     let PayType: Int?
+    let MixSongID: Int?
+    let Audioid: Int?
 
     init?(json: [String: Any]) {
         guard let hash = json["FileHash"] as? String, !hash.isEmpty,
@@ -23,6 +25,8 @@ struct Song: Identifiable, Equatable {
         Image = json["Image"] as? String
         Privilege = Song.intValue(json["Privilege"])
         PayType = Song.intValue(json["PayType"])
+        MixSongID = Song.intValue(json["MixSongID"])
+        Audioid = Song.intValue(json["Audioid"])
     }
 
     static func intValue(_ raw: Any?) -> Int? {
