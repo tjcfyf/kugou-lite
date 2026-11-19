@@ -158,7 +158,7 @@ enum KGService {
     /// 会员取流：先拿播放授权（auth），再用授权换 /v5/url。概念版会员必须走这一步。
     static func authorizedURL(hash: String, albumID: Int?, albumAudioID: Int?) async throws -> URL? {
         guard let auth = try await authorization(hash: hash, albumAudioID: albumAudioID) else { return nil }
-        let key = KGSign.playKey(hash: hash, mid: KGApi.shared.mid, userid: KGApi.shared.userid, appid: 3116)
+        let key = KGSign.playKey(hash: hash, mid: KGApi.shared.mid, userid: KGApi.shared.userid, appid: 3116, lite: true)
         let data = try await KGApi.shared.get(
             path: "/v5/url",
             params: [
