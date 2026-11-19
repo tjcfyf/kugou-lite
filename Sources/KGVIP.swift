@@ -22,13 +22,19 @@ enum KGVIP {
         let today = dateKey()
         if UserDefaults.standard.string(forKey: claimedKey) == today { return .alreadyClaimed }
 
+        // 概念版的领取前提是当天"听过歌"，所以先补一条听歌上报。
+        _ = await reportListen()
+
         // 概念版和标准版两套 appid 都试一遍，只要有一条成功就算领到。
         var received = false
         for lite in [true, false] {
             let reply = await receive(lite: lite)
-            if reply.ok {
-                received = true
-                break
+            if reply.ok { received = true; break }
+        }
+        if !received {
+            for appid in [3116, 1005] {
+                let reply = await receiveH5(appid: appid)
+                if reply.ok { received = true; break }
             }
         }
 
@@ -63,6 +69,12 @@ enum KGVIP {
 
         let adReply = await adReport()
         lines.append("④ 广告上报 " + adReply.text)
+
+        let h5Reply = await receiveH5(appid: 3116)
+        lines.append("⑤ H5领取 " + h5Reply.text)
+
+        let taskReply = await taskStatus()
+        lines.append("⑥ 听歌任务 " + taskReply.text)
 
         return lines.joined(separator: "\n")
     }
@@ -107,6 +119,56 @@ enum KGVIP {
             lite: true
         )
         return parse(data, prefix: "lite")
+    }
+
+    /// H5 活动页签名（web salt）的领取方式，酷狗的概念版签到页走这套。
+    private static func receiveH5(appid: Int) async -> Reply {
+        let params = h5Params(appid: appid, extra: [
+            "source_id": "90139",
+            "receive_day": dateKey(),
+        ])
+        let data = try? await KGApi.shared.webPost(
+            path: "/youth/v1/recharge/receive_vip_listen_song",
+            params: params
+        )
+        return parse(data, prefix: "h5-\(appid)")
+    }
+
+    private static func taskStatus() async -> Reply {
+        let params = h5Params(appid: 3116, extra: [:])
+        let data = try? await KGApi.shared.webGet(
+            path: "/youth/v1/activity/get_listen_song_task",
+            host: "https://gateway.kugou.com",
+            params: params
+        )
+        return parse(data, prefix: "task")
+    }
+
+    private static func h5Params(appid: Int, extra: [String: String]) -> [String: String] {
+        var params: [String: String] = [
+            "appid": "\(appid)",
+            "clientver": appid == 3116 ? "11440" : "20489",
+            "mid": KGApi.shared.mid,
+            "dfid": KGApi.shared.dfid,
+            "uuid": "-",
+            "srcappid": "2919",
+            "clienttime": "\(Int(Date().timeIntervalSince1970))",
+        ]
+        if let token = KGApi.shared.token { params["token"] = token }
+        if KGApi.shared.userid != 0 { params["userid"] = "\(KGApi.shared.userid)" }
+        extra.forEach { params[$0.key] = $0.value }
+        return params
+    }
+
+    /// 听歌上报，概念版用它把"今日已听"记到任务进度里。
+    private static func reportListen() async -> Reply {
+        let data = try? await KGApi.shared.post(
+            path: "/youth/v2/report/listen_song",
+            params: ["clientver": "10566"],
+            body: ["mixsongid": 666075191],
+            lite: true
+        )
+        return parse(data, prefix: "listen")
     }
 
     // MARK: - Parsing

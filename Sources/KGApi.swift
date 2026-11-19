@@ -90,6 +90,18 @@ final class KGApi {
         return try await send(request)
     }
 
+    /// Web/H5 签名（活动页领取会员用）。
+    func webPost(path: String,
+                 host: String = "https://gateway.kugou.com",
+                 params: [String: String]) async throws -> Data {
+        var all = merged(params)
+        all["signature"] = KGSign.web(params: all)
+        guard let url = makeURL(host: host, path: path, params: all) else { throw KGError.network }
+        var request = makeRequest(url: url, params: all, router: nil)
+        request.httpMethod = "POST"
+        return try await send(request)
+    }
+
     /// 免签名的移动端接口（播放地址、歌词）。
     func plain(_ url: URL, cookie: Bool = false) async throws -> Data {
         var request = URLRequest(url: url)

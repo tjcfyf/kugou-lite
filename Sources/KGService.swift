@@ -85,6 +85,11 @@ enum KGService {
             return url
         }
 
+        // 拿不到完整流时，再要一次试听片段（概念版免费用户也能听 30~60 秒）。
+        if let url = try? await trialURL(hash: song.FileHash, albumID: song.AlbumID) {
+            return url
+        }
+
         let info = try? await playInfo(hash: song.FileHash, albumID: song.AlbumID)
         if let raw = info?.url, let url = URL(string: raw) { return url }
         if let raw = info?.backups.first, let url = URL(string: raw) { return url }
@@ -121,6 +126,49 @@ enum KGService {
                 "cmd": "26",
                 "pidversion": "3001",
                 "IsFreePart": "0",
+                "ppage_id": "356753938,823673182,967485191",
+                "cdnBackup": "1",
+                "module": "",
+                "clientver": "11430",
+                "key": key,
+            ],
+            router: "trackercdn.kugou.com",
+            lite: true
+        )
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        if let list = root["url"] as? [String], let first = list.first, let url = URL(string: first) {
+            return url
+        }
+        if let single = root["url"] as? String, let url = URL(string: single) {
+            return url
+        }
+        return nil
+    }
+    /// 试听流：IsFreePart=1，VIP 歌也能拿到一段可播的片段。
+    static func trialURL(hash: String, albumID: Int?) async throws -> URL? {
+        let appid = 3116
+        let key = KGSign.playKey(
+            hash: hash,
+            mid: KGApi.shared.mid,
+            userid: KGApi.shared.userid,
+            appid: appid
+        )
+        let data = try await KGApi.shared.get(
+            path: "/v5/url",
+            params: [
+                "album_id": "\(albumID ?? 0)",
+                "area_code": "1",
+                "hash": hash.lowercased(),
+                "ssa_flag": "is_fromtrack",
+                "version": "11430",
+                "page_id": "967177915",
+                "quality": "128",
+                "album_audio_id": "0",
+                "behavior": "play",
+                "pid": "411",
+                "cmd": "26",
+                "pidversion": "3001",
+                "IsFreePart": "1",
                 "ppage_id": "356753938,823673182,967485191",
                 "cdnBackup": "1",
                 "module": "",
