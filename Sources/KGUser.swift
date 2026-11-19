@@ -16,6 +16,66 @@ enum KGUser {
         return "\(type.uppercased()) 有效期至 \(end)"
     }
 
+    /// 概念版畅听 VIP 走批量接口，get_union_vip 里的日期是旧的豪华 VIP 记录。
+    private static func conceptVipText() async -> String? {
+        let body: [String: Any] = [
+            "get_type": "2",
+            "busi_type": "concept",
+            "useridlist": [KGApi.shared.userid],
+            "clientappid": "3116",
+            "kugouid": "\(KGApi.shared.userid)",
+            "clienttoken": KGApi.shared.token ?? "",
+        ]
+        guard let data = try? await KGApi.shared.post(
+            path: "/v2/batch_union_vipinfo",
+            host: "https://kugouvip.kugou.com",
+            params: [:],
+            body: body,
+            contentType: "application/json; charset=utf-8",
+            lite: true
+        ), let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+
+        var best: Date?
+        var type = "畅听VIP"
+        walk(root) { dict in
+            if let product = dict["product_type"] as? String, !product.isEmpty {
+                type = product.uppercased()
+            }
+            for key in ["vip_end_time", "m_y_endtime", "vip_y_endtime", "end_time"] {
+                guard let raw = dict[key] as? String, let date = parse(raw) else { continue }
+                if best == nil || date > best! { best = date }
+            }
+        }
+        guard let end = best else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy-MM-dd"
+        if end > Date() {
+            return "\(type) 有效期至 \(formatter.string(from: end))"
+        }
+        return nil
+    }
+
+    private static func walk(_ value: Any, visit: ([String: Any]) -> Void) {
+        if let dict = value as? [String: Any] {
+            visit(dict)
+            dict.values.forEach { walk($0, visit: visit) }
+        } else if let list = value as? [Any] {
+            list.forEach { walk($0, visit: visit) }
+        }
+    }
+
+    private static func parse(_ raw: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        if let date = formatter.date(from: raw) { return date }
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: raw)
+    }
+
     /// 会员接口的原文，面板里用来判断是不是解析问题。
     static func rawVip() async -> String {
         guard let data = try? await KGApi.shared.get(
@@ -34,6 +94,8 @@ enum KGUser {
 
     static func vipText() async -> String? {
         guard KGApi.shared.token != nil, KGApi.shared.userid != 0 else { return nil }
+
+        if let concept = await conceptVipText() { return concept }
         guard let data = try? await KGApi.shared.get(
             path: "/v1/get_union_vip",
             host: "https://kugouvip.kugou.com",
