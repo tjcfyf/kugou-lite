@@ -151,7 +151,16 @@ struct LoginView: View {
                     if let token = result.token, let userid = result.userid {
                         auth.signIn(token: token, userid: userid)
                         status = "登录成功"
-                        player.showToast("登录成功，会员歌曲已解锁")
+                        player.showToast("登录成功，正在领取今日会员…")
+
+                        // 登录完成后立刻走一次概念版领会员。
+                        let claim = await KGVIP.claimIfNeeded()
+                        if claim == .claimed {
+                            player.showToast("已自动领取今日会员")
+                        } else if claim == .failed {
+                            player.showToast("今日会员领取失败，下次播放会再试")
+                        }
+
                         try? await Task.sleep(nanoseconds: 900_000_000)
                         dismiss()
                     }

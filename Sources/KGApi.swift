@@ -41,9 +41,10 @@ final class KGApi {
     func get(path: String,
              host: String = "https://gateway.kugou.com",
              params: [String: String],
-             router: String? = nil) async throws -> Data {
-        var all = merged(params)
-        all["signature"] = KGSign.android(params: all)
+             router: String? = nil,
+             lite: Bool = false) async throws -> Data {
+        var all = merged(params, lite: lite)
+        all["signature"] = KGSign.sign(params: all, salt: lite ? KGSign.liteSalt : KGSign.androidSalt)
         guard let url = makeURL(host: host, path: path, params: all) else { throw KGError.network }
         var request = makeRequest(url: url, params: all, router: router)
         request.httpMethod = "GET"
@@ -54,8 +55,10 @@ final class KGApi {
               host: String = "https://gateway.kugou.com",
               params: [String: String],
               body: [String: Any]? = nil,
-              router: String? = nil) async throws -> Data {
-        var all = merged(params)
+              contentType: String? = nil,
+              router: String? = nil,
+              lite: Bool = false) async throws -> Data {
+        var all = merged(params, lite: lite)
         let bodyString: String
         if let body = body, let data = try? JSONSerialization.data(withJSONObject: body),
            let string = String(data: data, encoding: .utf8) {
@@ -63,13 +66,17 @@ final class KGApi {
         } else {
             bodyString = ""
         }
-        all["signature"] = KGSign.android(params: all, data: bodyString)
+        all["signature"] = KGSign.sign(params: all,
+                                        salt: lite ? KGSign.liteSalt : KGSign.androidSalt,
+                                        data: bodyString)
         guard let url = makeURL(host: host, path: path, params: all) else { throw KGError.network }
         var request = makeRequest(url: url, params: all, router: router)
         request.httpMethod = "POST"
         if !bodyString.isEmpty {
             request.httpBody = Data(bodyString.utf8)
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        } else if let contentType = contentType {
+            request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         }
         return try await send(request)
     }
@@ -100,13 +107,13 @@ final class KGApi {
 
     // MARK: - Plumbing
 
-    private func merged(_ extra: [String: String]) -> [String: String] {
+    private func merged(_ extra: [String: String], lite: Bool = false) -> [String: String] {
         var all = extra
         if all["dfid"] == nil { all["dfid"] = dfid }
         if all["mid"] == nil { all["mid"] = mid }
         if all["uuid"] == nil { all["uuid"] = "-" }
-        if all["appid"] == nil { all["appid"] = "\(appid)" }
-        if all["clientver"] == nil { all["clientver"] = "\(clientver)" }
+        if all["appid"] == nil { all["appid"] = lite ? "3116" : "\(appid)" }
+        if all["clientver"] == nil { all["clientver"] = lite ? "11440" : "\(clientver)" }
         all["clienttime"] = "\(Int(Date().timeIntervalSince1970))"
         if let token = token, !token.isEmpty { all["token"] = token }
         if userid != 0 { all["userid"] = "\(userid)" }

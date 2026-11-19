@@ -7,6 +7,8 @@ import CryptoKit
 enum KGSign {
     static let androidSalt = "OIlwieks28dk2k092lksi2UIkp"
     static let webSalt = "NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt"
+    /// 概念版（lite）签名盐。
+    static let liteSalt = "LnT6xpN3khm36zse0QzvmgTZ3waWdRSA"
     /// 获取播放地址时给 `key` 参数用的盐。
     static let playKeySalt = "57ae12eb6890223e355ccfcb74edf70d"
 
@@ -16,10 +18,14 @@ enum KGSign {
     }
 
     static func android(params: [String: String], data: String = "") -> String {
+        sign(params: params, salt: androidSalt, data: data)
+    }
+
+    static func sign(params: [String: String], salt: String, data: String = "") -> String {
         let body = params.keys.sorted().map { key in
             "\(key)=\(params[key] ?? "")"
         }.joined()
-        return md5(androidSalt + body + data + androidSalt)
+        return md5(salt + body + data + salt)
     }
 
     static func web(params: [String: String], data: String = "") -> String {
