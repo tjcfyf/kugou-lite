@@ -208,7 +208,7 @@ enum KGDevice {
         guard let key = SecKeyCreateWithData(pkcs1 as CFData, attributes as CFDictionary, &error) else {
             return nil
         }
-        guard let cipher = SecKeyCreateEncryptedData(key, .PKCS1, data as CFData, &error) as Data? else {
+        guard let cipher = SecKeyCreateEncryptedData(key, .rsaEncryptionPKCS1, data as CFData, &error) as Data? else {
             return nil
         }
         return cipher.map { String(format: "%02x", $0) }.joined()
