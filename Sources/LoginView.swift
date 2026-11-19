@@ -60,6 +60,12 @@ struct LoginView: View {
                 .foregroundColor(Theme.accent)
                 .multilineTextAlignment(.center)
 
+            Text("会员状态说明：酷狗概念版的畅听权益按天发放，不走豪华VIP的到期字段，所以日期显示旧记录是正常的")
+                .font(.system(size: 11))
+                .foregroundColor(Theme.secondaryText)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 8)
+
             HStack(spacing: 16) {
                 Button {
                     Task { vipText = await KGUser.vipText() ?? "未登录" }

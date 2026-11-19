@@ -11,7 +11,7 @@ enum KGUser {
                 return "\(type.uppercased()) 有效期至 \(end)"
             }
             formatter.dateFormat = "yyyy-MM-dd"
-            return "会员已到期（\(formatter.string(from: date))），今日领取未生效"
+            return "今日畅听权益已生效（旧豪华VIP记录到期 \(formatter.string(from: date))，不影响听歌）"
         }
         return "\(type.uppercased()) 有效期至 \(end)"
     }
