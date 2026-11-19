@@ -52,6 +52,13 @@ struct Song: Identifiable, Equatable {
     }
 }
 
+struct CloudPlaylist: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let count: Int
+    let cover: String?
+}
+
 struct PlayInfoEnvelope {
     let url: String?
     let backups: [String]

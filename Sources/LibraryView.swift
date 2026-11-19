@@ -30,6 +30,8 @@ struct RecommendView: View {
 
     @State private var recent: [Song] = Preferences.recentSongs
     @State private var favorites: [Song] = Preferences.favorites
+    @State private var playlists: [CloudPlaylist] = []
+    @State private var playlistTarget: CloudPlaylist?
 
     var body: some View {
         ScrollView {
@@ -49,6 +51,22 @@ struct RecommendView: View {
                         .foregroundColor(Theme.secondaryText)
                         .padding(.horizontal, 16)
                         .padding(.top, 20)
+                }
+
+                if !playlists.isEmpty {
+                    SectionTitle(title: "我的歌单", subtitle: "\(playlists.count) 个")
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(playlists) { playlist in
+                                Button { playlistTarget = playlist } label: {
+                                    PlaylistCard(playlist: playlist)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 6)
+                    }
                 }
 
                 if !model.songs.isEmpty {
@@ -106,6 +124,17 @@ struct RecommendView: View {
             recent = Preferences.recentSongs
             favorites = Preferences.favorites
         }
+        .task {
+            guard playlists.isEmpty, AuthStore.shared.isLoggedIn else { return }
+            playlists = (try? await KGService.playlists()) ?? []
+        }
+        .sheet(item: $playlistTarget) { playlist in
+            PlaylistDetailSheet(playlist: playlist) { song, list in
+                playlistTarget = nil
+                onSelect(song, list)
+                onOpenPlayer()
+            }
+        }
     }
 
     private var header: some View {
@@ -144,6 +173,101 @@ struct RecommendView: View {
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 4)
+    }
+}
+
+struct PlaylistCard: View {
+    let playlist: CloudPlaylist
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10).fill(Theme.card)
+                if let url = playlist.cover.flatMap(URL.init(string:)) {
+                    AsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Image(systemName: "music.note.list")
+                            .font(.system(size: 22))
+                            .foregroundColor(Theme.secondaryText)
+                    }
+                    .frame(width: 108, height: 108)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                } else {
+                    Image(systemName: "music.note.list")
+                        .font(.system(size: 22))
+                        .foregroundColor(Theme.secondaryText)
+                }
+            }
+            .frame(width: 108, height: 108)
+            Text(playlist.name)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.white)
+                .lineLimit(1)
+                .frame(width: 108, alignment: .leading)
+            Text("\(playlist.count) 首")
+                .font(.system(size: 10))
+                .foregroundColor(Theme.secondaryText)
+        }
+    }
+}
+
+struct PlaylistDetailSheet: View {
+    let playlist: CloudPlaylist
+    let onSelect: (Song, [Song]) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var songs: [Song] = []
+    @State private var loading = true
+    @State private var message = ""
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if loading {
+                        ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white)).padding(.top, 30)
+                    } else if !message.isEmpty {
+                        Text(message).font(.system(size: 13)).foregroundColor(Theme.secondaryText).padding(.top, 24)
+                    }
+                    ForEach(songs) { song in
+                        Button {
+                            dismiss()
+                            onSelect(song, songs)
+                        } label: {
+                            SongRow(song: song)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 16)
+                    }
+                }
+                .padding(.bottom, 24)
+            }
+            .background(Theme.background.ignoresSafeArea())
+            .navigationTitle(playlist.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) { Button("关闭") { dismiss() } }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if !songs.isEmpty {
+                        Button {
+                            dismiss()
+                            onSelect(songs[0], songs)
+                        } label: { Label("播放全部", systemImage: "play.fill") }
+                    }
+                }
+            }
+        }
+        .task {
+            do {
+                songs = try await KGService.playlistSongs(id: playlist.id)
+                loading = false
+                if songs.isEmpty { message = "这个歌单是空的，或者没有读取权限" }
+            } catch {
+                loading = false
+                message = (error as? LocalizedError)?.errorDescription ?? "歌单加载失败"
+            }
+        }
     }
 }
 

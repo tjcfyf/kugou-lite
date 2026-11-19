@@ -79,6 +79,83 @@ enum KGService {
         return songs
     }
 
+    // MARK: - 云歌单
+
+    static func playlists() async throws -> [CloudPlaylist] {
+        guard let token = KGApi.shared.token, KGApi.shared.userid != 0 else { return [] }
+        let data = try await KGApi.shared.post(
+            path: "/v7/get_all_list",
+            params: ["plat": "1", "userid": String(KGApi.shared.userid), "token": token],
+            body: [
+                "userid": KGApi.shared.userid,
+                "token": token,
+                "total_ver": 979,
+                "type": 2,
+                "page": 1,
+                "pagesize": 60
+            ],
+            router: "cloudlist.service.kugou.com"
+        )
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
+        let raw = (root["data"] as? [String: Any])?["info"] as? [[String: Any]]
+            ?? (root["data"] as? [String: Any])?["list"] as? [[String: Any]]
+            ?? root["info"] as? [[String: Any]]
+            ?? []
+        return raw.compactMap { item in
+            let gid = (item["list_create_gid"] as? String)
+                ?? (item["global_collection_id"] as? String)
+                ?? (item["listid"] as? String)
+                ?? (item["listid"].map { String(describing: $0) })
+            guard let id = gid, !id.isEmpty else { return nil }
+            let name = (item["name"] as? String) ?? (item["list_name"] as? String) ?? (item["specialname"] as? String) ?? "未命名歌单"
+            let count = Song.intValue(item["count"]) ?? Song.intValue(item["song_count"]) ?? 0
+            let cover = findImage(in: item)
+            return CloudPlaylist(id: id, name: name, count: count, cover: cover)
+        }
+    }
+
+    static func playlistSongs(id: String) async throws -> [Song] {
+        guard let token = KGApi.shared.token else { return [] }
+        let data = try await KGApi.shared.post(
+            path: "/v3/get_list_info",
+            params: [:],
+            body: [
+                "data": [["global_collection_id": id]],
+                "userid": KGApi.shared.userid,
+                "token": token
+            ],
+            router: "pubsongs.kugou.com"
+        )
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
+        let raw = (root["data"] as? [String: Any])?["songs"] as? [[String: Any]]
+            ?? (root["data"] as? [String: Any])?["info"] as? [[String: Any]]
+            ?? []
+        return raw.compactMap { item in
+            guard let hash = item["hash"] as? String, !hash.isEmpty else { return nil }
+            var json = item
+            json["FileHash"] = hash
+            let fullName = (item["name"] as? String) ?? (item["filename"] as? String) ?? ""
+            if let range = fullName.range(of: " - ") {
+                json["SongName"] = String(fullName[range.upperBound...])
+                json["SingerName"] = String(fullName[..<range.lowerBound])
+            } else {
+                json["SongName"] = fullName.isEmpty ? "未知歌曲" : fullName
+                json["SingerName"] = (item["singername"] as? String) ?? ""
+            }
+            if let album = item["albuminfo"] as? [String: Any] {
+                json["AlbumName"] = album["name"] as? String
+                if json["AlbumID"] == nil { json["AlbumID"] = album["albumid"] ?? album["id"] }
+            }
+            if json["Duration"] == nil { json["Duration"] = item["timelen"] ?? item["duration"] }
+            if json["AlbumID"] == nil { json["AlbumID"] = item["album_id"] ?? item["albumid"] }
+            if json["MixSongID"] == nil { json["MixSongID"] = item["mixsongid"] ?? item["album_audio_id"] }
+            if json["Audioid"] == nil { json["Audioid"] = item["audioid"] ?? item["audio_id"] }
+            if json["Image"] == nil { json["Image"] = findImage(in: item) }
+            if json["Privilege"] == nil { json["Privilege"] = item["privilege"] }
+            return Song(json: json)
+        }
+    }
+
     /// 推荐接口的封面字段名不稳定，递归找一圈。
     private static func findImage(in value: Any) -> String? {
         let keys = ["album_image", "albumimg", "album_img", "img", "image", "cover", "union_cover", "pic"]
