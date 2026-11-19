@@ -18,7 +18,7 @@ final class KGApi {
     static let shared = KGApi()
 
     /// 注册过的设备标识，一次生成后长期复用。
-    let dfid = "0ioR4Q0iH0fq2IyTuR3vSaEC"
+    var dfid: String = UserDefaults.standard.string(forKey: "kg.dfid") ?? "0ioR4Q0iH0fq2IyTuR3vSaEC"
     let mid = "199824834906423470329396513350141137567"
     let dev = "XG9WZZIL4J"
     let appid = 1005

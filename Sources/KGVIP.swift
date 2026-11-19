@@ -79,6 +79,16 @@ enum KGVIP {
         let taskReply = await taskStatus()
         lines.append("⑥ 听歌任务 " + taskReply.text)
 
+        let vipRaw = await KGUser.rawVip()
+        lines.append("⑦ 会员原文 " + vipRaw)
+
+        let deviceReply = await KGDevice.registerIfNeeded()
+        lines.append("⑧ 设备注册 " + deviceReply)
+
+        KGApi.shared.lastMixSongID = 0
+        let authProbe = await KGService.authProbe(hash: "", albumAudioID: 0)
+        lines.append("⑨ 授权链路 " + authProbe)
+
         return lines.joined(separator: "\n")
     }
 

@@ -81,6 +81,7 @@ enum KGService {
     /// 登录后优先走概念版（lite）的签名取流；未登录或失败再回落到移动端接口。
     static func playURL(for song: Song) async throws -> URL {
         if KGApi.shared.token != nil, KGApi.shared.userid != 0 {
+            _ = await KGDevice.registerIfNeeded()
             KGApi.shared.lastMixSongID = song.MixSongID ?? 0
             if let url = try? await liteURL(hash: song.FileHash,
                                              albumID: song.AlbumID,
@@ -195,6 +196,18 @@ enum KGService {
             return url
         }
         return nil
+    }
+
+    /// 授权链路自检，供诊断面板输出。
+    static func authProbe(hash: String, albumAudioID: Int?) async -> String {
+        do {
+            let device = try await verifyAuth()
+            let auth = try await authorization(hash: hash, albumAudioID: albumAudioID)
+            let openTime = auth?.openTime ?? 0
+            return "verify=\(device.count)字 authorization=\(auth == nil ? "无" : "有") open_time=\(openTime)"
+        } catch {
+            return "授权失败：\((error as? LocalizedError)?.errorDescription ?? "未知")"
+        }
     }
 
     private struct PlayAuth {

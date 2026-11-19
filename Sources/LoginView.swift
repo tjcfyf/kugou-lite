@@ -195,7 +195,10 @@ struct LoginView: View {
                     if let token = result.token, let userid = result.userid {
                         auth.signIn(token: token, userid: userid, vipToken: result.vipToken)
                         status = "登录成功"
-                        player.showToast("登录成功，正在领取今日会员…")
+                        player.showToast("登录成功，正在注册设备…")
+                        let deviceReply = await KGDevice.registerIfNeeded()
+                        player.showToast(deviceReply)
+                        player.showToast("正在领取今日会员…")
 
                         // 登录完成后立刻走一次概念版领会员。
                         let claim = await KGVIP.claimIfNeeded()
