@@ -67,7 +67,7 @@ enum KGService {
             if let hash = item["hash"] as? String ?? item["FileHash"] as? String { json["FileHash"] = hash }
             if let name = item["songname"] as? String ?? item["SongName"] as? String { json["SongName"] = name }
             if let singer = item["author_name"] as? String ?? item["SingerName"] as? String { json["SingerName"] = singer }
-            if let album = item["album_id"] as? String ?? item["AlbumID"] as? String { json["AlbumID"] = album }
+            if let album = Song.intValue(item["album_id"] ?? item["AlbumID"]) { json["AlbumID"] = album }
             if let pay = item["pay_type"] { json["PayType"] = pay }
             if let mix = item["mixsongid"] ?? item["MixSongID"] { json["MixSongID"] = mix }
             if let audio = item["album_audio_id"] ?? item["Audioid"] { json["Audioid"] = audio }

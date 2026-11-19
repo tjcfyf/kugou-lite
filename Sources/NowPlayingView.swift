@@ -4,6 +4,7 @@ struct NowPlayingView: View {
     @EnvironmentObject private var player: PlayerEngine
     @State private var showQueue = false
     @State private var sleepText = ""
+    @ObservedObject private var library = LibraryStore.shared
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -26,12 +27,12 @@ struct NowPlayingView: View {
 
                         if let song = player.current {
                             Button {
-                                let added = Preferences.toggleFavorite(song)
+                                let added = library.toggleFavorite(song)
                                 player.showToast(added ? "已收藏" : "已取消收藏")
                             } label: {
-                                Image(systemName: Preferences.isFavorite(song) ? "heart.fill" : "heart")
+                                Image(systemName: library.favorites.contains(where: { $0.FileHash == song.FileHash }) ? "heart.fill" : "heart")
                                     .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(Preferences.isFavorite(song) ? Theme.accent : Theme.secondaryText)
+                                    .foregroundColor(library.favorites.contains(where: { $0.FileHash == song.FileHash }) ? Theme.accent : Theme.secondaryText)
                             }
                             .buttonStyle(.plain)
                         }
@@ -43,7 +44,7 @@ struct NowPlayingView: View {
                             .foregroundColor(Theme.secondaryText)
                             .lineLimit(1)
                         if !player.currentQuality.isEmpty {
-                            Text(player.currentQuality)
+                            Text("音质 \(player.currentQuality)")
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundColor(Theme.accent)
                                 .padding(.horizontal, 5)

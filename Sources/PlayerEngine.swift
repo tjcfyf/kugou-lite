@@ -58,7 +58,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     func play(_ song: Song, in list: [Song]) {
         queue = list.isEmpty ? [song] : list
         index = queue.firstIndex(of: song) ?? 0
-        load(song, resume: true)
+        load(song, resume: false)
     }
 
     func toggle() {
@@ -135,6 +135,12 @@ final class PlayerEngine: NSObject, ObservableObject {
         urlCache.removeAll()
     }
 
+    /// 切音质后重载当前这首，并用新的码率继续播。
+    func reloadCurrentAfterQualityChange() {
+        guard let song = current else { return }
+        load(song, resume: true)
+    }
+
     func seek(to seconds: Double) {
         guard player.currentItem != nil else { return }
         let clamped = max(0, min(seconds, max(duration, 0.1)))
@@ -189,7 +195,7 @@ final class PlayerEngine: NSObject, ObservableObject {
                 }
                 self.player.play()
                 self.isLoading = false
-                Preferences.addRecent(song)
+                LibraryStore.shared.addRecent(song)
                 let seconds = item.duration.seconds
                 if seconds.isFinite, seconds > 0 { self.duration = seconds }
                 self.isPlaying = true

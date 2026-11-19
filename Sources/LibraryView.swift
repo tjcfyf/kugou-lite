@@ -28,8 +28,7 @@ struct RecommendView: View {
     let onSelect: (Song, [Song]) -> Void
     let onOpenPlayer: () -> Void
 
-    @State private var recent: [Song] = Preferences.recentSongs
-    @State private var favorites: [Song] = Preferences.favorites
+    @ObservedObject private var library = LibraryStore.shared
     @State private var playlists: [CloudPlaylist] = []
     @State private var ranks: [RankItem] = []
     @State private var sheetTarget: DiscoverSheet?
@@ -99,11 +98,11 @@ struct RecommendView: View {
                     }
                 }
 
-                if !favorites.isEmpty {
+                if !library.favorites.isEmpty {
                     SectionTitle(title: "我的收藏", subtitle: nil)
-                    ForEach(favorites) { song in
+                    ForEach(library.favorites) { song in
                         Button {
-                            onSelect(song, favorites)
+                            onSelect(song, library.favorites)
                         } label: {
                             SongRow(song: song)
                         }
@@ -112,11 +111,11 @@ struct RecommendView: View {
                     }
                 }
 
-                if !recent.isEmpty {
-                    SectionTitle(title: "最近播放", subtitle: nil)
-                    ForEach(recent) { song in
+                if !library.recent.isEmpty {
+                    SectionTitle(title: "最近播放", subtitle: "\(library.recent.count) 首")
+                    ForEach(library.recent) { song in
                         Button {
-                            onSelect(song, recent)
+                            onSelect(song, library.recent)
                         } label: {
                             SongRow(song: song)
                         }
@@ -141,15 +140,7 @@ struct RecommendView: View {
             }
         }
         .onAppear {
-            recent = Preferences.recentSongs
-            favorites = Preferences.favorites
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .kgRecentChanged)) { _ in
-            recent = Preferences.recentSongs
-            favorites = Preferences.favorites
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .kgFavoritesChanged)) { _ in
-            favorites = Preferences.favorites
+            library.refresh()
         }
         .task {
             if ranks.isEmpty { ranks = (try? await KGService.ranks()) ?? [] }
@@ -535,7 +526,12 @@ struct ProfileView: View {
                     quality = item
                     Preferences.quality = item
                     player.clearURLCache()
-                    toast = "已切换为\(item.title)，下一首生效"
+                    if player.current != nil {
+                        player.reloadCurrentAfterQualityChange()
+                        toast = "已切换为\(item.title)，正在重载当前歌曲"
+                    } else {
+                        toast = "已切换为\(item.title)"
+                    }
                     Task { try? await Task.sleep(nanoseconds: 1_200_000_000); toast = "" }
                 } label: {
                     HStack {
@@ -579,7 +575,8 @@ struct ProfileView: View {
                 ForEach([0, 15, 30, 60], id: \.self) { minutes in
                     Button {
                         player.setSleepTimer(minutes: minutes == 0 ? nil : minutes)
-                        toast = minutes == 0 ? "已关闭睡眠定时" : "\(minutes) 分钟后暂停"
+                        sleepText = minutes == 0 ? "" : String(format: "剩余 %02d:00", minutes)
+                        toast = minutes == 0 ? "已关闭睡眠定时" : "\(minutes) 分钟后自动暂停"
                         Task { try? await Task.sleep(nanoseconds: 1_400_000_000); toast = "" }
                     } label: {
                         Text(minutes == 0 ? "关闭" : "\(minutes) 分")
@@ -609,8 +606,7 @@ struct ProfileView: View {
     private var toolsCard: some View {
         VStack(spacing: 0) {
             Button {
-                Preferences.recentSongs = []
-                Preferences.searchHistory = []
+                LibraryStore.shared.clear()
                 toast = "已清空搜索与最近播放"
                 Task { try? await Task.sleep(nanoseconds: 1_400_000_000); toast = "" }
             } label: {
@@ -685,9 +681,11 @@ struct QueueView: View {
                             }
                             Spacer()
                         }
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .listRowBackground(Theme.card)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) {
