@@ -20,6 +20,9 @@ final class PlayerEngine: NSObject, ObservableObject {
     private var timeObserver: Any?
     private var queue: [Song] = []
     private var index = 0
+
+    var queueSongs: [Song] { queue }
+    var currentIndex: Int { index }
     private var loadTask: Task<Void, Never>?
     private var lyricTask: Task<Void, Never>?
     private var urlCache: [String: URL] = [:]
@@ -87,6 +90,12 @@ final class PlayerEngine: NSObject, ObservableObject {
         load(queue[index])
     }
 
+    func jump(to target: Int) {
+        guard queue.indices.contains(target) else { return }
+        index = target
+        load(queue[target])
+    }
+
     func seek(to seconds: Double) {
         guard player.currentItem != nil else { return }
         let clamped = max(0, min(seconds, max(duration, 0.1)))
@@ -133,6 +142,7 @@ final class PlayerEngine: NSObject, ObservableObject {
                 self.player.replaceCurrentItem(with: item)
                 self.player.play()
                 self.isLoading = false
+                Preferences.addRecent(song)
                 let seconds = item.duration.seconds
                 if seconds.isFinite, seconds > 0 { self.duration = seconds }
                 self.isPlaying = true

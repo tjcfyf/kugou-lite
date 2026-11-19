@@ -43,6 +43,36 @@ enum KGService {
         return songs
     }
 
+    /// 每日推荐，登录后可用。
+    static func recommend() async throws -> [Song] {
+        let data = try await KGApi.shared.post(
+            path: "/everyday_song_recommend",
+            params: ["platform": "ios"],
+            router: "everydayrec.service.kugou.com",
+            lite: true
+        )
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let payload = root["data"] as? [String: Any] else {
+            throw KGError.server("推荐解析失败")
+        }
+        let list = (payload["song_list"] as? [[String: Any]])
+            ?? (payload["list"] as? [[String: Any]])
+            ?? []
+        let songs = list.compactMap { item -> Song? in
+            var json: [String: Any] = [:]
+            if let hash = item["hash"] as? String ?? item["FileHash"] as? String { json["FileHash"] = hash }
+            if let name = item["songname"] as? String ?? item["SongName"] as? String { json["SongName"] = name }
+            if let singer = item["author_name"] as? String ?? item["SingerName"] as? String { json["SingerName"] = singer }
+            if let album = item["album_id"] as? String ?? item["AlbumID"] as? String { json["AlbumID"] = album }
+            if let pay = item["pay_type"] { json["PayType"] = pay }
+            if let mix = item["mixsongid"] ?? item["MixSongID"] { json["MixSongID"] = mix }
+            if let audio = item["album_audio_id"] ?? item["Audioid"] { json["Audioid"] = audio }
+            if let image = item["album_image"] as? String ?? item["Image"] as? String { json["Image"] = image }
+            return Song(json: json)
+        }
+        return songs
+    }
+
     static func playInfo(hash: String, albumID: Int?) async throws -> PlayInfoEnvelope {
         var components = URLComponents(string: "https://m.kugou.com/app/i/getSongInfo.php")!
         var items = [
@@ -83,15 +113,20 @@ enum KGService {
         if KGApi.shared.token != nil, KGApi.shared.userid != 0 {
             _ = await KGDevice.registerIfNeeded()
             KGApi.shared.lastMixSongID = song.MixSongID ?? 0
-            if let url = try? await liteURL(hash: song.FileHash,
-                                             albumID: song.AlbumID,
-                                             albumAudioID: song.MixSongID ?? song.Audioid) {
-                return url
-            }
-            if let url = try? await authorizedURL(hash: song.FileHash,
-                                                  albumID: song.AlbumID,
-                                                  albumAudioID: song.MixSongID ?? song.Audioid) {
-                return url
+            let audioID = song.MixSongID ?? song.Audioid
+            for quality in Preferences.quality.fallbacks {
+                if let url = try? await liteURL(hash: song.FileHash,
+                                                albumID: song.AlbumID,
+                                                albumAudioID: audioID,
+                                                quality: quality.rawValue) {
+                    return url
+                }
+                if let url = try? await authorizedURL(hash: song.FileHash,
+                                                      albumID: song.AlbumID,
+                                                      albumAudioID: audioID,
+                                                      quality: quality.rawValue) {
+                    return url
+                }
             }
         }
 
@@ -112,7 +147,7 @@ enum KGService {
 
     /// 概念版（lite）取流。畅听/概念会员只在 lite 的 appid 下被识别，
     /// 用标准版 appid 请求会被当成免费用户。
-    static func liteURL(hash: String, albumID: Int?, albumAudioID: Int? = nil) async throws -> URL? {
+    static func liteURL(hash: String, albumID: Int?, albumAudioID: Int? = nil, quality: String = Preferences.quality.rawValue) async throws -> URL? {
         let appid = 3116
         let key = KGSign.playKey(
             hash: hash,
@@ -130,8 +165,8 @@ enum KGService {
                 "ssa_flag": "is_fromtrack",
                 "version": "11430",
                 "page_id": "967177915",
-                "quality": "128",
-                "album_audio_id": "0",
+                "quality": quality,
+                "album_audio_id": "\(albumAudioID ?? 0)",
                 "behavior": "play",
                 "pid": "411",
                 "cmd": "26",
@@ -156,7 +191,7 @@ enum KGService {
         return nil
     }
     /// 会员取流：先拿播放授权（auth），再用授权换 /v5/url。概念版会员必须走这一步。
-    static func authorizedURL(hash: String, albumID: Int?, albumAudioID: Int?) async throws -> URL? {
+    static func authorizedURL(hash: String, albumID: Int?, albumAudioID: Int?, quality: String = Preferences.quality.rawValue) async throws -> URL? {
         guard let auth = try await authorization(hash: hash, albumAudioID: albumAudioID) else { return nil }
         let key = KGSign.playKey(hash: hash, mid: KGApi.shared.mid, userid: KGApi.shared.userid, appid: 3116, lite: true)
         let data = try await KGApi.shared.get(
@@ -169,7 +204,7 @@ enum KGService {
                 "version": "11430",
                 "open_time": "\(auth.openTime)",
                 "page_id": "967177915",
-                "quality": "128",
+                "quality": quality,
                 "album_audio_id": "\(albumAudioID ?? 0)",
                 "behavior": "play",
                 "pid": "411",

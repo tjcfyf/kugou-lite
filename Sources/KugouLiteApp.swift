@@ -17,12 +17,40 @@ struct KugouLiteApp: App {
 
 struct RootView: View {
     @StateObject private var model = SearchModel()
+    @StateObject private var recommendModel = RecommendModel()
     @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var auth: AuthStore
     @State private var showPlayer = false
-    @State private var showLogin = false
+    @State private var tab = 0
 
     var body: some View {
+        TabView(selection: $tab) {
+            searchTab
+                .tabItem { Label("搜索", systemImage: "magnifyingglass") }
+                .tag(0)
+
+            recommendTab
+                .tabItem { Label("发现", systemImage: "sparkles") }
+                .tag(1)
+
+            profileTab
+                .tabItem { Label("我的", systemImage: "person.crop.circle") }
+                .tag(2)
+        }
+        .accentColor(Theme.accent)
+        .sheet(isPresented: $showPlayer) {
+            NowPlayingView()
+                .environmentObject(player)
+        }
+        .overlay(alignment: .top) {
+            if let toast = player.toast {
+                ToastView(text: toast)
+            }
+        }
+        .animation(.easeOut(duration: 0.22), value: player.toast)
+    }
+
+    private var searchTab: some View {
         NavigationView {
             SearchView(
                 model: model,
@@ -34,17 +62,6 @@ struct RootView: View {
             )
             .navigationTitle("搜索")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showLogin = true
-                    } label: {
-                        Image(systemName: auth.isLoggedIn ? "person.crop.circle.fill" : "person.crop.circle")
-                            .foregroundColor(auth.isLoggedIn ? Theme.accent : .white)
-                    }
-                    .accessibilityLabel("酷狗账号")
-                }
-            }
             .searchable(
                 text: $model.query,
                 placement: .navigationBarDrawer(displayMode: .always),
@@ -54,20 +71,31 @@ struct RootView: View {
             .onSubmit(of: .search) { model.submit() }
         }
         .navigationViewStyle(.stack)
-        .sheet(isPresented: $showPlayer) {
-            NowPlayingView()
-                .environmentObject(player)
+    }
+
+    private var recommendTab: some View {
+        NavigationView {
+            RecommendView(
+                model: recommendModel,
+                onSelect: { song, list in
+                    player.play(song, in: list)
+                    showPlayer = true
+                },
+                onOpenPlayer: { showPlayer = true }
+            )
+            .navigationTitle("发现")
+            .navigationBarTitleDisplayMode(.inline)
+            .task { await recommendModel.load() }
         }
-        .sheet(isPresented: $showLogin) {
-            LoginView()
-                .environmentObject(player)
-                .environmentObject(auth)
+        .navigationViewStyle(.stack)
+    }
+
+    private var profileTab: some View {
+        NavigationView {
+            ProfileView()
+                .navigationTitle("我的")
+                .navigationBarTitleDisplayMode(.inline)
         }
-        .overlay(alignment: .top) {
-            if let toast = player.toast {
-                ToastView(text: toast)
-            }
-        }
-        .animation(.easeOut(duration: 0.22), value: player.toast)
+        .navigationViewStyle(.stack)
     }
 }

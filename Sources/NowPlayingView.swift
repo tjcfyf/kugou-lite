@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NowPlayingView: View {
     @EnvironmentObject private var player: PlayerEngine
+    @State private var showQueue = false
 
     var body: some View {
         ZStack {
@@ -38,6 +39,24 @@ struct NowPlayingView: View {
                     .frame(maxHeight: .infinity)
                     .padding(.top, 8)
             }
+
+            VStack {
+                HStack {
+                    Spacer()
+                    Button {
+                        showQueue = true
+                    } label: {
+                        Image(systemName: "list.bullet")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.white.opacity(0.75))
+                            .padding(10)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
             .padding(.top, 8)
 
             if let toast = player.toast {
@@ -49,6 +68,9 @@ struct NowPlayingView: View {
         }
         .animation(.easeOut(duration: 0.22), value: player.toast)
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $showQueue) {
+            QueueView().environmentObject(player)
+        }
     }
 
     private var background: some View {

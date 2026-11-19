@@ -44,6 +44,7 @@ final class SearchModel: ObservableObject {
             guard !Task.isCancelled else { return }
             songs = result
             lastKeyword = keyword
+            Preferences.addSearch(keyword)
             isLoading = false
             if result.isEmpty { message = "没有找到相关歌曲" }
         } catch {
@@ -64,6 +65,10 @@ struct SearchView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
+                if model.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    historyView
+                }
+
                 if model.isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
@@ -96,6 +101,58 @@ struct SearchView: View {
                 MiniPlayer(song: song, onOpen: onOpenPlayer)
             }
         }
+    }
+}
+
+extension SearchView {
+    var historyView: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("最近搜索")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                Spacer()
+                if !Preferences.searchHistory.isEmpty {
+                    Button {
+                        Preferences.searchHistory = []
+                        model.query = ""
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 12))
+                            .foregroundColor(Theme.secondaryText)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if Preferences.searchHistory.isEmpty {
+                Text("搜歌手、歌名或专辑，点一首就能听")
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.secondaryText)
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 8)], alignment: .leading, spacing: 8) {
+                    ForEach(Preferences.searchHistory, id: \.self) { word in
+                        Button {
+                            model.query = word
+                            model.submit()
+                        } label: {
+                            Text(word)
+                                .font(.system(size: 12))
+                                .foregroundColor(.white.opacity(0.85))
+                                .lineLimit(1)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 7)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Theme.card)
+                                .cornerRadius(10)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
     }
 }
 
