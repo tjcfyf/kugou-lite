@@ -21,7 +21,7 @@ struct Song: Identifiable, Equatable {
         SingerName = (json["SingerName"] as? String) ?? ""
         AlbumID = Song.intValue(json["AlbumID"])
         AlbumName = json["AlbumName"] as? String
-        Duration = Song.intValue(json["Duration"])
+        Duration = Song.seconds(json["Duration"])
         Image = json["Image"] as? String
         Privilege = Song.intValue(json["Privilege"])
         PayType = Song.intValue(json["PayType"])
@@ -34,6 +34,12 @@ struct Song: Identifiable, Equatable {
         if let value = raw as? NSNumber { return value.intValue }
         if let value = raw as? String { return Int(value) }
         return nil
+    }
+
+    /// 不同接口的时长单位不统一：搜索给秒，榜单给毫秒。
+    static func seconds(_ raw: Any?) -> Int? {
+        guard let value = intValue(raw) else { return nil }
+        return value > 10000 ? value / 1000 : value
     }
 
     var id: String { FileHash }

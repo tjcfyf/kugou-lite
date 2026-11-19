@@ -177,7 +177,7 @@ final class PlayerEngine: NSObject, ObservableObject {
                 self.player.replaceCurrentItem(with: item)
                 self.currentQuality = KGService.quality(for: song.FileHash) ?? ""
                 let saved = resume ? PlaybackMemory.position(for: song.FileHash) : 0
-                let total = Double(song.Duration ?? 0) / 1000
+                let total = Double(song.Duration ?? 0)
                 if saved > 5, total <= 0 || saved < total - 5 {
                     _ = await self.player.seek(to: CMTime(seconds: saved, preferredTimescale: 600),
                                                toleranceBefore: .zero, toleranceAfter: .zero)

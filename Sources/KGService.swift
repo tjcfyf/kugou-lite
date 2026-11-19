@@ -72,7 +72,7 @@ enum KGService {
             if let mix = item["mixsongid"] ?? item["MixSongID"] { json["MixSongID"] = mix }
             if let audio = item["album_audio_id"] ?? item["Audioid"] { json["Audioid"] = audio }
             if let image = findImage(in: item) { json["Image"] = image }
-            if let duration = item["duration"] ?? item["timelength"] { json["Duration"] = duration }
+            if let duration = item["time_length"] ?? item["duration"] ?? item["timelength"] { json["Duration"] = duration }
             if let albumName = item["album_name"] as? String { json["AlbumName"] = albumName }
             return Song(json: json)
         }
@@ -196,7 +196,7 @@ enum KGService {
                 ?? (item["listid"].map { String(describing: $0) })
             guard let id = gid, !id.isEmpty else { return nil }
             let name = (item["name"] as? String) ?? (item["list_name"] as? String) ?? (item["specialname"] as? String) ?? "未命名歌单"
-            let count = Song.intValue(item["count"]) ?? Song.intValue(item["song_count"]) ?? 0
+            let count = Song.intValue(item["count"]) ?? Song.intValue(item["song_count"]) ?? Song.intValue(item["percount"]) ?? 0
             let cover = findImage(in: item)
             return CloudPlaylist(id: id, name: name, count: count, cover: cover)
         }
@@ -246,7 +246,7 @@ enum KGService {
 
     /// 推荐接口的封面字段名不稳定，递归找一圈。
     private static func findImage(in value: Any) -> String? {
-        let keys = ["album_image", "albumimg", "album_img", "img", "image", "cover", "union_cover", "pic"]
+        let keys = ["sizable_cover", "cover_img_url", "flexible_cover", "album_image", "albumimg", "album_img", "img", "image", "cover", "union_cover", "pic"]
         if let dict = value as? [String: Any] {
             for key in keys {
                 if let raw = dict[key] as? String, raw.lowercased().hasPrefix("http") {
