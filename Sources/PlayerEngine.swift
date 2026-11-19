@@ -123,7 +123,7 @@ final class PlayerEngine: NSObject, ObservableObject {
                 if let cached = self.urlCache[song.FileHash] {
                     url = cached
                 } else {
-                    url = try await KGService.playURL(hash: song.FileHash, albumID: song.AlbumID)
+                    url = try await KGService.playURL(for: song)
                     if self.urlCache.count > 30 { self.urlCache.removeAll() }
                     self.urlCache[song.FileHash] = url
                 }
@@ -204,7 +204,7 @@ final class PlayerEngine: NSObject, ObservableObject {
         guard urlCache[song.FileHash] == nil else { return }
         Task(priority: .utility) { [weak self] in
             guard let self = self else { return }
-            guard let url = try? await KGService.playURL(hash: song.FileHash, albumID: song.AlbumID) else { return }
+            guard let url = try? await KGService.playURL(for: song) else { return }
             self.urlCache[song.FileHash] = url
         }
     }

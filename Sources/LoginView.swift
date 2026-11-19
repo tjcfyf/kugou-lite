@@ -1,0 +1,166 @@
+import UIKit
+import SwiftUI
+
+struct LoginView: View {
+    @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var player: PlayerEngine
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var code: KugouQRCode?
+    @State private var status = "正在生成二维码…"
+    @State private var pollTask: Task<Void, Never>?
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 22) {
+                if auth.isLoggedIn {
+                    loggedInContent
+                } else {
+                    qrContent
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.background.ignoresSafeArea())
+            .navigationTitle("酷狗账号")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("关闭") { dismiss() }
+                        .foregroundColor(.white)
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
+        .onAppear {
+            if !auth.isLoggedIn { loadQR() }
+        }
+        .onDisappear {
+            pollTask?.cancel()
+        }
+    }
+
+    // MARK: - Logged in
+
+    private var loggedInContent: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "person.crop.circle.badge.checkmark")
+                .font(.system(size: 62))
+                .foregroundColor(Theme.accent)
+            Text("已登录")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(.white)
+            Text("UID \(auth.userid)")
+                .font(.system(size: 12))
+                .foregroundColor(Theme.secondaryText)
+            Text("会员歌曲现在可以正常播放了")
+                .font(.system(size: 13))
+                .foregroundColor(Theme.secondaryText)
+
+            Button {
+                auth.signOut()
+                player.showToast("已退出登录")
+                loadQR()
+            } label: {
+                Text("退出登录")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Theme.accent)
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 10)
+                    .overlay(Capsule().stroke(Theme.accent, lineWidth: 1))
+            }
+            .padding(.top, 8)
+        }
+    }
+
+    // MARK: - QR
+
+    private var qrContent: some View {
+        VStack(spacing: 16) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.white)
+                    .frame(width: 232, height: 232)
+
+                if let image = code?.image {
+                    Image(uiImage: image)
+                        .interpolation(.none)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 208, height: 208)
+                } else {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                }
+            }
+
+            Text(status)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+
+            Text("打开酷狗 App → 我的 → 扫一扫\n扫码后手机上确认登录")
+                .font(.system(size: 12))
+                .foregroundColor(Theme.secondaryText)
+                .multilineTextAlignment(.center)
+
+            Button {
+                loadQR()
+            } label: {
+                Text("刷新二维码")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Theme.accent)
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 10)
+                    .overlay(Capsule().stroke(Theme.accent, lineWidth: 1))
+            }
+        }
+        .padding(.horizontal, 28)
+    }
+
+    private func loadQR() {
+        pollTask?.cancel()
+        code = nil
+        status = "正在生成二维码…"
+
+        Task {
+            do {
+                let value = try await KGLogin.createQR()
+                code = value
+                status = "请用酷狗 App 扫码"
+                startPolling(value.key)
+            } catch {
+                status = (error as? LocalizedError)?.errorDescription ?? "二维码生成失败，点下方刷新"
+            }
+        }
+    }
+
+    private func startPolling(_ key: String) {
+        pollTask = Task {
+            for _ in 0..<60 {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                if Task.isCancelled { return }
+
+                guard let result = try? await KGLogin.check(key) else { continue }
+                switch result.status {
+                case 0:
+                    status = "二维码已过期，请点刷新"
+                    return
+                case 2:
+                    status = "已扫码，请在手机上确认"
+                case 4:
+                    if let token = result.token, let userid = result.userid {
+                        auth.signIn(token: token, userid: userid)
+                        status = "登录成功"
+                        player.showToast("登录成功，会员歌曲已解锁")
+                        try? await Task.sleep(nanoseconds: 900_000_000)
+                        dismiss()
+                    }
+                    return
+                default:
+                    break
+                }
+            }
+            status = "二维码已过期，请点刷新"
+        }
+    }
+}
