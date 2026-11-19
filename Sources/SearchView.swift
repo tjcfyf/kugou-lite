@@ -61,6 +61,7 @@ struct SearchView: View {
     @EnvironmentObject private var player: PlayerEngine
     let onSelect: (Song) -> Void
     let onOpenPlayer: () -> Void
+    @State private var hotKeywords: [String] = []
 
     var body: some View {
         ScrollView {
@@ -101,6 +102,9 @@ struct SearchView: View {
                 MiniPlayer(song: song, onOpen: onOpenPlayer)
             }
         }
+        .task {
+            if hotKeywords.isEmpty { hotKeywords = (try? await KGService.hotSearch()) ?? [] }
+        }
     }
 }
 
@@ -132,6 +136,32 @@ extension SearchView {
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 8)], alignment: .leading, spacing: 8) {
                     ForEach(Preferences.searchHistory, id: \.self) { word in
+                        Button {
+                            model.query = word
+                            model.submit()
+                        } label: {
+                            Text(word)
+                                .font(.system(size: 12))
+                                .foregroundColor(.white.opacity(0.85))
+                                .lineLimit(1)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 7)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Theme.card)
+                                .cornerRadius(10)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            if !hotKeywords.isEmpty {
+                Text("热门搜索")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.top, 10)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 8)], alignment: .leading, spacing: 8) {
+                    ForEach(hotKeywords, id: \.self) { word in
                         Button {
                             model.query = word
                             model.submit()

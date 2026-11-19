@@ -79,6 +79,27 @@ enum KGService {
         return songs
     }
 
+    // MARK: - 热门搜索
+
+    static func hotSearch() async throws -> [String] {
+        let data = try await KGApi.shared.get(
+            path: "/api/v3/search/hot_tab",
+            params: ["navid": "1", "plat": "2"],
+            router: "msearch.kugou.com"
+        )
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let sections = (root["data"] as? [String: Any])?["list"] as? [[String: Any]] else { return [] }
+        var result: [String] = []
+        for section in sections {
+            for item in (section["keywords"] as? [[String: Any]] ?? []) {
+                if let word = item["keyword"] as? String, !word.isEmpty, !result.contains(word) {
+                    result.append(word)
+                }
+            }
+        }
+        return Array(result.prefix(18))
+    }
+
     // MARK: - 排行榜
 
     static func ranks() async throws -> [RankItem] {
@@ -132,9 +153,10 @@ enum KGService {
         ]
         json["Duration"] = deprecated["duration"] ?? item["timelen"] ?? item["duration"]
         json["AlbumID"] = deprecated["albumid"] ?? item["albumid"] ?? item["album_id"]
-        json["MixSongID"] = deprecated["mixsongid"] ?? item["mixsongid"] ?? deprecated["album_audio_id"]
-        json["Audioid"] = deprecated["audioid"] ?? item["audioid"] ?? deprecated["audio_id"]
-        json["AlbumName"] = item["album_name"] ?? (item["albuminfo"] as? [String: Any])?["name"]
+        json["MixSongID"] = item["album_audio_id"] ?? deprecated["mixsongid"] ?? item["mixsongid"]
+        json["Audioid"] = item["audio_id"] ?? item["audioid"] ?? deprecated["audioid"]
+        let albumInfo = item["album_info"] as? [String: Any] ?? item["albuminfo"] as? [String: Any]
+        json["AlbumName"] = item["album_name"] ?? albumInfo?["album_name"] ?? albumInfo?["name"]
         json["Privilege"] = item["privilege"] ?? deprecated["privilege"]
         json["PayType"] = item["pay_type"] ?? deprecated["pay_type"]
         if let trans = item["trans_param"] as? [String: Any], let cover = trans["union_cover"] as? String {
