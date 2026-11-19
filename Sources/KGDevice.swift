@@ -159,7 +159,7 @@ enum KGDevice {
                             keyBytes.baseAddress, keyData.count,
                             ivBytes.baseAddress,
                             inBytes.baseAddress, data.count,
-                            outBytes.baseAddress, out.count,
+                            outBytes.baseAddress, outBytes.count,
                             &moved
                         )
                     }
