@@ -51,7 +51,7 @@ struct RecommendView: View {
                 }
 
                 if !model.songs.isEmpty {
-                    SectionTitle("每日推荐", subtitle: "\(model.songs.count) 首")
+                    SectionTitle(title: "每日推荐", subtitle: "\(model.songs.count) 首")
                     ForEach(model.songs) { song in
                         Button {
                             onSelect(song, model.songs)
@@ -64,7 +64,7 @@ struct RecommendView: View {
                 }
 
                 if !recent.isEmpty {
-                    SectionTitle("最近播放", subtitle: nil)
+                    SectionTitle(title: "最近播放", subtitle: nil)
                     ForEach(recent) { song in
                         Button {
                             onSelect(song, recent)
