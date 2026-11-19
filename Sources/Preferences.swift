@@ -105,7 +105,12 @@ enum Preferences {
         list.removeAll { $0.FileHash == song.FileHash }
         list.insert(song, at: 0)
         recentSongs = list
+        NotificationCenter.default.post(name: .kgRecentChanged, object: nil)
     }
+}
+
+extension Notification.Name {
+    static let kgRecentChanged = Notification.Name("kg.recent.changed")
 }
 
 extension Song {

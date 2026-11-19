@@ -35,10 +35,23 @@ struct NowPlayingView: View {
                         }
                     }
 
-                    Text(player.current?.artist ?? "")
-                        .font(.system(size: 13))
-                        .foregroundColor(Theme.secondaryText)
-                        .lineLimit(1)
+                    HStack(spacing: 6) {
+                        Text(player.current?.artist ?? "")
+                            .font(.system(size: 13))
+                            .foregroundColor(Theme.secondaryText)
+                            .lineLimit(1)
+                        if !player.currentQuality.isEmpty {
+                            Text(player.currentQuality)
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(Theme.accent)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .stroke(Theme.accent.opacity(0.7), lineWidth: 0.6)
+                                )
+                        }
+                    }
                 }
                 .padding(.horizontal, 28)
                 .padding(.top, 18)

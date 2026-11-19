@@ -1,6 +1,10 @@
 import Foundation
 
 enum KGService {
+    private static var qualityMap: [String: String] = [:]
+
+    static func quality(for hash: String) -> String? { qualityMap[hash.lowercased()] }
+    private static func remember(_ quality: String, for hash: String) { qualityMap[hash.lowercased()] = quality }
     static func search(_ keyword: String, page: Int = 1, pageSize: Int = 30) async throws -> [Song] {
         let trimmed = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
@@ -67,10 +71,32 @@ enum KGService {
             if let pay = item["pay_type"] { json["PayType"] = pay }
             if let mix = item["mixsongid"] ?? item["MixSongID"] { json["MixSongID"] = mix }
             if let audio = item["album_audio_id"] ?? item["Audioid"] { json["Audioid"] = audio }
-            if let image = item["album_image"] as? String ?? item["Image"] as? String { json["Image"] = image }
+            if let image = findImage(in: item) { json["Image"] = image }
+            if let duration = item["duration"] ?? item["timelength"] { json["Duration"] = duration }
+            if let albumName = item["album_name"] as? String { json["AlbumName"] = albumName }
             return Song(json: json)
         }
         return songs
+    }
+
+    /// 推荐接口的封面字段名不稳定，递归找一圈。
+    private static func findImage(in value: Any) -> String? {
+        let keys = ["album_image", "albumimg", "album_img", "img", "image", "cover", "union_cover", "pic"]
+        if let dict = value as? [String: Any] {
+            for key in keys {
+                if let raw = dict[key] as? String, raw.lowercased().hasPrefix("http") {
+                    return raw.replacingOccurrences(of: "{size}", with: "240")
+                }
+            }
+            for child in dict.values {
+                if let found = findImage(in: child) { return found }
+            }
+        } else if let list = value as? [Any] {
+            for child in list {
+                if let found = findImage(in: child) { return found }
+            }
+        }
+        return nil
     }
 
     static func playInfo(hash: String, albumID: Int?) async throws -> PlayInfoEnvelope {
@@ -119,12 +145,14 @@ enum KGService {
                                                 albumID: song.AlbumID,
                                                 albumAudioID: audioID,
                                                 quality: quality.rawValue) {
+                    remember(quality.short, for: song.FileHash)
                     return url
                 }
                 if let url = try? await authorizedURL(hash: song.FileHash,
                                                       albumID: song.AlbumID,
                                                       albumAudioID: audioID,
                                                       quality: quality.rawValue) {
+                    remember(quality.short, for: song.FileHash)
                     return url
                 }
             }

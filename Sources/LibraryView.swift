@@ -102,6 +102,10 @@ struct RecommendView: View {
             recent = Preferences.recentSongs
             favorites = Preferences.favorites
         }
+        .onReceive(NotificationCenter.default.publisher(for: .kgRecentChanged)) { _ in
+            recent = Preferences.recentSongs
+            favorites = Preferences.favorites
+        }
     }
 
     private var header: some View {
@@ -172,6 +176,8 @@ struct ProfileView: View {
     @State private var showLogin = false
     @State private var showDiagnostics = false
     @State private var toast = ""
+    @State private var sleepText = ""
+    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         ScrollView {
@@ -266,9 +272,16 @@ struct ProfileView: View {
 
     private var sleepCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("睡眠定时")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.white)
+            HStack(spacing: 6) {
+                Text("睡眠定时")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                if !sleepText.isEmpty {
+                    Text(sleepText)
+                        .font(.system(size: 11))
+                        .foregroundColor(Theme.accent)
+                }
+            }
             HStack(spacing: 8) {
                 ForEach([0, 15, 30, 60], id: \.self) { minutes in
                     Button {
@@ -292,6 +305,12 @@ struct ProfileView: View {
         .padding(14)
         .background(Theme.card)
         .cornerRadius(14)
+        .onReceive(timer) { _ in
+            guard let deadline = player.sleepDeadline else { sleepText = ""; return }
+            let remain = Int(deadline.timeIntervalSinceNow)
+            if remain <= 0 { sleepText = ""; return }
+            sleepText = String(format: "剩余 %02d:%02d", remain / 60, remain % 60)
+        }
     }
 
     private var toolsCard: some View {
@@ -373,6 +392,7 @@ struct QueueView: View {
                             }
                             Spacer()
                         }
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .listRowBackground(Theme.card)

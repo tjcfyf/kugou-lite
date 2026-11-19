@@ -16,6 +16,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     @Published var errorMessage: String?
     @Published var toast: String?
     @Published private(set) var sleepDeadline: Date?
+    @Published private(set) var currentQuality: String = ""
 
     private let player = AVPlayer()
     private var timeObserver: Any?
@@ -57,7 +58,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     func play(_ song: Song, in list: [Song]) {
         queue = list.isEmpty ? [song] : list
         index = queue.firstIndex(of: song) ?? 0
-        load(song)
+        load(song, resume: true)
     }
 
     func toggle() {
@@ -78,7 +79,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     func next() {
         guard !queue.isEmpty else { return }
         index = (index + 1) % queue.count
-        load(queue[index])
+        load(queue[index], resume: false)
     }
 
     func previous() {
@@ -88,7 +89,7 @@ final class PlayerEngine: NSObject, ObservableObject {
             return
         }
         index = (index - 1 + queue.count) % queue.count
-        load(queue[index])
+        load(queue[index], resume: false)
     }
 
     func setSleepTimer(minutes: Int?) {
@@ -98,7 +99,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     func jump(to target: Int) {
         guard queue.indices.contains(target) else { return }
         index = target
-        load(queue[target])
+        load(queue[target], resume: false)
     }
 
     func seek(to seconds: Double) {
@@ -112,7 +113,7 @@ final class PlayerEngine: NSObject, ObservableObject {
 
     // MARK: - Loading
 
-    private func load(_ song: Song) {
+    private func load(_ song: Song, resume: Bool = false) {
         loadTask?.cancel()
         lyricTask?.cancel()
 
@@ -145,7 +146,8 @@ final class PlayerEngine: NSObject, ObservableObject {
                 let item = AVPlayerItem(url: url)
                 item.preferredForwardBufferDuration = 3
                 self.player.replaceCurrentItem(with: item)
-                let saved = PlaybackMemory.position(for: song.FileHash)
+                self.currentQuality = KGService.quality(for: song.FileHash) ?? ""
+                let saved = resume ? PlaybackMemory.position(for: song.FileHash) : 0
                 let total = Double(song.Duration ?? 0) / 1000
                 if saved > 5, total <= 0 || saved < total - 5 {
                     _ = await self.player.seek(to: CMTime(seconds: saved, preferredTimescale: 600),
