@@ -15,6 +15,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     @Published private(set) var lyricIndex: Int = 0
     @Published var errorMessage: String?
     @Published var toast: String?
+    @Published private(set) var sleepDeadline: Date?
 
     private let player = AVPlayer()
     private var timeObserver: Any?
@@ -90,6 +91,10 @@ final class PlayerEngine: NSObject, ObservableObject {
         load(queue[index])
     }
 
+    func setSleepTimer(minutes: Int?) {
+        sleepDeadline = minutes.flatMap { Date().addingTimeInterval(Double($0) * 60) }
+    }
+
     func jump(to target: Int) {
         guard queue.indices.contains(target) else { return }
         index = target
@@ -140,6 +145,12 @@ final class PlayerEngine: NSObject, ObservableObject {
                 let item = AVPlayerItem(url: url)
                 item.preferredForwardBufferDuration = 3
                 self.player.replaceCurrentItem(with: item)
+                let saved = PlaybackMemory.position(for: song.FileHash)
+                let total = Double(song.Duration ?? 0) / 1000
+                if saved > 5, total <= 0 || saved < total - 5 {
+                    self.player.seek(to: CMTime(seconds: saved, preferredTimescale: 600))
+                    self.currentTime = saved
+                }
                 self.player.play()
                 self.isLoading = false
                 Preferences.addRecent(song)
@@ -195,8 +206,17 @@ final class PlayerEngine: NSObject, ObservableObject {
             let value = item.duration.seconds
             if value.isFinite, value > 0 { duration = value }
         }
+        if let deadline = sleepDeadline, Date() >= deadline {
+            sleepDeadline = nil
+            player.pause()
+            isPlaying = false
+            showToast("睡眠定时已到，已暂停")
+        }
         updateLyricIndex(seconds)
-        if Int(seconds) % 5 == 0 { refreshNowPlayingPlayback() }
+        if Int(seconds) % 5 == 0 {
+            refreshNowPlayingPlayback()
+            if let hash = current?.FileHash { PlaybackMemory.save(seconds, for: hash) }
+        }
     }
 
     private func updateLyricIndex(_ seconds: Double) {
@@ -209,6 +229,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     }
 
     @objc private func handleEnded() {
+        if let hash = current?.FileHash { PlaybackMemory.clear(hash) }
         next()
     }
 

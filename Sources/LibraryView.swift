@@ -147,7 +147,8 @@ struct ProfileView: View {
             VStack(spacing: 18) {
                 accountCard
                 qualityCard
-                toolsCard
+                sleepCard
+            toolsCard
                 Text("KugouLite · iOS 15 精简版")
                     .font(.system(size: 11))
                     .foregroundColor(Theme.secondaryText)
@@ -225,6 +226,36 @@ struct ProfileView: View {
             Text("取不到高音质时会自动降到下一档")
                 .font(.system(size: 11))
                 .foregroundColor(Theme.secondaryText)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Theme.card)
+        .cornerRadius(14)
+    }
+
+    private var sleepCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("睡眠定时")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.white)
+            HStack(spacing: 8) {
+                ForEach([0, 15, 30, 60], id: \.self) { minutes in
+                    Button {
+                        player.setSleepTimer(minutes: minutes == 0 ? nil : minutes)
+                        toast = minutes == 0 ? "已关闭睡眠定时" : "\(minutes) 分钟后暂停"
+                        Task { try? await Task.sleep(nanoseconds: 1_400_000_000); toast = "" }
+                    } label: {
+                        Text(minutes == 0 ? "关闭" : "\(minutes) 分")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(Color.white.opacity(0.08))
+                            .cornerRadius(9)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
