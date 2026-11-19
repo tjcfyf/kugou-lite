@@ -14,7 +14,7 @@ enum KGLogin {
                 "appid": "1001",
                 "type": "1",
                 "plat": "4",
-                "qrcode_txt": "https://h5.kugou.com/apps/loginQRCode/html/index.html?appid=1005&",
+                "qrcode_txt": "https://h5.kugou.com/apps/loginQRCode/html/index.html?appid=3116&",
                 "srcappid": "2919",
             ]
         )
@@ -34,13 +34,13 @@ enum KGLogin {
         return KugouQRCode(key: key, image: image)
     }
 
-    static func check(_ key: String) async throws -> (status: Int, token: String?, userid: Int?) {
+    static func check(_ key: String) async throws -> (status: Int, token: String?, userid: Int?, vipToken: String?) {
         let data = try await KGApi.shared.webGet(
             path: "/v2/get_userinfo_qrcode",
             host: "https://login-user.kugou.com",
             params: [
                 "plat": "4",
-                "appid": "1001",
+                "appid": "3116",
                 "srcappid": "2919",
                 "qrcode": key,
                 "dev": KGApi.shared.dev,
@@ -51,6 +51,11 @@ enum KGLogin {
             throw KGError.server("二维码状态异常")
         }
         let status = Song.intValue(payload["status"]) ?? 0
-        return (status, payload["token"] as? String, Song.intValue(payload["userid"]))
+        return (
+            status,
+            payload["token"] as? String,
+            Song.intValue(payload["userid"]),
+            (payload["vip_token"] as? String) ?? (payload["vipToken"] as? String)
+        )
     }
 }

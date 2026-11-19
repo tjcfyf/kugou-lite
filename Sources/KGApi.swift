@@ -26,6 +26,7 @@ final class KGApi {
 
     var token: String?
     var userid: Int = 0
+    var vipToken: String?
 
     private let session: URLSession = {
         let config = URLSessionConfiguration.default

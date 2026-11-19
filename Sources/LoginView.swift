@@ -193,7 +193,7 @@ struct LoginView: View {
                     status = "已扫码，请在手机上确认"
                 case 4:
                     if let token = result.token, let userid = result.userid {
-                        auth.signIn(token: token, userid: userid)
+                        auth.signIn(token: token, userid: userid, vipToken: result.vipToken)
                         status = "登录成功"
                         player.showToast("登录成功，正在领取今日会员…")
 
