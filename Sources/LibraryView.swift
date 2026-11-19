@@ -29,6 +29,7 @@ struct RecommendView: View {
     let onOpenPlayer: () -> Void
 
     @State private var recent: [Song] = Preferences.recentSongs
+    @State private var favorites: [Song] = Preferences.favorites
 
     var body: some View {
         ScrollView {
@@ -63,6 +64,19 @@ struct RecommendView: View {
                     }
                 }
 
+                if !favorites.isEmpty {
+                    SectionTitle(title: "我的收藏", subtitle: nil)
+                    ForEach(favorites) { song in
+                        Button {
+                            onSelect(song, favorites)
+                        } label: {
+                            SongRow(song: song)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 16)
+                    }
+                }
+
                 if !recent.isEmpty {
                     SectionTitle(title: "最近播放", subtitle: nil)
                     ForEach(recent) { song in
@@ -84,7 +98,10 @@ struct RecommendView: View {
                 MiniPlayer(song: song, onOpen: onOpenPlayer)
             }
         }
-        .onAppear { recent = Preferences.recentSongs }
+        .onAppear {
+            recent = Preferences.recentSongs
+            favorites = Preferences.favorites
+        }
     }
 
     private var header: some View {

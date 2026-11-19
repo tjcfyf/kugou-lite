@@ -42,6 +42,7 @@ enum Preferences {
     private static let qualityKey = "kg.quality"
     private static let historyKey = "kg.search.history"
     private static let recentKey = "kg.recent.songs"
+    private static let favoriteKey = "kg.favorite.songs"
 
     static var quality: AudioQuality {
         get { AudioQuality(rawValue: UserDefaults.standard.string(forKey: qualityKey) ?? "") ?? .standard }
@@ -70,6 +71,33 @@ enum Preferences {
         set {
             UserDefaults.standard.set(newValue.prefix(50).map { $0.dict }, forKey: recentKey)
         }
+    }
+
+    static var favorites: [Song] {
+        get {
+            guard let raw = UserDefaults.standard.array(forKey: favoriteKey) as? [[String: Any]] else { return [] }
+            return raw.compactMap { Song(dict: $0) }
+        }
+        set {
+            UserDefaults.standard.set(newValue.prefix(200).map { $0.dict }, forKey: favoriteKey)
+        }
+    }
+
+    static func isFavorite(_ song: Song) -> Bool {
+        favorites.contains { $0.FileHash == song.FileHash }
+    }
+
+    @discardableResult
+    static func toggleFavorite(_ song: Song) -> Bool {
+        var list = favorites
+        if let index = list.firstIndex(where: { $0.FileHash == song.FileHash }) {
+            list.remove(at: index)
+            favorites = list
+            return false
+        }
+        list.insert(song, at: 0)
+        favorites = list
+        return true
     }
 
     static func addRecent(_ song: Song) {

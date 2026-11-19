@@ -16,10 +16,25 @@ struct NowPlayingView: View {
                     .padding(.top, 8)
 
                 VStack(spacing: 4) {
-                    Text(player.current?.SongName ?? "未在播放")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
+                    HStack(spacing: 8) {
+                        Text(player.current?.SongName ?? "未在播放")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+
+                        if let song = player.current {
+                            Button {
+                                let added = Preferences.toggleFavorite(song)
+                                player.showToast(added ? "已收藏" : "已取消收藏")
+                            } label: {
+                                Image(systemName: Preferences.isFavorite(song) ? "heart.fill" : "heart")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(Preferences.isFavorite(song) ? Theme.accent : Theme.secondaryText)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
                     Text(player.current?.artist ?? "")
                         .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
