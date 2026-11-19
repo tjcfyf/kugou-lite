@@ -59,6 +59,13 @@ struct CloudPlaylist: Identifiable, Equatable {
     let cover: String?
 }
 
+struct RankItem: Identifiable, Equatable {
+    let id: Int
+    let name: String
+    let cover: String?
+    let intro: String
+}
+
 struct PlayInfoEnvelope {
     let url: String?
     let backups: [String]

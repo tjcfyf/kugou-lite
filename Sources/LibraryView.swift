@@ -32,6 +32,8 @@ struct RecommendView: View {
     @State private var favorites: [Song] = Preferences.favorites
     @State private var playlists: [CloudPlaylist] = []
     @State private var playlistTarget: CloudPlaylist?
+    @State private var ranks: [RankItem] = []
+    @State private var rankTarget: RankItem?
 
     var body: some View {
         ScrollView {
@@ -60,6 +62,22 @@ struct RecommendView: View {
                             ForEach(playlists) { playlist in
                                 Button { playlistTarget = playlist } label: {
                                     PlaylistCard(playlist: playlist)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 6)
+                    }
+                }
+
+                if !ranks.isEmpty {
+                    SectionTitle(title: "排行榜", subtitle: nil)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(ranks.prefix(8)) { rank in
+                                Button { rankTarget = rank } label: {
+                                    RankCard(rank: rank)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -125,12 +143,21 @@ struct RecommendView: View {
             favorites = Preferences.favorites
         }
         .task {
-            guard playlists.isEmpty, AuthStore.shared.isLoggedIn else { return }
-            playlists = (try? await KGService.playlists()) ?? []
+            if ranks.isEmpty { ranks = (try? await KGService.ranks()) ?? [] }
+            if playlists.isEmpty, AuthStore.shared.isLoggedIn {
+                playlists = (try? await KGService.playlists()) ?? []
+            }
         }
         .sheet(item: $playlistTarget) { playlist in
             PlaylistDetailSheet(playlist: playlist) { song, list in
                 playlistTarget = nil
+                onSelect(song, list)
+                onOpenPlayer()
+            }
+        }
+        .sheet(item: $rankTarget) { rank in
+            RankDetailSheet(rank: rank) { song, list in
+                rankTarget = nil
                 onSelect(song, list)
                 onOpenPlayer()
             }
@@ -173,6 +200,124 @@ struct RecommendView: View {
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 4)
+    }
+}
+
+struct RankCard: View {
+    let rank: RankItem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10).fill(Theme.card)
+                if let url = rank.cover.flatMap(URL.init(string:)) {
+                    AsyncImage(url: url) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Image(systemName: "chart.bar.fill")
+                            .font(.system(size: 22))
+                            .foregroundColor(Theme.secondaryText)
+                    }
+                    .frame(width: 108, height: 108)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                } else {
+                    Image(systemName: "chart.bar.fill")
+                        .font(.system(size: 22))
+                        .foregroundColor(Theme.secondaryText)
+                }
+            }
+            .frame(width: 108, height: 108)
+            Text(rank.name)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.white)
+                .lineLimit(1)
+                .frame(width: 108, alignment: .leading)
+            Text("榜单")
+                .font(.system(size: 10))
+                .foregroundColor(Theme.secondaryText)
+        }
+    }
+}
+
+struct RankDetailSheet: View {
+    let rank: RankItem
+    let onSelect: (Song, [Song]) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var songs: [Song] = []
+    @State private var loading = true
+    @State private var loadingMore = false
+    @State private var hasMore = true
+    @State private var page = 1
+    @State private var message = ""
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if loading {
+                        ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white)).padding(.top, 30)
+                    } else if !message.isEmpty {
+                        Text(message).font(.system(size: 13)).foregroundColor(Theme.secondaryText).padding(.top, 24)
+                    }
+                    ForEach(songs) { song in
+                        Button {
+                            dismiss()
+                            onSelect(song, songs)
+                        } label: {
+                            SongRow(song: song)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 16)
+                    }
+                    if !loading && !songs.isEmpty && hasMore {
+                        Button {
+                            Task { await loadMore() }
+                        } label: {
+                            Text(loadingMore ? "加载中…" : "加载更多")
+                                .font(.system(size: 12))
+                                .foregroundColor(Theme.accent)
+                                .padding(.vertical, 14)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.bottom, 24)
+            }
+            .background(Theme.background.ignoresSafeArea())
+            .navigationTitle(rank.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) { Button("关闭") { dismiss() } }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if !songs.isEmpty {
+                        Button {
+                            dismiss()
+                            onSelect(songs[0], songs)
+                        } label: { Label("播放全部", systemImage: "play.fill") }
+                    }
+                }
+            }
+        }
+        .task { await loadMore() }
+    }
+
+    private func loadMore() async {
+        guard !loadingMore else { return }
+        loadingMore = true
+        do {
+            let newSongs = try await KGService.rankSongs(rankid: rank.id, page: page, pageSize: 30)
+            let existing = Set(songs.map { $0.FileHash })
+            songs.append(contentsOf: newSongs.filter { !existing.contains($0.FileHash) })
+            hasMore = newSongs.count >= 30
+            page += 1
+            loading = false
+            if songs.isEmpty { message = "榜单暂时没有内容" }
+        } catch {
+            loading = false
+            message = (error as? LocalizedError)?.errorDescription ?? "榜单加载失败"
+        }
+        loadingMore = false
     }
 }
 
@@ -520,6 +665,11 @@ struct QueueView: View {
                     }
                     .buttonStyle(.plain)
                     .listRowBackground(Theme.card)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            player.removeFromQueue(at: index)
+                        } label: { Label("移除", systemImage: "trash") }
+                    }
                 }
             }
             .listStyle(.plain)
@@ -529,6 +679,10 @@ struct QueueView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("关闭") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("清空") { player.clearQueue() }
+                        .disabled(player.queueSongs.isEmpty)
                 }
             }
         }

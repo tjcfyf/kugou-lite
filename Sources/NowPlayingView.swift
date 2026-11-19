@@ -3,6 +3,8 @@ import SwiftUI
 struct NowPlayingView: View {
     @EnvironmentObject private var player: PlayerEngine
     @State private var showQueue = false
+    @State private var sleepText = ""
+    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         ZStack {
@@ -69,8 +71,26 @@ struct NowPlayingView: View {
             }
 
             VStack {
-                HStack {
+                HStack(spacing: 10) {
                     Spacer()
+                    if !sleepText.isEmpty {
+                        Text(sleepText)
+                            .font(.system(size: 11))
+                            .foregroundColor(Theme.accent)
+                    }
+                    Menu {
+                        ForEach([0, 15, 30, 60], id: \.self) { minutes in
+                            Button(minutes == 0 ? "关闭睡眠定时" : "\(minutes) 分钟后暂停") {
+                                player.setSleepTimer(minutes: minutes == 0 ? nil : minutes)
+                                player.showToast(minutes == 0 ? "已关闭睡眠定时" : "\(minutes) 分钟后暂停")
+                            }
+                        }
+                    } label: {
+                        Image(systemName: player.sleepDeadline == nil ? "moon" : "moon.fill")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(player.sleepDeadline == nil ? .white.opacity(0.75) : Theme.accent)
+                            .padding(10)
+                    }
                     Button {
                         showQueue = true
                     } label: {
@@ -98,6 +118,12 @@ struct NowPlayingView: View {
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showQueue) {
             QueueView().environmentObject(player)
+        }
+        .onReceive(timer) { _ in
+            guard let deadline = player.sleepDeadline else { sleepText = ""; return }
+            let remain = Int(deadline.timeIntervalSinceNow)
+            if remain <= 0 { sleepText = ""; return }
+            sleepText = String(format: "剩余 %02d:%02d", remain / 60, remain % 60)
         }
     }
 

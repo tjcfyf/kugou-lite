@@ -96,6 +96,35 @@ final class PlayerEngine: NSObject, ObservableObject {
         sleepDeadline = minutes.flatMap { Date().addingTimeInterval(Double($0) * 60) }
     }
 
+    func removeFromQueue(at target: Int) {
+        guard queue.indices.contains(target) else { return }
+        let removingCurrent = target == index
+        queue.remove(at: target)
+        if queue.isEmpty {
+            player.pause()
+            player.replaceCurrentItem(with: nil)
+            current = nil
+            isPlaying = false
+            index = 0
+            return
+        }
+        if target < index {
+            index -= 1
+        } else if removingCurrent {
+            index = min(index, queue.count - 1)
+            load(queue[index], resume: false)
+        }
+    }
+
+    func clearQueue() {
+        queue.removeAll()
+        index = 0
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+        current = nil
+        isPlaying = false
+    }
+
     func jump(to target: Int) {
         guard queue.indices.contains(target) else { return }
         index = target

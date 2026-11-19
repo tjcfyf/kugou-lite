@@ -79,6 +79,72 @@ enum KGService {
         return songs
     }
 
+    // MARK: - 排行榜
+
+    static func ranks() async throws -> [RankItem] {
+        let data = try await KGApi.shared.get(
+            path: "/ocean/v6/rank/list",
+            params: ["plat": "2", "withsong": "0", "parentid": "0"]
+        )
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
+        let raw = (root["data"] as? [String: Any])?["info"] as? [[String: Any]]
+            ?? (root["data"] as? [String: Any])?["list"] as? [[String: Any]]
+            ?? []
+        return raw.compactMap { item in
+            guard let rankid = Song.intValue(item["rankid"]) ?? Song.intValue(item["id"]) else { return nil }
+            let name = (item["rankname"] as? String) ?? (item["name"] as? String) ?? "榜单"
+            let cover = findImage(in: item) ?? (item["imgurl"] as? String)?.replacingOccurrences(of: "{size}", with: "240")
+            let intro = (item["intro"] as? String) ?? ""
+            return RankItem(id: rankid, name: name, cover: cover, intro: intro)
+        }
+    }
+
+    static func rankSongs(rankid: Int, page: Int = 1, pageSize: Int = 30) async throws -> [Song] {
+        let data = try await KGApi.shared.post(
+            path: "/openapi/kmr/v2/rank/audio",
+            params: [:],
+            body: [
+                "show_portrait_mv": 1,
+                "show_type_total": 1,
+                "filter_original_remarks": 1,
+                "area_code": 1,
+                "pagesize": pageSize,
+                "rank_cid": 0,
+                "type": 1,
+                "page": page,
+                "rank_id": rankid
+            ]
+        )
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
+        let raw = (root["data"] as? [String: Any])?["songlist"] as? [[String: Any]]
+            ?? (root["data"] as? [String: Any])?["info"] as? [[String: Any]]
+            ?? []
+        return raw.compactMap { item in normalizeRankSong(item) }
+    }
+
+    private static func normalizeRankSong(_ item: [String: Any]) -> Song? {
+        let deprecated = item["deprecated"] as? [String: Any] ?? [:]
+        guard let hash = (deprecated["hash"] as? String) ?? (item["hash"] as? String), !hash.isEmpty else { return nil }
+        var json: [String: Any] = [
+            "FileHash": hash,
+            "SongName": (item["songname"] as? String) ?? (item["name"] as? String) ?? "未知歌曲",
+            "SingerName": (item["author_name"] as? String) ?? (item["singername"] as? String) ?? ""
+        ]
+        json["Duration"] = deprecated["duration"] ?? item["timelen"] ?? item["duration"]
+        json["AlbumID"] = deprecated["albumid"] ?? item["albumid"] ?? item["album_id"]
+        json["MixSongID"] = deprecated["mixsongid"] ?? item["mixsongid"] ?? deprecated["album_audio_id"]
+        json["Audioid"] = deprecated["audioid"] ?? item["audioid"] ?? deprecated["audio_id"]
+        json["AlbumName"] = item["album_name"] ?? (item["albuminfo"] as? [String: Any])?["name"]
+        json["Privilege"] = item["privilege"] ?? deprecated["privilege"]
+        json["PayType"] = item["pay_type"] ?? deprecated["pay_type"]
+        if let trans = item["trans_param"] as? [String: Any], let cover = trans["union_cover"] as? String {
+            json["Image"] = cover.replacingOccurrences(of: "{size}", with: "240")
+        } else {
+            json["Image"] = findImage(in: item)
+        }
+        return Song(json: json)
+    }
+
     // MARK: - 云歌单
 
     static func playlists() async throws -> [CloudPlaylist] {
@@ -237,6 +303,7 @@ enum KGService {
 
         // 拿不到完整流时，再要一次试听片段（概念版免费用户也能听 30~60 秒）。
         if let url = try? await trialURL(hash: song.FileHash, albumID: song.AlbumID) {
+            remember("试听", for: song.FileHash)
             return url
         }
 
