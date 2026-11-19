@@ -9,8 +9,10 @@ enum KGSign {
     static let webSalt = "NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt"
     /// 概念版（lite）签名盐。
     static let liteSalt = "LnT6xpN3khm36zse0QzvmgTZ3waWdRSA"
-    /// 获取播放地址时给 `key` 参数用的盐。
+    /// 获取播放地址时给 `key` 参数用的盐（标准版）。
     static let playKeySalt = "57ae12eb6890223e355ccfcb74edf70d"
+    /// 概念版（lite）的 key 盐，和标准版不是一个。
+    static let litePlayKeySalt = "185672dd44712f60bb1736df5a377e82"
 
     static func md5(_ text: String) -> String {
         let digest = Insecure.MD5.hash(data: Data(text.utf8))
@@ -35,7 +37,7 @@ enum KGSign {
         return md5(webSalt + body + data + webSalt)
     }
 
-    static func playKey(hash: String, mid: String, userid: Int, appid: Int) -> String {
-        md5(hash.lowercased() + playKeySalt + "\(appid)" + mid + "\(userid)")
+    static func playKey(hash: String, mid: String, userid: Int, appid: Int, lite: Bool = false) -> String {
+        md5(hash.lowercased() + (lite ? litePlayKeySalt : playKeySalt) + "\(appid)" + mid + "\(userid)")
     }
 }

@@ -118,7 +118,8 @@ enum KGService {
             hash: hash,
             mid: KGApi.shared.mid,
             userid: KGApi.shared.userid,
-            appid: appid
+            appid: appid,
+            lite: true
         )
         let data = try await KGApi.shared.get(
             path: "/v5/url",
@@ -254,7 +255,7 @@ enum KGService {
         guard let auth = try? await authorization(hash: hash, albumAudioID: albumAudioID) else {
             return "授权失败"
         }
-        let key = KGSign.playKey(hash: hash, mid: KGApi.shared.mid, userid: KGApi.shared.userid, appid: 3116)
+        let key = KGSign.playKey(hash: hash, mid: KGApi.shared.mid, userid: KGApi.shared.userid, appid: 3116, lite: true)
         let params: [String: String] = [
             "album_id": "0", "area_code": "1", "hash": hash.lowercased(), "ssa_flag": "is_fromtrack",
             "version": "11430", "open_time": "\(auth.openTime)", "page_id": "967177915",
@@ -338,7 +339,8 @@ enum KGService {
             hash: hash,
             mid: KGApi.shared.mid,
             userid: KGApi.shared.userid,
-            appid: appid
+            appid: appid,
+            lite: true
         )
         let data = try await KGApi.shared.get(
             path: "/v5/url",

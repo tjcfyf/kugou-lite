@@ -171,22 +171,26 @@ enum KGDevice {
     }
 
     private static func aesDecryptToJSON(_ data: Data, key: String, iv: String) -> [String: Any]? {
-        // 服务端可能返回 JSON（含 base64 密文）或裸 base64
-        var base64 = String(data: data, encoding: .utf8) ?? ""
-        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            if let str = json["data"] as? String {
-                base64 = str
-            } else {
+        // 服务端返回的是裸 AES 密文，先直接解；不行再按 base64 / JSON 包一层试。
+        if let plain = aesCBC(data, key: key, iv: iv, encrypt: false),
+           let json = try? JSONSerialization.jsonObject(with: plain) as? [String: Any] {
+            return json
+        }
+        if let text = String(data: data, encoding: .utf8),
+           let cipher = Data(base64Encoded: text.trimmingCharacters(in: .whitespacesAndNewlines)),
+           let plain = aesCBC(cipher, key: key, iv: iv, encrypt: false),
+           let json = try? JSONSerialization.jsonObject(with: plain) as? [String: Any] {
+            return json
+        }
+        if let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let str = root["data"] as? String, let cipher = Data(base64Encoded: str),
+               let plain = aesCBC(cipher, key: key, iv: iv, encrypt: false),
+               let json = try? JSONSerialization.jsonObject(with: plain) as? [String: Any] {
                 return json
             }
+            return root
         }
-        base64 = base64.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let cipher = Data(base64Encoded: base64),
-              let plain = aesCBC(cipher, key: key, iv: iv, encrypt: false),
-              let json = try? JSONSerialization.jsonObject(with: plain) as? [String: Any] else {
-            return nil
-        }
-        return json
+        return nil
     }
 
     // MARK: - RSA
