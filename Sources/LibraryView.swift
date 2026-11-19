@@ -115,6 +115,20 @@ struct RecommendView: View {
                     .foregroundColor(Theme.secondaryText)
             }
             Spacer()
+            if let first = model.songs.first {
+                Button {
+                    onSelect(first, model.songs)
+                } label: {
+                    Label("播放全部", systemImage: "play.fill")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Theme.accent)
+                        .cornerRadius(14)
+                }
+                .buttonStyle(.plain)
+            }
             Button {
                 Task { await model.load(force: true) }
             } label: {

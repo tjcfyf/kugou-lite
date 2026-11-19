@@ -83,8 +83,8 @@ struct RootView: View {
                 },
                 onOpenPlayer: { showPlayer = true }
             )
-            .navigationTitle("发现")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .principal) { EmptyView() } }
             .task { await recommendModel.load() }
         }
         .navigationViewStyle(.stack)
