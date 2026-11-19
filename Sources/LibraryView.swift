@@ -31,9 +31,8 @@ struct RecommendView: View {
     @State private var recent: [Song] = Preferences.recentSongs
     @State private var favorites: [Song] = Preferences.favorites
     @State private var playlists: [CloudPlaylist] = []
-    @State private var playlistTarget: CloudPlaylist?
     @State private var ranks: [RankItem] = []
-    @State private var rankTarget: RankItem?
+    @State private var sheetTarget: DiscoverSheet?
 
     var body: some View {
         ScrollView {
@@ -60,7 +59,7 @@ struct RecommendView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
                             ForEach(playlists) { playlist in
-                                Button { playlistTarget = playlist } label: {
+                                Button { sheetTarget = .playlist(playlist) } label: {
                                     PlaylistCard(playlist: playlist)
                                 }
                                 .buttonStyle(.plain)
@@ -76,7 +75,7 @@ struct RecommendView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
                             ForEach(ranks.prefix(8)) { rank in
-                                Button { rankTarget = rank } label: {
+                                Button { sheetTarget = .rank(rank) } label: {
                                     RankCard(rank: rank)
                                 }
                                 .buttonStyle(.plain)
@@ -134,6 +133,13 @@ struct RecommendView: View {
                 MiniPlayer(song: song, onOpen: onOpenPlayer)
             }
         }
+        .refreshable {
+            await model.load(force: true)
+            ranks = (try? await KGService.ranks()) ?? ranks
+            if AuthStore.shared.isLoggedIn {
+                playlists = (try? await KGService.playlists()) ?? playlists
+            }
+        }
         .onAppear {
             recent = Preferences.recentSongs
             favorites = Preferences.favorites
@@ -142,24 +148,29 @@ struct RecommendView: View {
             recent = Preferences.recentSongs
             favorites = Preferences.favorites
         }
+        .onReceive(NotificationCenter.default.publisher(for: .kgFavoritesChanged)) { _ in
+            favorites = Preferences.favorites
+        }
         .task {
             if ranks.isEmpty { ranks = (try? await KGService.ranks()) ?? [] }
             if playlists.isEmpty, AuthStore.shared.isLoggedIn {
                 playlists = (try? await KGService.playlists()) ?? []
             }
         }
-        .sheet(item: $playlistTarget) { playlist in
-            PlaylistDetailSheet(playlist: playlist) { song, list in
-                playlistTarget = nil
-                onSelect(song, list)
-                onOpenPlayer()
-            }
-        }
-        .sheet(item: $rankTarget) { rank in
-            RankDetailSheet(rank: rank) { song, list in
-                rankTarget = nil
-                onSelect(song, list)
-                onOpenPlayer()
+        .sheet(item: $sheetTarget) { target in
+            switch target {
+            case .playlist(let playlist):
+                PlaylistDetailSheet(playlist: playlist) { song, list in
+                    sheetTarget = nil
+                    onSelect(song, list)
+                    onOpenPlayer()
+                }
+            case .rank(let rank):
+                RankDetailSheet(rank: rank) { song, list in
+                    sheetTarget = nil
+                    onSelect(song, list)
+                    onOpenPlayer()
+                }
             }
         }
     }
@@ -200,6 +211,18 @@ struct RecommendView: View {
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 4)
+    }
+}
+
+enum DiscoverSheet: Identifiable {
+    case playlist(CloudPlaylist)
+    case rank(RankItem)
+
+    var id: String {
+        switch self {
+        case .playlist(let playlist): return "playlist-\(playlist.id)"
+        case .rank(let rank): return "rank-\(rank.id)"
+        }
     }
 }
 

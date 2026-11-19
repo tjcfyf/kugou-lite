@@ -93,10 +93,12 @@ enum Preferences {
         if let index = list.firstIndex(where: { $0.FileHash == song.FileHash }) {
             list.remove(at: index)
             favorites = list
+            NotificationCenter.default.post(name: .kgFavoritesChanged, object: nil)
             return false
         }
         list.insert(song, at: 0)
         favorites = list
+        NotificationCenter.default.post(name: .kgFavoritesChanged, object: nil)
         return true
     }
 
@@ -111,6 +113,7 @@ enum Preferences {
 
 extension Notification.Name {
     static let kgRecentChanged = Notification.Name("kg.recent.changed")
+    static let kgFavoritesChanged = Notification.Name("kg.favorites.changed")
 }
 
 extension Song {

@@ -220,6 +220,8 @@ struct NowPlayingView: View {
                                 .foregroundColor(index == player.lyricIndex ? .white : Color.white.opacity(0.38))
                                 .multilineTextAlignment(.center)
                                 .frame(maxWidth: .infinity)
+                                .contentShape(Rectangle())
+                                .onTapGesture { player.seek(to: line.time) }
                                 .id(index)
                         }
                     }
