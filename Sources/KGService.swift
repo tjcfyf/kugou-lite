@@ -20,10 +20,27 @@ enum KGService {
             router: "complexsearch.kugou.com"
         )
 
-        let envelope = try? JSONDecoder().decode(SearchEnvelope.self, from: data)
-        if let message = envelope?.error, !message.isEmpty { throw KGError.server(message) }
-        if let code = envelope?.errcode, code != 0 { throw KGError.server("搜索被限制（\(code)）") }
-        return envelope?.data?.lists ?? []
+        // 酷狗对字段类型并不总是稳定（数字偶尔是字符串），所以这里手工解析，
+        // 避免一整条记录因类型不符而整批解码失败。
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw KGError.server("返回格式异常")
+        }
+        if let code = Song.intValue(root["errcode"]), code != 0 {
+            throw KGError.server("搜索被限制（\(code)）")
+        }
+        if let message = root["error_msg"] as? String, !message.isEmpty, Song.intValue(root["status"]) != 1 {
+            throw KGError.server(message)
+        }
+        guard let dataDict = root["data"] as? [String: Any],
+              let lists = dataDict["lists"] as? [[String: Any]] else {
+            let snippet = String(data: data.prefix(240), encoding: .utf8) ?? ""
+            throw KGError.server("返回异常：\(snippet)")
+        }
+        let songs = lists.compactMap { Song(json: $0) }
+        if songs.isEmpty, let total = Song.intValue(dataDict["total"]), total > 0 {
+            throw KGError.server("解析失败（\(total) 条）")
+        }
+        return songs
     }
 
     static func playInfo(hash: String, albumID: Int?) async throws -> PlayInfoEnvelope {
