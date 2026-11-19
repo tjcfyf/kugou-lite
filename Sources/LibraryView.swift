@@ -534,7 +534,8 @@ struct ProfileView: View {
                 Button {
                     quality = item
                     Preferences.quality = item
-                    toast = "已切换为\(item.title)"
+                    player.clearURLCache()
+                    toast = "已切换为\(item.title)，下一首生效"
                     Task { try? await Task.sleep(nanoseconds: 1_200_000_000); toast = "" }
                 } label: {
                     HStack {

@@ -131,6 +131,10 @@ final class PlayerEngine: NSObject, ObservableObject {
         load(queue[target], resume: false)
     }
 
+    func clearURLCache() {
+        urlCache.removeAll()
+    }
+
     func seek(to seconds: Double) {
         guard player.currentItem != nil else { return }
         let clamped = max(0, min(seconds, max(duration, 0.1)))
