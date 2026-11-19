@@ -148,8 +148,8 @@ final class PlayerEngine: NSObject, ObservableObject {
                 let saved = PlaybackMemory.position(for: song.FileHash)
                 let total = Double(song.Duration ?? 0) / 1000
                 if saved > 5, total <= 0 || saved < total - 5 {
-                    self.player.seek(to: CMTime(seconds: saved, preferredTimescale: 600),
-                                     toleranceBefore: .zero, toleranceAfter: .zero)
+                    _ = await self.player.seek(to: CMTime(seconds: saved, preferredTimescale: 600),
+                                               toleranceBefore: .zero, toleranceAfter: .zero)
                     self.currentTime = saved
                 }
                 self.player.play()
