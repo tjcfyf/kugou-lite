@@ -565,14 +565,23 @@ struct ProfileView: View {
                 Text("睡眠定时")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white)
-                if !sleepText.isEmpty {
-                    Text(sleepText)
+                Spacer()
+                if sleepText.isEmpty {
+                    Text("未开启")
                         .font(.system(size: 11))
-                        .foregroundColor(Theme.accent)
+                        .foregroundColor(Theme.secondaryText)
                 }
             }
+            if !sleepText.isEmpty {
+                Text(sleepText)
+                    .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                    .foregroundColor(Theme.accent)
+                Text("到点自动暂停，每秒刷新")
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.secondaryText)
+            }
             HStack(spacing: 8) {
-                ForEach([0, 15, 30, 60], id: \.self) { minutes in
+                ForEach([0, 5, 15, 30, 60], id: \.self) { minutes in
                     Button {
                         player.setSleepTimer(minutes: minutes == 0 ? nil : minutes)
                         sleepText = minutes == 0 ? "" : String(format: "剩余 %02d:00", minutes)
