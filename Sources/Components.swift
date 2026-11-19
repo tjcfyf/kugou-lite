@@ -49,6 +49,25 @@ struct CoverImage: View {
     }
 }
 
+struct ToastView: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 13, weight: .medium))
+            .foregroundColor(.white)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Color.black.opacity(0.82))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.5))
+            .padding(.horizontal, 24)
+            .padding(.top, 10)
+            .transition(.move(edge: .top).combined(with: .opacity))
+    }
+}
+
 struct SongRow: View {
     let song: Song
 

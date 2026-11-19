@@ -14,6 +14,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     @Published private(set) var lyric: [LyricLine] = []
     @Published private(set) var lyricIndex: Int = 0
     @Published var errorMessage: String?
+    @Published var toast: String?
 
     private let player = AVPlayer()
     private var timeObserver: Any?
@@ -21,6 +22,8 @@ final class PlayerEngine: NSObject, ObservableObject {
     private var index = 0
     private var loadTask: Task<Void, Never>?
     private var lyricTask: Task<Void, Never>?
+    private var urlCache: [String: URL] = [:]
+    private var toastTask: Task<Void, Never>?
 
     override init() {
         super.init()
@@ -54,6 +57,10 @@ final class PlayerEngine: NSObject, ObservableObject {
     }
 
     func toggle() {
+        guard player.currentItem != nil else {
+            if let song = current { load(song) }
+            return
+        }
         if isPlaying {
             player.pause()
             isPlaying = false
@@ -81,6 +88,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     }
 
     func seek(to seconds: Double) {
+        guard player.currentItem != nil else { return }
         let clamped = max(0, min(seconds, max(duration, 0.1)))
         player.seek(to: CMTime(seconds: clamped, preferredTimescale: 600))
         currentTime = clamped
@@ -94,6 +102,11 @@ final class PlayerEngine: NSObject, ObservableObject {
         loadTask?.cancel()
         lyricTask?.cancel()
 
+        // 先把上一首停下来：否则请求播放地址的那一两秒里旧歌还在响。
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+        isPlaying = false
+
         current = song
         lyric = []
         lyricIndex = 0
@@ -106,10 +119,17 @@ final class PlayerEngine: NSObject, ObservableObject {
         loadTask = Task { [weak self] in
             guard let self = self else { return }
             do {
-                let url = try await KGService.playURL(hash: song.FileHash, albumID: song.AlbumID)
+                let url: URL
+                if let cached = self.urlCache[song.FileHash] {
+                    url = cached
+                } else {
+                    url = try await KGService.playURL(hash: song.FileHash, albumID: song.AlbumID)
+                    if self.urlCache.count > 30 { self.urlCache.removeAll() }
+                    self.urlCache[song.FileHash] = url
+                }
                 if Task.isCancelled { return }
                 let item = AVPlayerItem(url: url)
-                item.preferredForwardBufferDuration = 5
+                item.preferredForwardBufferDuration = 3
                 self.player.replaceCurrentItem(with: item)
                 self.player.play()
                 self.isLoading = false
@@ -118,11 +138,14 @@ final class PlayerEngine: NSObject, ObservableObject {
                 self.isPlaying = true
                 self.updateNowPlayingMetadata()
                 self.refreshNowPlayingPlayback()
+                self.prefetchNext()
             } catch {
                 if Task.isCancelled { return }
                 self.isLoading = false
                 self.isPlaying = false
-                self.errorMessage = (error as? LocalizedError)?.errorDescription ?? "加载失败"
+                let message = (error as? LocalizedError)?.errorDescription ?? "加载失败"
+                self.errorMessage = message
+                self.showToast(message)
             }
         }
 
@@ -137,6 +160,16 @@ final class PlayerEngine: NSObject, ObservableObject {
     // MARK: - Ticking
 
     private func tick(_ time: CMTime) {
+        if let item = player.currentItem, item.status == .failed {
+            if errorMessage == nil {
+                isPlaying = false
+                isLoading = false
+                errorMessage = "这首歌暂时无法播放"
+                if let hash = current?.FileHash { urlCache[hash] = nil }
+                showToast("这首歌暂时无法播放，换一首试试")
+            }
+            return
+        }
         let seconds = time.seconds
         guard seconds.isFinite else { return }
         currentTime = seconds
@@ -159,6 +192,31 @@ final class PlayerEngine: NSObject, ObservableObject {
 
     @objc private func handleEnded() {
         next()
+    }
+
+    // MARK: - Helpers
+
+    /// 提前把下一首的播放地址取回来，切歌时直接命中缓存。
+    private func prefetchNext() {
+        guard queue.count > 1 else { return }
+        let nextIndex = (index + 1) % queue.count
+        let song = queue[nextIndex]
+        guard urlCache[song.FileHash] == nil else { return }
+        Task(priority: .utility) { [weak self] in
+            guard let self = self else { return }
+            guard let url = try? await KGService.playURL(hash: song.FileHash, albumID: song.AlbumID) else { return }
+            self.urlCache[song.FileHash] = url
+        }
+    }
+
+    func showToast(_ text: String) {
+        toast = text
+        toastTask?.cancel()
+        toastTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 2_600_000_000)
+            if Task.isCancelled { return }
+            self?.toast = nil
+        }
     }
 
     // MARK: - Audio session & remote

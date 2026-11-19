@@ -129,10 +129,17 @@ struct MiniPlayer: View {
             Button {
                 player.toggle()
             } label: {
-                Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(width: 36, height: 36)
+                Group {
+                    if player.isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    } else {
+                        Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 19, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
+                }
+                .frame(width: 36, height: 36)
             }
             .buttonStyle(.plain)
 

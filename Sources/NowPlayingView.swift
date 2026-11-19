@@ -39,7 +39,15 @@ struct NowPlayingView: View {
                     .padding(.top, 8)
             }
             .padding(.top, 8)
+
+            if let toast = player.toast {
+                VStack {
+                    ToastView(text: toast)
+                    Spacer()
+                }
+            }
         }
+        .animation(.easeOut(duration: 0.22), value: player.toast)
         .preferredColorScheme(.dark)
     }
 
@@ -123,7 +131,7 @@ struct NowPlayingView: View {
         ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
                 if player.lyric.isEmpty {
-                    Text(player.isLoading ? "正在加载…" : "暂无歌词")
+                    Text(player.isLoading ? "正在缓冲…" : (player.errorMessage ?? "暂无歌词"))
                         .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
                         .padding(.top, 24)

@@ -28,7 +28,7 @@ final class KGApi {
 
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 12
+        config.timeoutIntervalForRequest = 8
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
         config.httpAdditionalHeaders = ["Accept-Encoding": "gzip"]
         return URLSession(configuration: config)

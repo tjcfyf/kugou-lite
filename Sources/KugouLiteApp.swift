@@ -43,15 +43,11 @@ struct RootView: View {
             NowPlayingView()
                 .environmentObject(player)
         }
-        .alert(isPresented: Binding(
-            get: { player.errorMessage != nil },
-            set: { if !$0 { player.errorMessage = nil } }
-        )) {
-            Alert(
-                title: Text("播放失败"),
-                message: Text(player.errorMessage ?? ""),
-                dismissButton: .default(Text("知道了"))
-            )
+        .overlay(alignment: .top) {
+            if let toast = player.toast {
+                ToastView(text: toast)
+            }
         }
+        .animation(.easeOut(duration: 0.22), value: player.toast)
     }
 }
