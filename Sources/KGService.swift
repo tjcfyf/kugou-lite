@@ -264,6 +264,26 @@ enum KGService {
         return nil
     }
 
+    /// 老记录里没有封面时，按 hash 回查专辑图。
+    static func songCover(hash: String) async -> String? {
+        guard var components = URLComponents(string: "https://m.kugou.com/app/i/getSongInfo.php") else { return nil }
+        components.queryItems = [
+            URLQueryItem(name: "cmd", value: "playInfo"),
+            URLQueryItem(name: "hash", value: hash)
+        ]
+        guard let url = components.url else { return nil }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 10
+        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X)", forHTTPHeaderField: "User-Agent")
+        guard let (data, _) = try? await URLSession.shared.data(for: request),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        let raw = (root["album_img"] as? String) ?? (root["imgUrl"] as? String)
+        guard var value = raw, value.contains("imge.kugou.com") || value.contains("singerimg.kugou.com") else { return nil }
+        value = value.replacingOccurrences(of: "{size}", with: "240")
+        if value.hasPrefix("http://") { value = "https://" + value.dropFirst(7) }
+        return value
+    }
+
     static func playInfo(hash: String, albumID: Int?) async throws -> PlayInfoEnvelope {
         var components = URLComponents(string: "https://m.kugou.com/app/i/getSongInfo.php")!
         var items = [

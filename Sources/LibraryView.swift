@@ -17,7 +17,9 @@ final class RecommendModel: ObservableObject {
             if list.isEmpty { message = "今天还没有推荐，登录后再试" }
         } catch {
             isLoading = false
-            message = (error as? LocalizedError)?.errorDescription ?? "推荐加载失败"
+            if songs.isEmpty {
+                message = (error as? LocalizedError)?.errorDescription ?? "推荐加载失败"
+            }
         }
     }
 }
@@ -45,7 +47,7 @@ struct RecommendView: View {
                         .padding(.top, 30)
                 }
 
-                if let message = model.message {
+                if let message = model.message, model.songs.isEmpty {
                     Text(message)
                         .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
@@ -87,7 +89,7 @@ struct RecommendView: View {
 
                 if !model.songs.isEmpty {
                     SectionTitle(title: "每日推荐", subtitle: "\(model.songs.count) 首")
-                    ForEach(model.songs) { song in
+                    ForEach(model.songs, id: \.recommendRowID) { song in
                         Button {
                             onSelect(song, model.songs)
                         } label: {
@@ -100,7 +102,7 @@ struct RecommendView: View {
 
                 if !library.favorites.isEmpty {
                     SectionTitle(title: "我的收藏", subtitle: nil)
-                    ForEach(library.favorites) { song in
+                    ForEach(library.favorites, id: \.favoriteRowID) { song in
                         Button {
                             onSelect(song, library.favorites)
                         } label: {
@@ -113,7 +115,7 @@ struct RecommendView: View {
 
                 if !library.recent.isEmpty {
                     SectionTitle(title: "最近播放", subtitle: "\(library.recent.count) 首")
-                    ForEach(library.recent) { song in
+                    ForEach(library.recent, id: \.recentRowID) { song in
                         Button {
                             onSelect(song, library.recent)
                         } label: {
@@ -134,6 +136,7 @@ struct RecommendView: View {
         }
         .refreshable {
             await model.load(force: true)
+            await library.enrichMissingCovers()
             ranks = (try? await KGService.ranks()) ?? ranks
             if AuthStore.shared.isLoggedIn {
                 playlists = (try? await KGService.playlists()) ?? playlists
@@ -143,6 +146,7 @@ struct RecommendView: View {
             library.refresh()
         }
         .task {
+            await library.enrichMissingCovers()
             if ranks.isEmpty { ranks = (try? await KGService.ranks()) ?? [] }
             if playlists.isEmpty, AuthStore.shared.isLoggedIn {
                 playlists = (try? await KGService.playlists()) ?? []
@@ -720,4 +724,11 @@ struct QueueView: View {
         .navigationViewStyle(.stack)
         .preferredColorScheme(.dark)
     }
+}
+
+
+private extension Song {
+    var recommendRowID: String { "rec-\(FileHash)" }
+    var favoriteRowID: String { "fav-\(FileHash)" }
+    var recentRowID: String { "recent-\(FileHash)" }
 }

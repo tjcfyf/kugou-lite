@@ -52,6 +52,12 @@ struct Song: Identifiable, Equatable {
         return URL(string: raw)
     }
 
+    func withImage(_ raw: String) -> Song {
+        var value = dict
+        value["image"] = raw
+        return Song(dict: value) ?? self
+    }
+
     /// 需要会员或付费的曲目：仅作标记，播放时由酷狗接口决定实际能否出流。
     var needsPurchase: Bool {
         (Privilege ?? 0) > 0 && (PayType ?? 0) > 0
