@@ -754,35 +754,55 @@ enum KGService {
         return nil
     }
 
-    static func lyric(hash: String, title: String) async throws -> [LyricLine] {
-        var searchComponents = URLComponents(string: "https://krcs.kugou.com/search")!
-        searchComponents.queryItems = [
+    static func lyric(hash: String, title: String, artist: String = "") async throws -> [LyricLine] {
+        let keywords = [title, artist.isEmpty ? title : "\(artist) \(title)"]
+        for keyword in keywords {
+            guard let candidates = try? await lyricCandidates(keyword: keyword, hash: hash),
+                  !candidates.isEmpty else { continue }
+            for candidate in candidates.prefix(3) {
+                if let lines = try? await lyricLines(id: candidate.id, accessKey: candidate.accessKey),
+                   !lines.isEmpty {
+                    return lines
+                }
+            }
+        }
+        return []
+    }
+
+    private static func lyricCandidates(keyword: String, hash: String) async throws -> [LyricCandidate] {
+        var components = URLComponents(string: "https://krcs.kugou.com/search")!
+        components.queryItems = [
             URLQueryItem(name: "ver", value: "1"),
             URLQueryItem(name: "man", value: "yes"),
             URLQueryItem(name: "client", value: "mobi"),
-            URLQueryItem(name: "keyword", value: title),
+            URLQueryItem(name: "keyword", value: keyword),
             URLQueryItem(name: "hash", value: hash),
         ]
-        guard let searchURL = searchComponents.url else { return [] }
+        guard let url = components.url else { return [] }
+        let data = try await KGApi.shared.plain(url)
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let raw = root["candidates"] as? [[String: Any]] else { return [] }
+        return raw.compactMap { item in
+            guard let id = item["id"].map({ String(describing: $0) }),
+                  let key = item["accesskey"] as? String, !key.isEmpty else { return nil }
+            return LyricCandidate(id: id, accesskey: key)
+        }
+    }
 
-        let searchData = try await KGApi.shared.plain(searchURL)
-        guard let envelope = try? JSONDecoder().decode(LyricSearchEnvelope.self, from: searchData),
-              let candidate = envelope.candidates?.first else { return [] }
-
-        var downloadComponents = URLComponents(string: "https://lyrics.kugou.com/download")!
-        downloadComponents.queryItems = [
+    private static func lyricLines(id: String, accessKey: String) async throws -> [LyricLine] {
+        var components = URLComponents(string: "https://lyrics.kugou.com/download")!
+        components.queryItems = [
             URLQueryItem(name: "ver", value: "1"),
             URLQueryItem(name: "client", value: "pc"),
-            URLQueryItem(name: "id", value: candidate.id),
-            URLQueryItem(name: "accesskey", value: candidate.accesskey),
+            URLQueryItem(name: "id", value: id),
+            URLQueryItem(name: "accesskey", value: accessKey),
             URLQueryItem(name: "fmt", value: "lrc"),
             URLQueryItem(name: "charset", value: "utf8"),
         ]
-        guard let downloadURL = downloadComponents.url else { return [] }
-
-        let downloadData = try await KGApi.shared.plain(downloadURL)
-        guard let envelope = try? JSONDecoder().decode(LyricDownloadEnvelope.self, from: downloadData),
-              let content = envelope.content,
+        guard let url = components.url else { return [] }
+        let data = try await KGApi.shared.plain(url)
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let content = root["content"] as? String,
               let bytes = Data(base64Encoded: content),
               let text = String(data: bytes, encoding: .utf8) else { return [] }
         return LyricParser.parse(text)

@@ -64,27 +64,21 @@ struct NowPlayingView: View {
                         guard coverDoubleTapEnabled else { return }
                         player.toggle()
                     }
+                    .onLongPressGesture(minimumDuration: 0.55, maximumDistance: 30) {
+                        guard let song = player.current else { return }
+                        let added = library.toggleFavorite(song)
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        player.showToast(added ? "已收藏" : "已取消收藏")
+                    }
                     .padding(.top, 8)
 
                 VStack(spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(player.current?.SongName ?? "未在播放")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(Theme.text)
-                            .lineLimit(1)
-
-                        if let song = player.current {
-                            Button {
-                                let added = library.toggleFavorite(song)
-                                player.showToast(added ? "已收藏" : "已取消收藏")
-                            } label: {
-                                Image(systemName: library.favorites.contains(where: { $0.FileHash == song.FileHash }) ? "heart.fill" : "heart")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(library.favorites.contains(where: { $0.FileHash == song.FileHash }) ? Theme.accent : Theme.secondaryText)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
+                    Text(player.current?.SongName ?? "未在播放")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                        .lineLimit(1)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
 
                     HStack(spacing: 6) {
                         if let song = player.current {
@@ -104,29 +98,8 @@ struct NowPlayingView: View {
                             }
                             .buttonStyle(.plain)
                         }
-                        if !player.currentQuality.isEmpty {
-                            Text("音质 \(player.currentQuality)")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(Theme.accent)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .stroke(Theme.accent.opacity(0.7), lineWidth: 0.6)
-                                )
-                        }
-                        if player.playbackRate != 1.0 {
-                            Text(PlaybackSpeed.allCases.first(where: { abs($0.rawValue - player.playbackRate) < 0.01 })?.title ?? "\(player.playbackRate)x")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(Theme.secondaryText)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .stroke(Theme.separator, lineWidth: 0.6)
-                                )
-                        }
                     }
+                    .frame(maxWidth: .infinity)
 
                     if let song = player.current, let albumID = song.AlbumID,
                        let albumName = song.AlbumName, !albumName.isEmpty {
@@ -149,6 +122,34 @@ struct NowPlayingView: View {
                         }
                         .buttonStyle(.plain)
                         .padding(.top, 1)
+                    }
+
+                    if !player.currentQuality.isEmpty || player.playbackRate != 1.0 {
+                        HStack(spacing: 6) {
+                            if !player.currentQuality.isEmpty {
+                                Text("音质 \(player.currentQuality)")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(Theme.accent)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .stroke(Theme.accent.opacity(0.7), lineWidth: 0.6)
+                                    )
+                            }
+                            if player.playbackRate != 1.0 {
+                                Text(PlaybackSpeed.allCases.first(where: { abs($0.rawValue - player.playbackRate) < 0.01 })?.title ?? "\(player.playbackRate)x")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(Theme.secondaryText)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .stroke(Theme.separator, lineWidth: 0.6)
+                                    )
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                 }
                 .padding(.horizontal, 28)
@@ -392,7 +393,7 @@ struct NowPlayingView: View {
             ScrollView(showsIndicators: false) {
                 if player.lyric.isEmpty {
                     VStack(spacing: 12) {
-                        Text(player.isLoading ? "正在缓冲…" : (player.errorMessage ?? "暂无歌词"))
+                        Text(player.isLoading ? "正在缓冲…" : (player.lyricLoading ? "歌词加载中…" : (player.errorMessage ?? "暂无歌词")))
                             .font(.system(size: 13))
                             .foregroundColor(Theme.secondaryText)
                         if player.errorMessage != nil && !player.isLoading {
@@ -409,6 +410,18 @@ struct NowPlayingView: View {
                                 .padding(.vertical, 7)
                                 .background(Theme.accent)
                                 .cornerRadius(9)
+                            }
+                            .buttonStyle(.plain)
+                        } else if !player.lyricLoading {
+                            Button {
+                                player.reloadLyric()
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "arrow.clockwise")
+                                    Text("重新加载歌词")
+                                }
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(Theme.secondaryText)
                             }
                             .buttonStyle(.plain)
                         }

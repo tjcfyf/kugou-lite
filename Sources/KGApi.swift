@@ -116,7 +116,8 @@ final class KGApi {
             request.setValue("token=\(token); userid=\(userid)", forHTTPHeaderField: "Cookie")
         }
         do {
-            let (data, _) = try await URLSession.shared.data(for: request)
+            // 用统一配置的 session，避免 plain 请求退回到 60 秒默认超时。
+            let (data, _) = try await session.data(for: request)
             return data
         } catch {
             throw KGError.network

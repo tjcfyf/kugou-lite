@@ -12,6 +12,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     @Published private(set) var currentTime: Double = 0
     @Published private(set) var duration: Double = 0
     @Published private(set) var lyric: [LyricLine] = []
+    @Published private(set) var lyricLoading = false
     @Published private(set) var lyricIndex: Int = 0
     @Published var errorMessage: String?
     @Published var toast: String?
@@ -283,6 +284,7 @@ final class PlayerEngine: NSObject, ObservableObject {
         current = song
         lyric = []
         lyricIndex = 0
+        lyricLoading = true
         currentTime = 0
         duration = Double(song.Duration ?? 0)
         isLoading = true
@@ -291,6 +293,7 @@ final class PlayerEngine: NSObject, ObservableObject {
         guard NetworkStatus.shared.isConnected else {
             isLoading = false
             isPlaying = false
+            lyricLoading = false
             errorMessage = "当前没有网络，联网后点重试"
             showToast("当前没有网络")
             return
@@ -350,10 +353,25 @@ final class PlayerEngine: NSObject, ObservableObject {
             }
         }
 
+        fetchLyric(for: song)
+    }
+
+    func reloadLyric() {
+        guard let song = current else { return }
+        fetchLyric(for: song)
+    }
+
+    private func fetchLyric(for song: Song) {
+        lyricTask?.cancel()
+        lyricLoading = true
         lyricTask = Task { [weak self] in
             guard let self = self else { return }
-            guard let lines = try? await KGService.lyric(hash: song.FileHash, title: song.SongName) else { return }
+            let lines = (try? await KGService.lyric(hash: song.FileHash,
+                                                     title: song.SongName,
+                                                     artist: song.artist)) ?? []
             if Task.isCancelled { return }
+            self.lyricLoading = false
+            guard self.current?.FileHash == song.FileHash else { return }
             self.lyric = lines
         }
     }
