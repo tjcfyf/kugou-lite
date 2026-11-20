@@ -25,9 +25,9 @@ struct RootView: View {
     @AppStorage(Preferences.themeModeKey) private var themeRaw = AppTheme.system.rawValue
     @State private var systemScheme: ColorScheme = UITraitCollection.current.userInterfaceStyle == .dark ? .dark : .light
 
-    private var resolvedScheme: ColorScheme {
+    private var resolvedScheme: ColorScheme? {
         switch AppTheme(rawValue: themeRaw) ?? .system {
-        case .system: return systemScheme
+        case .system: return nil
         case .dark: return .dark
         case .light: return .light
         }
