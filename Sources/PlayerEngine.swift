@@ -158,9 +158,15 @@ final class PlayerEngine: NSObject, ObservableObject {
 
     func retryCurrent() {
         guard let song = current else { return }
+        guard NetworkStatus.shared.isConnected else {
+            showToast("还没有联网")
+            return
+        }
         urlCache[song.FileHash] = nil
         errorMessage = nil
-        load(song, resume: true)
+        // 和重新点歌保持一致，不能带着上次的播放位置去续播，
+        // 否则可能拿到试听片段后直接跳到中后段，被服务端当成付费内容。
+        load(song, resume: false)
     }
 
     /// 只打乱当前这首之后的顺序，当前播放位置和已听过的队列保持不变。
@@ -279,6 +285,15 @@ final class PlayerEngine: NSObject, ObservableObject {
         duration = Double(song.Duration ?? 0)
         isLoading = true
         errorMessage = nil
+
+        guard NetworkStatus.shared.isConnected else {
+            isLoading = false
+            isPlaying = false
+            errorMessage = "当前没有网络，联网后点重试"
+            showToast("当前没有网络")
+            return
+        }
+
         updateNowPlayingMetadata()
 
         loadTask = Task { [weak self] in
