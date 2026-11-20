@@ -1060,8 +1060,7 @@ struct ProfileView: View {
             sleepText = String(format: "剩余 %02d:%02d", remain / 60, remain % 60)
         }
     }
-
-
+}
 
 
 private enum LibrarySongSort: String, CaseIterable, Identifiable {
