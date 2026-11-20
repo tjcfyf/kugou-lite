@@ -380,9 +380,9 @@ struct FloatingTabBar: View {
             ZStack {
                 if tab == tag {
                     Circle()
-                        .fill(Theme.accent.opacity(colorScheme == .dark ? 0.16 : 0.10))
+                        .fill(Color.white.opacity(colorScheme == .dark ? 0.09 : 0.32))
                         .matchedGeometryEffect(id: "selected-tab", in: tabSelection)
-                        .frame(width: 42, height: 42)
+                        .frame(width: 48, height: 48)
                 }
 
                 Image(systemName: icon)
@@ -431,9 +431,9 @@ private struct BottomArtwork: View {
     var body: some View {
         Group {
             if let song = player.current, let url = song.coverURL {
-                CoverImage(url: url, size: 42, radius: 21)
+                CoverImage(url: url, size: 43, radius: 21.5)
             } else {
-                RotatingAlbumPlaceholder(size: 42)
+                RotatingAlbumPlaceholder(size: 43)
             }
         }
         .transition(.opacity)
