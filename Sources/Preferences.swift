@@ -155,6 +155,12 @@ enum Preferences {
     static let coverDoubleTapKey = "kg.gesture.cover.doubletap"
     static let keepAwakeKey = "kg.player.keepawake"
     static let sleepWaitKey = "kg.sleep.waitforend"
+    static let lyricOffsetKey = "kg.lyric.offset"
+
+    static var lyricOffsetMs: Int {
+        get { UserDefaults.standard.integer(forKey: lyricOffsetKey) }
+        set { UserDefaults.standard.set(newValue, forKey: lyricOffsetKey) }
+    }
     static let themeModeKey = "kg.theme.mode"
 
     static var quality: AudioQuality {

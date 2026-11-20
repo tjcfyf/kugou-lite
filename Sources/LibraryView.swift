@@ -973,6 +973,12 @@ struct QueueView: View {
                     Button(editMode == .active ? "完成" : "排序") {
                         withAnimation { editMode = editMode == .active ? .inactive : .active }
                     }
+                    Button {
+                        player.shuffleUpcomingQueue()
+                    } label: {
+                        Image(systemName: "shuffle")
+                    }
+                    .disabled(player.queueSongs.count <= player.currentIndex + 1)
                     Button("清空") { player.clearQueue() }
                         .disabled(player.queueSongs.isEmpty)
                 }

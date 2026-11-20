@@ -123,6 +123,80 @@ struct KeepAwakeSettingsCard: View {
     }
 }
 
+struct LyricOffsetSettingsCard: View {
+    @EnvironmentObject private var player: PlayerEngine
+
+    private var offsetText: String {
+        String(format: "%+.1f 秒", Double(player.lyricOffsetMs) / 1000)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("歌词时间校准")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Theme.text)
+                Spacer()
+                Text(offsetText)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundColor(player.lyricOffsetMs == 0 ? Theme.secondaryText : Theme.accent)
+            }
+
+            HStack(spacing: 8) {
+                Button {
+                    player.setLyricOffset(milliseconds: player.lyricOffsetMs - 500)
+                } label: {
+                    Text("歌词延后 0.5s")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.text)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Theme.chip)
+                        .cornerRadius(9)
+                }
+                .buttonStyle(.plain)
+                .disabled(player.lyricOffsetMs <= -3000)
+
+                Button {
+                    player.setLyricOffset(milliseconds: 0)
+                } label: {
+                    Text("复位")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.text)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Theme.chip)
+                        .cornerRadius(9)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    player.setLyricOffset(milliseconds: player.lyricOffsetMs + 500)
+                } label: {
+                    Text("歌词提前 0.5s")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.text)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Theme.chip)
+                        .cornerRadius(9)
+                }
+                .buttonStyle(.plain)
+                .disabled(player.lyricOffsetMs >= 3000)
+            }
+
+            Text("正数表示歌词提前，负数表示延后；只影响播放页歌词高亮，不改动歌词文件。")
+                .font(.system(size: 10))
+                .foregroundColor(Theme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Theme.card)
+        .cornerRadius(14)
+    }
+}
+
 struct SettingsView: View {
     @EnvironmentObject private var player: PlayerEngine
     @Environment(\.dismiss) private var dismiss
@@ -144,6 +218,7 @@ struct SettingsView: View {
                     speedCard
                     qualityCard
                     lyricCard
+                    LyricOffsetSettingsCard()
                     sleepCard
                     storageCard
 
@@ -438,6 +513,7 @@ struct PlayerSettingsView: View {
                     sleepCard
                     speedCard
                     lyricCard
+                    LyricOffsetSettingsCard()
                     qualityCard
                 }
                 .padding(16)

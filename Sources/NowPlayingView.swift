@@ -12,6 +12,8 @@ struct NowPlayingView: View {
     @AppStorage(Preferences.coverSwipeKey) private var coverSwipeEnabled = true
     @AppStorage(Preferences.coverDoubleTapKey) private var coverDoubleTapEnabled = true
     @AppStorage(Preferences.keepAwakeKey) private var keepAwake = false
+    @State private var isScrubbing = false
+    @State private var scrubTime: Double = 0
 
     private var gestureMode: Bool { coverSwipeEnabled && coverDoubleTapEnabled }
 
@@ -267,11 +269,15 @@ struct NowPlayingView: View {
             .padding(.bottom, 8)
     }
 
+    private var displayedTime: Double {
+        isScrubbing ? scrubTime : player.currentTime
+    }
+
     private var progress: some View {
         VStack(spacing: 6) {
             GeometryReader { geo in
                 let width = max(geo.size.width, 1)
-                let ratio = player.duration > 0 ? min(max(player.currentTime / player.duration, 0), 1) : 0
+                let ratio = player.duration > 0 ? min(max(displayedTime / player.duration, 0), 1) : 0
                 ZStack(alignment: .leading) {
                     Capsule()
                         .fill(Theme.text.opacity(0.12))
@@ -284,27 +290,47 @@ struct NowPlayingView: View {
                         .frame(width: 14, height: 14)
                         .overlay(Circle().stroke(Theme.card.opacity(0.9), lineWidth: 1.5))
                         .offset(x: width * ratio - 7)
+
+                    if isScrubbing {
+                        Text(format(displayedTime))
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Theme.accent)
+                            .cornerRadius(8)
+                            .position(x: min(max(width * ratio, 30), max(width - 30, 30)), y: -12)
+                    }
                 }
                 .frame(height: 22)
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { value in
+                            isScrubbing = true
                             let point = min(max(value.location.x / width, 0), 1)
-                            player.seek(to: Double(point) * max(player.duration, 1))
+                            scrubTime = Double(point) * max(player.duration, 1)
+                        }
+                        .onEnded { value in
+                            let point = min(max(value.location.x / width, 0), 1)
+                            let target = Double(point) * max(player.duration, 1)
+                            scrubTime = target
+                            player.seek(to: target)
+                            isScrubbing = false
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         }
                 )
             }
             .frame(height: 22)
 
             HStack {
-                Text(format(player.currentTime))
+                Text(format(displayedTime))
                 Spacer()
                 Button {
                     showRemaining.toggle()
                 } label: {
                     Text(showRemaining
-                         ? "-\(format(max(player.duration - player.currentTime, 0)))"
+                         ? "-\(format(max(player.duration - displayedTime, 0)))"
                          : format(player.duration))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(Theme.text.opacity(0.62))
@@ -365,10 +391,29 @@ struct NowPlayingView: View {
         ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
                 if player.lyric.isEmpty {
-                    Text(player.isLoading ? "正在缓冲…" : (player.errorMessage ?? "暂无歌词"))
-                        .font(.system(size: 13))
-                        .foregroundColor(Theme.secondaryText)
-                        .padding(.top, 24)
+                    VStack(spacing: 12) {
+                        Text(player.isLoading ? "正在缓冲…" : (player.errorMessage ?? "暂无歌词"))
+                            .font(.system(size: 13))
+                            .foregroundColor(Theme.secondaryText)
+                        if player.errorMessage != nil && !player.isLoading {
+                            Button {
+                                player.retryCurrent()
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "arrow.clockwise")
+                                    Text("重试")
+                                }
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 7)
+                                .background(Theme.accent)
+                                .cornerRadius(9)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.top, 24)
                 } else {
                     LazyVStack(spacing: 16) {
                         ForEach(Array(player.lyric.enumerated()), id: \.offset) { index, line in
@@ -379,7 +424,9 @@ struct NowPlayingView: View {
                                 .multilineTextAlignment(.center)
                                 .frame(maxWidth: .infinity)
                                 .contentShape(Rectangle())
-                                .onTapGesture { player.seek(to: line.time) }
+                                .onTapGesture {
+                                    player.seek(to: max(0, line.time - Double(player.lyricOffsetMs) / 1000))
+                                }
                                 .id(index)
                         }
                     }

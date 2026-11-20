@@ -18,6 +18,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     @Published private(set) var sleepDeadline: Date?
     @Published private(set) var sleepAfterCurrent = false
     @Published private(set) var sleepWaitForTrackEnd = UserDefaults.standard.bool(forKey: Preferences.sleepWaitKey)
+    @Published private(set) var lyricOffsetMs = Preferences.lyricOffsetMs
     @Published private(set) var currentQuality: String = ""
     @Published private(set) var playMode: PlayMode = Preferences.playMode
     @Published private(set) var playbackRate: Float = Preferences.playbackRate
@@ -144,6 +145,32 @@ final class PlayerEngine: NSObject, ObservableObject {
     func setSleepWaitForTrackEnd(_ enabled: Bool) {
         sleepWaitForTrackEnd = enabled
         UserDefaults.standard.set(enabled, forKey: Preferences.sleepWaitKey)
+    }
+
+    func setLyricOffset(milliseconds: Int) {
+        let clamped = max(-3000, min(3000, milliseconds))
+        lyricOffsetMs = clamped
+        Preferences.lyricOffsetMs = clamped
+        updateLyricIndex(currentTime)
+    }
+
+    func retryCurrent() {
+        guard let song = current else { return }
+        urlCache[song.FileHash] = nil
+        errorMessage = nil
+        load(song, resume: true)
+    }
+
+    /// 只打乱当前这首之后的顺序，当前播放位置和已听过的队列保持不变。
+    func shuffleUpcomingQueue() {
+        guard index + 1 < queue.count else {
+            showToast("后面没有可打乱的歌曲")
+            return
+        }
+        let head = Array(queue[...index])
+        let tail = Array(queue[(index + 1)...]).shuffled()
+        queue = head + tail
+        showToast("已打乱后面 \(tail.count) 首")
     }
 
     func removeFromQueue(at target: Int) {
@@ -353,8 +380,9 @@ final class PlayerEngine: NSObject, ObservableObject {
     private func updateLyricIndex(_ seconds: Double) {
         guard !lyric.isEmpty else { return }
         var target = 0
+        let adjusted = seconds + Double(lyricOffsetMs) / 1000
         for (offset, line) in lyric.enumerated() {
-            if line.time <= seconds + 0.05 { target = offset } else { break }
+            if line.time <= adjusted + 0.05 { target = offset } else { break }
         }
         if target != lyricIndex { lyricIndex = target }
     }
