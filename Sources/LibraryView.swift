@@ -47,13 +47,13 @@ struct RecommendView: View {
         guard !playlistsLoading else { return }
         playlistsLoading = true
         playlistsMessage = ""
+        defer { playlistsLoading = false }
         do {
             playlists = try await KGService.playlists()
             if playlists.isEmpty { playlistsMessage = "官方账号里没有读到歌单" }
         } catch {
             playlistsMessage = (error as? LocalizedError)?.errorDescription ?? "歌单同步失败"
         }
-        playlistsLoading = false
     }
 
     var body: some View {

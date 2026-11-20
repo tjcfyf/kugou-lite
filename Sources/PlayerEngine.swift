@@ -35,6 +35,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     private var lyricTask: Task<Void, Never>?
     private var urlCache: [String: URL] = [:]
     private var recentAutoIndices: [Int] = []
+    private var settingsVisibleCount = 0
     private var settingsVisible = false
     private var toastTask: Task<Void, Never>?
     private var artworkTask: Task<Void, Never>?
@@ -378,7 +379,12 @@ final class PlayerEngine: NSObject, ObservableObject {
     }
 
     func setSettingsVisible(_ visible: Bool) {
-        settingsVisible = visible
+        if visible {
+            settingsVisibleCount += 1
+        } else {
+            settingsVisibleCount = max(0, settingsVisibleCount - 1)
+        }
+        settingsVisible = settingsVisibleCount > 0
     }
 
     // MARK: - Ticking
