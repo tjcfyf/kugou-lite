@@ -52,16 +52,34 @@ enum KGService {
         let data = try await KGApi.shared.post(
             path: "/everyday_song_recommend",
             params: ["platform": "ios"],
+            body: [
+                "platform": "ios",
+                "userid": KGApi.shared.userid
+            ],
             router: "everydayrec.service.kugou.com",
             lite: true
         )
-        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let payload = root["data"] as? [String: Any] else {
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw KGError.server("推荐解析失败")
         }
-        let list = (payload["song_list"] as? [[String: Any]])
-            ?? (payload["list"] as? [[String: Any]])
-            ?? []
+        var list: [[String: Any]] = []
+        func append(_ value: Any?) {
+            if let items = value as? [[String: Any]] { list.append(contentsOf: items) }
+        }
+        if let payload = root["data"] as? [String: Any] {
+            append(payload["song_list"])
+            append(payload["songs"])
+            append(payload["list"])
+            if let info = payload["info"] as? [String: Any] {
+                append(info["song_list"])
+                append(info["songs"])
+                append(info["list"])
+            }
+        }
+        append(root["data"])
+        append(root["song_list"])
+        append(root["list"])
+        if list.isEmpty { throw KGError.server("今天暂时没有推荐歌曲") }
         let songs = list.compactMap { item -> Song? in
             var json: [String: Any] = [:]
             if let hash = item["hash"] as? String ?? item["FileHash"] as? String { json["FileHash"] = hash }
