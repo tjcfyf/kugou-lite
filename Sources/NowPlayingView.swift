@@ -92,7 +92,7 @@ struct NowPlayingView: View {
                             guard let song = player.current else { return }
                             let added = library.toggleFavorite(song)
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            player.showToast(added ? "已收藏" : "已取消收藏")
+                            player.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
                         }
                     )
                     .padding(.top, 8)

@@ -31,30 +31,8 @@ struct RecommendView: View {
     let onOpenPlayer: () -> Void
 
     @ObservedObject private var library = LibraryStore.shared
-    @ObservedObject private var auth = AuthStore.shared
-    @State private var playlists: [CloudPlaylist] = []
-    @State private var playlistsLoading = false
-    @State private var playlistsMessage = ""
     @State private var ranks: [RankItem] = []
     @State private var sheetTarget: DiscoverSheet?
-
-    private func loadPlaylists() async {
-        guard auth.isLoggedIn else {
-            playlists = []
-            playlistsMessage = ""
-            return
-        }
-        guard !playlistsLoading else { return }
-        playlistsLoading = true
-        playlistsMessage = ""
-        defer { playlistsLoading = false }
-        do {
-            playlists = try await KGService.playlists()
-            if playlists.isEmpty { playlistsMessage = "官方账号里没有读到歌单" }
-        } catch {
-            playlistsMessage = (error as? LocalizedError)?.errorDescription ?? "歌单同步失败"
-        }
-    }
 
     var body: some View {
         ScrollView {
@@ -74,48 +52,6 @@ struct RecommendView: View {
                         .foregroundColor(Theme.secondaryText)
                         .padding(.horizontal, 16)
                         .padding(.top, 20)
-                }
-
-                if auth.isLoggedIn {
-                    SectionTitle(title: "我的歌单",
-                                 subtitle: playlistsLoading ? "同步中…" : "\(playlists.count) 个",
-                                 actionTitle: "同步") {
-                        Task { await loadPlaylists() }
-                    }
-                    if playlistsLoading && playlists.isEmpty {
-                        HStack(spacing: 8) {
-                            ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
-                            Text("正在同步官方歌单…")
-                                .font(.system(size: 12))
-                                .foregroundColor(Theme.secondaryText)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
-                    } else if playlists.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(playlistsMessage.isEmpty ? "还没有读取到歌单" : playlistsMessage)
-                                .font(.system(size: 12))
-                                .foregroundColor(Theme.secondaryText)
-                            Button("重新同步") { Task { await loadPlaylists() } }
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(Theme.accent)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 8)
-                    } else {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                ForEach(playlists) { playlist in
-                                    Button { sheetTarget = .playlist(playlist) } label: {
-                                        PlaylistCard(playlist: playlist)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 6)
-                        }
-                    }
                 }
 
                 if !ranks.isEmpty {
@@ -147,35 +83,6 @@ struct RecommendView: View {
                     }
                 }
 
-                if !library.favorites.isEmpty {
-                    SectionTitle(title: "我的收藏", subtitle: "\(library.favorites.count) 首", actionTitle: "查看全部") {
-                        sheetTarget = .library(.favorites)
-                    }
-                    ForEach(library.favorites, id: \.favoriteRowID) { song in
-                        Button {
-                            onSelect(song, library.favorites)
-                        } label: {
-                            SongRow(song: song)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 16)
-                    }
-                }
-
-                if !library.recent.isEmpty {
-                    SectionTitle(title: "最近播放", subtitle: "\(library.recent.count) 首", actionTitle: "查看全部") {
-                        sheetTarget = .library(.recent)
-                    }
-                    ForEach(library.recent, id: \.recentRowID) { song in
-                        Button {
-                            onSelect(song, library.recent)
-                        } label: {
-                            SongRow(song: song)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 16)
-                    }
-                }
             }
             .padding(.bottom, 24)
         }
@@ -189,7 +96,6 @@ struct RecommendView: View {
             await model.load(force: true)
             await library.enrichMissingCovers()
             ranks = (try? await KGService.ranks()) ?? ranks
-            await loadPlaylists()
         }
         .onAppear {
             library.refresh()
@@ -197,7 +103,6 @@ struct RecommendView: View {
         .task {
             await library.enrichMissingCovers()
             if ranks.isEmpty { ranks = (try? await KGService.ranks()) ?? [] }
-            await loadPlaylists()
         }
         .sheet(item: $sheetTarget) { target in
             switch target {
@@ -213,9 +118,6 @@ struct RecommendView: View {
                     onSelect(song, list)
                     onOpenPlayer()
                 }
-            case .library(let kind):
-                LibrarySongsView(kind: kind)
-                    .environmentObject(player)
             }
         }
     }
@@ -278,19 +180,17 @@ enum LibraryKind: String, Identifiable {
     case recent
 
     var id: String { rawValue }
-    var title: String { self == .favorites ? "我的收藏" : "最近播放" }
+    var title: String { self == .favorites ? "我喜欢" : "最近播放" }
 }
 
 enum DiscoverSheet: Identifiable {
     case playlist(CloudPlaylist)
     case rank(RankItem)
-    case library(LibraryKind)
 
     var id: String {
         switch self {
         case .playlist(let playlist): return "playlist-\(playlist.id)"
         case .rank(let rank): return "rank-\(rank.id)"
-        case .library(let kind): return "library-\(kind.id)"
         }
     }
 }
@@ -460,6 +360,15 @@ struct PlaylistDetailSheet: View {
     @State private var message = ""
     @State private var page = 1
     @State private var hasMore = true
+    @State private var isSelecting = false
+    @State private var selectedHashes = Set<String>()
+    @State private var showTargetPicker = false
+    @State private var adding = false
+    @State private var toast = ""
+
+    private var selectedSongs: [Song] {
+        songs.filter { selectedHashes.contains($0.id) }
+    }
 
     var body: some View {
         NavigationView {
@@ -470,24 +379,50 @@ struct PlaylistDetailSheet: View {
                     } else if !message.isEmpty && songs.isEmpty {
                         Text(message).font(.system(size: 13)).foregroundColor(Theme.secondaryText).padding(.top, 24)
                     } else if !songs.isEmpty {
-                        Text(playlist.isCollected ? "收藏歌单 · \(playlist.count) 首" : "歌单 · \(playlist.count) 首")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(Theme.secondaryText)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 16)
-                            .padding(.top, 14)
-                            .padding(.bottom, 4)
+                        HStack(alignment: .center, spacing: 8) {
+                            Text(playlist.isCollected ? "收藏歌单 · \(playlist.count) 首" : "歌单 · \(playlist.count) 首")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(Theme.secondaryText)
+                            Spacer()
+                            Button(isSelecting ? "取消" : "批量加入") {
+                                withAnimation(.easeOut(duration: 0.18)) {
+                                    isSelecting.toggle()
+                                    selectedHashes.removeAll()
+                                }
+                            }
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Theme.accent)
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 14)
+                        .padding(.bottom, 4)
                     }
+
                     ForEach(songs) { song in
                         Button {
-                            dismiss()
-                            onSelect(song, songs)
+                            if isSelecting {
+                                toggle(song)
+                            } else {
+                                dismiss()
+                                onSelect(song, songs)
+                            }
                         } label: {
-                            SongRow(song: song)
+                            HStack(spacing: 8) {
+                                if isSelecting {
+                                    Image(systemName: selectedHashes.contains(song.id) ? "checkmark.circle.fill" : "circle")
+                                        .font(.system(size: 18, weight: .medium))
+                                        .foregroundColor(selectedHashes.contains(song.id) ? Theme.accent : Theme.secondaryText)
+                                        .frame(width: 22)
+                                }
+                                SongRow(song: song)
+                            }
                         }
                         .buttonStyle(.plain)
                         .padding(.horizontal, 16)
+                        .contentShape(Rectangle())
                     }
+
                     if !loading && !songs.isEmpty && hasMore {
                         Button {
                             Task { await loadMore() }
@@ -512,7 +447,12 @@ struct PlaylistDetailSheet: View {
                             .padding(.vertical, 16)
                     }
                 }
-                .padding(.bottom, 24)
+                .padding(.bottom, isSelecting ? 12 : 24)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if isSelecting {
+                    batchBar
+                }
             }
             .background(AppBackground())
             .navigationTitle(playlist.name)
@@ -528,8 +468,72 @@ struct PlaylistDetailSheet: View {
                     }
                 }
             }
+            .overlay(alignment: .top) {
+                if !toast.isEmpty { ToastView(text: toast) }
+            }
         }
         .task { await loadMore() }
+        .sheet(isPresented: $showTargetPicker) {
+            PlaylistTargetPicker { target in
+                Task { await addSelected(to: target) }
+            }
+        }
+    }
+
+    private var batchBar: some View {
+        HStack(spacing: 12) {
+            Text("已选 \(selectedSongs.count) 首")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(Theme.text)
+            Spacer()
+            Button {
+                showTargetPicker = true
+            } label: {
+                HStack(spacing: 4) {
+                    if adding { ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white)) }
+                    Text(adding ? "加入中…" : "加入歌单")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 9)
+                .background(selectedHashes.isEmpty ? Theme.secondaryText.opacity(0.35) : Theme.accent)
+                .cornerRadius(18)
+            }
+            .buttonStyle(.plain)
+            .disabled(selectedHashes.isEmpty || adding)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background(Theme.card.opacity(0.96))
+    }
+
+    private func toggle(_ song: Song) {
+        if selectedHashes.contains(song.id) {
+            selectedHashes.remove(song.id)
+        } else {
+            selectedHashes.insert(song.id)
+        }
+    }
+
+    private func addSelected(to target: CloudPlaylist) async {
+        let picked = selectedSongs
+        guard !picked.isEmpty else { return }
+        adding = true
+        do {
+            try await KGService.addSongs(picked, to: target)
+            toast = "已加入「\(target.name)」"
+            isSelecting = false
+            selectedHashes.removeAll()
+            Task {
+                try? await Task.sleep(nanoseconds: 1600000000)
+                if toast == "已加入「\(target.name)」" { toast = "" }
+            }
+        } catch {
+            toast = (error as? LocalizedError)?.errorDescription ?? "加入歌单失败"
+        }
+        adding = false
     }
 
     private func loadMore() async {
@@ -562,6 +566,86 @@ struct PlaylistDetailSheet: View {
                 message = (error as? LocalizedError)?.errorDescription ?? "歌单加载失败"
             }
         }
+    }
+}
+
+struct PlaylistTargetPicker: View {
+    let onPick: (CloudPlaylist) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var playlists: [CloudPlaylist] = []
+    @State private var loading = true
+    @State private var message = ""
+
+    var body: some View {
+        NavigationView {
+            List {
+                if loading {
+                    HStack(spacing: 8) {
+                        ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
+                        Text("读取歌单…").font(.system(size: 12)).foregroundColor(Theme.secondaryText)
+                    }
+                    .listRowBackground(Theme.card)
+                } else if !message.isEmpty {
+                    Text(message)
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.secondaryText)
+                        .listRowBackground(Theme.card)
+                } else if playlists.isEmpty {
+                    Text("没有可写入的自建歌单，先在酷狗创建或取消收藏后再试")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.secondaryText)
+                        .listRowBackground(Theme.card)
+                } else {
+                    ForEach(playlists) { playlist in
+                        Button {
+                            dismiss()
+                            onPick(playlist)
+                        } label: {
+                            HStack(spacing: 10) {
+                                CoverImage(url: playlist.cover.flatMap(URL.init(string:)), size: 44, radius: 8)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(playlist.name)
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(Theme.text)
+                                        .lineLimit(1)
+                                    Text("\(playlist.count) 首")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(Theme.secondaryText)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(Theme.tertiaryText)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(Theme.card)
+                    }
+                }
+            }
+            .listStyle(.plain)
+            .background(AppBackground())
+            .navigationTitle("选择歌单")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) { Button("关闭") { dismiss() } }
+            }
+            .task { await load() }
+        }
+        .navigationViewStyle(.stack)
+    }
+
+    private func load() async {
+        loading = true
+        message = ""
+        do {
+            let all = try await KGService.playlists()
+            playlists = all.filter { !$0.isCollected && $0.listid != nil }
+        } catch {
+            message = (error as? LocalizedError)?.errorDescription ?? "歌单读取失败"
+        }
+        loading = false
     }
 }
 
@@ -604,11 +688,18 @@ struct SectionTitle: View {
 struct ProfileView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var player: PlayerEngine
+    @ObservedObject private var library = LibraryStore.shared
+    var onOpenPlayer: () -> Void = {}
     @State private var quality: AudioQuality = Preferences.quality
     @State private var showLogin = false
     @State private var showSettings = false
     @State private var showDiagnostics = false
     @State private var profile: KugouProfile?
+    @State private var playlists: [CloudPlaylist] = []
+    @State private var playlistsLoading = false
+    @State private var playlistsMessage = ""
+    @State private var selectedPlaylist: CloudPlaylist?
+    @State private var showFavorites = false
     @State private var toast = ""
     @State private var sleepText = ""
     @State private var customMinutes = 45
@@ -618,6 +709,8 @@ struct ProfileView: View {
         ScrollView {
             VStack(spacing: 18) {
                 accountCard
+                favoritesCard
+                playlistsSection
 
                 Button { showSettings = true } label: {
                     row(title: "设置", icon: "gearshape")
@@ -641,13 +734,140 @@ struct ProfileView: View {
         .sheet(isPresented: $showSettings) {
             SettingsView().environmentObject(player)
         }
+        .sheet(isPresented: $showFavorites) {
+            LibrarySongsView(kind: .favorites).environmentObject(player)
+        }
+        .sheet(item: $selectedPlaylist) { playlist in
+            PlaylistDetailSheet(playlist: playlist) { song, list in
+                selectedPlaylist = nil
+                player.play(song, in: list)
+                onOpenPlayer()
+            }
+        }
         .overlay(alignment: .top) {
             if !toast.isEmpty { ToastView(text: toast) }
         }
-        .task { await loadProfile() }
-        .onChange(of: auth.isLoggedIn) { _ in
-            Task { await loadProfile() }
+        .task {
+            await loadProfile()
+            await loadPlaylists()
         }
+        .onChange(of: auth.isLoggedIn) { _ in
+            Task {
+                await loadProfile()
+                await loadPlaylists()
+            }
+        }
+    }
+
+    private func loadPlaylists() async {
+        guard auth.isLoggedIn else {
+            playlists = []
+            playlistsMessage = ""
+            return
+        }
+        guard !playlistsLoading else { return }
+        playlistsLoading = true
+        playlistsMessage = ""
+        defer { playlistsLoading = false }
+        do {
+            playlists = try await KGService.playlists()
+            if playlists.isEmpty { playlistsMessage = "官方账号里没有读到歌单" }
+        } catch {
+            playlistsMessage = (error as? LocalizedError)?.errorDescription ?? "歌单同步失败"
+        }
+    }
+
+    private var favoritesCard: some View {
+        Button { showFavorites = true } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().fill(Theme.accent.opacity(0.12))
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(Theme.accent)
+                }
+                .frame(width: 44, height: 44)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("我喜欢")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                    Text("\(library.favorites.count) 首")
+                        .font(.system(size: 11))
+                        .foregroundColor(Theme.secondaryText)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Theme.tertiaryText)
+            }
+            .padding(14)
+            .background(Theme.card)
+            .cornerRadius(14)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var playlistsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text("我的歌单")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(Theme.text)
+                Text(playlistsLoading ? "同步中…" : "\(playlists.count) 个")
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.secondaryText)
+                Spacer()
+                if auth.isLoggedIn {
+                    Button { Task { await loadPlaylists() } } label: {
+                        HStack(spacing: 2) {
+                            Text("同步")
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                        .font(.system(size: 11))
+                        .foregroundColor(Theme.secondaryText)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            if !auth.isLoggedIn {
+                Text("登录后同步官方云歌单")
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.secondaryText)
+                    .padding(.vertical, 6)
+            } else if playlistsLoading && playlists.isEmpty {
+                HStack(spacing: 8) {
+                    ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
+                    Text("正在读取官方歌单…")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.secondaryText)
+                }
+                .padding(.vertical, 8)
+            } else if playlists.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(playlistsMessage.isEmpty ? "还没有读取到歌单" : playlistsMessage)
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.secondaryText)
+                    Button("重新同步") { Task { await loadPlaylists() } }
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Theme.accent)
+                }
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(playlists) { playlist in
+                            Button {
+                                selectedPlaylist = playlist
+                            } label: {
+                                PlaylistCard(playlist: playlist)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.top, 2)
     }
 
     private func loadProfile() async {
@@ -955,7 +1175,7 @@ struct LibrarySongsView: View {
             List {
                 if songs.isEmpty {
                     Text(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                         ? (kind == .favorites ? "还没有收藏，长按歌曲就能收藏" : "还没有播放记录")
+                         ? (kind == .favorites ? "还没有喜欢的歌曲，长按歌曲就能加入我喜欢" : "还没有播放记录")
                          : "没有匹配的歌曲")
                         .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)

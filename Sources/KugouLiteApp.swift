@@ -124,7 +124,7 @@ struct RootView: View {
 
     private var profileTab: some View {
         NavigationView {
-            ProfileView()
+            ProfileView(onOpenPlayer: { showPlayer = true })
                 .navigationTitle("我的")
                 .navigationBarTitleDisplayMode(.inline)
         }

@@ -426,6 +426,64 @@ enum KGService {
         }
     }
 
+    /// 把一批歌曲加入指定自建歌单。官方接口支持一次传多首，适合批量操作。
+    static func addSongs(_ songs: [Song], to playlist: CloudPlaylist) async throws {
+        guard let token = KGApi.shared.token, KGApi.shared.userid != 0 else {
+            throw KGError.server("请先登录")
+        }
+        guard let listid = playlist.listid, !listid.isEmpty else {
+            throw KGError.server("这个歌单没有 listid，不能写入")
+        }
+        guard !songs.isEmpty else { return }
+        guard !playlist.isCollected else {
+            throw KGError.server("收藏歌单不能直接写入，请选择我创建的歌单")
+        }
+
+        let clienttime = Int(Date().timeIntervalSince1970)
+        let resources: [[String: Any]] = songs.map { song in
+            [
+                "number": 1,
+                "name": song.SongName,
+                "hash": song.FileHash,
+                "size": 0,
+                "sort": 0,
+                "timelen": 0,
+                "bitrate": 0,
+                "album_id": song.AlbumID ?? 0,
+                "mixsongid": song.MixSongID ?? song.Audioid ?? 0
+            ]
+        }
+        let data = try await KGApi.shared.post(
+            path: "/cloudlist.service/v6/add_song",
+            params: [
+                "last_time": "\(clienttime)",
+                "last_area": "gztx",
+                "userid": "\(KGApi.shared.userid)",
+                "token": token
+            ],
+            body: [
+                "userid": KGApi.shared.userid,
+                "token": token,
+                "listid": listid,
+                "list_ver": 0,
+                "type": 0,
+                "slow_upload": 1,
+                "scene": "false;null",
+                "data": resources
+            ],
+            lite: true
+        )
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw KGError.server("加入歌单返回格式异常")
+        }
+        let status = Song.intValue(root["status"]) ?? 0
+        if status != 1 {
+            let code = Song.intValue(root["error_code"]) ?? 0
+            let message = (root["error"]) as? String ?? (root["error_msg"] as? String) ?? ""
+            throw KGError.server("加入歌单失败（\(status)/\(code)）\(message.isEmpty ? "" : "：\(message)")")
+        }
+    }
+
     /// 从云歌单列表里提取当前账号昵称/头像，给资料接口做兜底。
     static func profileFromPlaylists() async -> KugouProfile? {
         guard let token = KGApi.shared.token, KGApi.shared.userid != 0 else { return nil }

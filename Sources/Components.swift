@@ -129,9 +129,9 @@ struct SongActionsSheet: View {
                 player.playNext(song)
                 dismiss()
             }
-            actionRow(title: isFavorite ? "取消收藏" : "收藏", icon: isFavorite ? "heart.fill" : "heart") {
+            actionRow(title: isFavorite ? "取消我喜欢" : "我喜欢", icon: isFavorite ? "heart.fill" : "heart") {
                 let added = library.toggleFavorite(song)
-                player.showToast(added ? "已收藏" : "已取消收藏")
+                player.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
                 dismiss()
             }
             actionRow(title: "加入播放列表末尾", icon: "text.badge.plus") {
@@ -252,9 +252,9 @@ struct SongRow: View {
             }
             Button {
                 let added = library.toggleFavorite(song)
-                player.showToast(added ? "已收藏" : "已取消收藏")
+                player.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
             } label: {
-                Label(isFavorite ? "取消收藏" : "收藏",
+                Label(isFavorite ? "取消我喜欢" : "我喜欢",
                       systemImage: isFavorite ? "heart.fill" : "heart")
             }
             Button {
