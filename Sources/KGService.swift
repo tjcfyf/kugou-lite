@@ -143,6 +143,64 @@ enum KGService {
         return raw.compactMap { item in normalizeRankSong(item) }
     }
 
+    // MARK: - 专辑
+
+    static func albumSongs(albumID: Int, page: Int = 1, pageSize: Int = 60) async throws -> [Song] {
+        let data = try await KGApi.shared.post(
+            path: "/v1/album_audio/lite",
+            params: [:],
+            body: [
+                "album_id": albumID,
+                "is_buy": "",
+                "page": page,
+                "pagesize": pageSize
+            ],
+            router: "openapi.kugou.com"
+        )
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
+        if let code = Song.intValue(root["error_code"]), code != 0 {
+            throw KGError.server("专辑读取失败（\(code)）")
+        }
+        let raw = (root["data"] as? [String: Any])?["songs"] as? [[String: Any]]
+            ?? (root["data"] as? [String: Any])?["info"] as? [[String: Any]]
+            ?? []
+        return raw.compactMap { normalizeAlbumSong($0) }
+    }
+
+    private static func normalizeAlbumSong(_ item: [String: Any]) -> Song? {
+        let base = item["base"] as? [String: Any] ?? [:]
+        let audio = item["audio_info"] as? [String: Any] ?? [:]
+        let album = item["album_info"] as? [String: Any] ?? [:]
+        let deprecated = item["deprecated"] as? [String: Any] ?? [:]
+
+        let hash = (audio["hash"] as? String)
+            ?? (audio["hash_320"] as? String)
+            ?? (audio["hash_high"] as? String)
+            ?? (audio["hash_128"] as? String)
+            ?? (item["hash"] as? String)
+        guard let fileHash = hash, !fileHash.isEmpty else { return nil }
+        guard let songName = (base["audio_name"] as? String) ?? (item["songname"] as? String), !songName.isEmpty else { return nil }
+
+        var json: [String: Any] = [
+            "FileHash": fileHash,
+            "SongName": songName,
+            "SingerName": (base["author_name"] as? String) ?? (item["singername"] as? String) ?? ""
+        ]
+        json["AlbumID"] = base["album_id"] ?? item["album_id"] ?? album["album_id"]
+        json["AlbumName"] = album["album_name"] ?? item["album_name"]
+        json["Duration"] = audio["duration"] ?? item["duration"]
+        json["MixSongID"] = base["album_audio_id"] ?? item["album_audio_id"]
+        json["Audioid"] = base["audio_id"] ?? item["audio_id"]
+        json["PayType"] = deprecated["pay_type"] ?? item["pay_type"]
+        json["Privilege"] = deprecated["privilege"] ?? item["privilege"]
+        if let cover = album["cover"] as? String {
+            json["Image"] = cover.replacingOccurrences(of: "{size}", with: "240")
+        } else {
+            json["Image"] = findImage(in: item)
+        }
+        return Song(json: json)
+    }
+
     private static func normalizeRankSong(_ item: [String: Any]) -> Song? {
         let deprecated = item["deprecated"] as? [String: Any] ?? [:]
         guard let hash = (deprecated["hash"] as? String) ?? (item["hash"] as? String), !hash.isEmpty else { return nil }

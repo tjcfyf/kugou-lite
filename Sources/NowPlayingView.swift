@@ -4,8 +4,7 @@ import UIKit
 struct NowPlayingView: View {
     @EnvironmentObject private var player: PlayerEngine
     @Environment(\.colorScheme) private var colorScheme
-    @State private var showQueue = false
-    @State private var showPlayerSettings = false
+    @State private var activeSheet: PlayerSheet?
     @ObservedObject private var library = LibraryStore.shared
     @State private var lyricSize: LyricTextSize = Preferences.lyricSize
     @State private var showRemaining = false
@@ -14,6 +13,20 @@ struct NowPlayingView: View {
     @AppStorage(Preferences.coverDoubleTapKey) private var coverDoubleTapEnabled = true
 
     private var gestureMode: Bool { coverSwipeEnabled && coverDoubleTapEnabled }
+
+    private enum PlayerSheet: Identifiable {
+        case queue
+        case settings
+        case album(AlbumTarget)
+
+        var id: String {
+            switch self {
+            case .queue: return "queue"
+            case .settings: return "settings"
+            case .album(let target): return "album-\(target.id)"
+            }
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -96,6 +109,29 @@ struct NowPlayingView: View {
                                 )
                         }
                     }
+
+                    if let song = player.current, let albumID = song.AlbumID,
+                       let albumName = song.AlbumName, !albumName.isEmpty {
+                        Button {
+                            activeSheet = .album(AlbumTarget(id: albumID,
+                                                             name: albumName,
+                                                             cover: song.coverURL,
+                                                             artist: song.artist))
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "rectangle.stack")
+                                    .font(.system(size: 10, weight: .medium))
+                                Text(albumName)
+                                    .lineLimit(1)
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 8, weight: .semibold))
+                            }
+                            .font(.system(size: 11))
+                            .foregroundColor(Theme.secondaryText)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 1)
+                    }
                 }
                 .padding(.horizontal, 28)
                 .padding(.top, 18)
@@ -118,7 +154,7 @@ struct NowPlayingView: View {
             VStack {
                 HStack(spacing: 8) {
                     if gestureMode {
-                        Button { showQueue = true } label: {
+                        Button { activeSheet = .queue } label: {
                             Image(systemName: "list.bullet")
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(Theme.text.opacity(0.7))
@@ -130,7 +166,7 @@ struct NowPlayingView: View {
                     }
                     Spacer()
                     Button {
-                        showPlayerSettings = true
+                        activeSheet = .settings
                     } label: {
                         Image(systemName: "slider.horizontal.3")
                             .font(.system(size: 16, weight: .medium))
@@ -154,11 +190,15 @@ struct NowPlayingView: View {
             }
         }
         .animation(.easeOut(duration: 0.22), value: player.toast)
-        .sheet(isPresented: $showQueue) {
-            QueueView().environmentObject(player)
-        }
-        .sheet(isPresented: $showPlayerSettings) {
-            PlayerSettingsView().environmentObject(player)
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .queue:
+                QueueView().environmentObject(player)
+            case .settings:
+                PlayerSettingsView().environmentObject(player)
+            case .album(let target):
+                AlbumDetailSheet(target: target).environmentObject(player)
+            }
         }
 
     }
@@ -285,7 +325,7 @@ struct NowPlayingView: View {
                     .foregroundColor(Theme.text.opacity(0.85))
             }
 
-            Button { showQueue = true } label: {
+            Button { activeSheet = .queue } label: {
                 Image(systemName: "list.bullet")
                     .font(.system(size: 19, weight: .semibold))
                     .foregroundColor(Theme.text.opacity(0.65))
