@@ -12,6 +12,7 @@ struct NowPlayingView: View {
     @AppStorage(Preferences.coverSwipeKey) private var coverSwipeEnabled = true
     @AppStorage(Preferences.coverDoubleTapKey) private var coverDoubleTapEnabled = true
     @AppStorage(Preferences.keepAwakeKey) private var keepAwake = false
+    @State private var coverPressed = false
     @State private var isScrubbing = false
     @State private var scrubTime: Double = 0
 
@@ -41,7 +42,13 @@ struct NowPlayingView: View {
                 grabber
 
                 CoverImage(url: player.current?.coverURL, size: 262, radius: 24)
-                    .shadow(color: .black.opacity(0.4), radius: 24, x: 0, y: 12)
+                    .shadow(color: .black.opacity(coverPressed ? 0.26 : 0.4),
+                            radius: coverPressed ? 14 : 24,
+                            x: 0,
+                            y: coverPressed ? 7 : 12)
+                    .scaleEffect(coverPressed ? 0.955 : 1.0)
+                    .opacity(coverPressed ? 0.94 : 1.0)
+                    .animation(.interactiveSpring(response: 0.26, dampingFraction: 0.72), value: coverPressed)
                     .offset(x: coverDragOffset)
                     .animation(.interactiveSpring(response: 0.34, dampingFraction: 0.82), value: coverDragOffset)
                     .gesture(
@@ -64,12 +71,21 @@ struct NowPlayingView: View {
                         guard coverDoubleTapEnabled else { return }
                         player.toggle()
                     }
-                    .onLongPressGesture(minimumDuration: 0.55, maximumDistance: 30) {
-                        guard let song = player.current else { return }
-                        let added = library.toggleFavorite(song)
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        player.showToast(added ? "已收藏" : "已取消收藏")
-                    }
+                    .onLongPressGesture(
+                        minimumDuration: 0.55,
+                        maximumDistance: 30,
+                        pressing: { pressing in
+                            withAnimation(.interactiveSpring(response: 0.26, dampingFraction: 0.72)) {
+                                coverPressed = pressing
+                            }
+                        },
+                        perform: {
+                            guard let song = player.current else { return }
+                            let added = library.toggleFavorite(song)
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            player.showToast(added ? "已收藏" : "已取消收藏")
+                        }
+                    )
                     .padding(.top, 8)
 
                 VStack(spacing: 4) {
