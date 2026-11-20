@@ -54,6 +54,7 @@ struct RecommendView: View {
             }
         }
         .background(AppBackground())
+        .animation(.easeInOut(duration: 0.28), value: isSearching)
         .task {
             historyWords = Preferences.searchHistory
             if hotKeywords.isEmpty {
@@ -86,35 +87,46 @@ struct RecommendView: View {
     private var header: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(isSearching ? "搜索" : "今天想听点什么")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundColor(Theme.text)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.80)
-
-                if !isSearching {
-                    Text("每天一组，按你的口味来")
-                        .font(.system(size: 13))
-                        .foregroundColor(Theme.secondaryText)
+                ZStack(alignment: .leading) {
+                    Text("今天想听点什么")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(Theme.text)
+                        .opacity(isSearching ? 0 : 1)
+                    Text("搜索")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(Theme.text)
+                        .opacity(isSearching ? 1 : 0)
                 }
+                .lineLimit(1)
+                .minimumScaleFactor(0.80)
+
+                Text("每天一组，按你的口味来")
+                    .font(.system(size: 13))
+                    .foregroundColor(Theme.secondaryText)
+                    .opacity(isSearching ? 0 : 1)
+                    .frame(height: isSearching ? 0 : nil, alignment: .top)
+                    .clipped()
             }
+            .animation(.easeInOut(duration: 0.26), value: isSearching)
 
             Spacer(minLength: 8)
 
             Button(action: toggleSearch) {
-                if isSearching {
-                    Text("取消")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(Theme.accent)
-                        .frame(height: 44)
-                        .contentShape(Rectangle())
-                } else {
+                ZStack {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(Theme.accent)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+                        .opacity(isSearching ? 0 : 1)
+                        .scaleEffect(isSearching ? 0.82 : 1)
+                    Text("取消")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(Theme.accent)
+                        .opacity(isSearching ? 1 : 0)
+                        .scaleEffect(isSearching ? 1 : 0.92)
                 }
+                .frame(width: 48, height: 44)
+                .contentShape(Rectangle())
+                .animation(.easeInOut(duration: 0.24), value: isSearching)
             }
             .buttonStyle(GlassPressButtonStyle())
             .accessibilityLabel(isSearching ? "关闭搜索" : "搜索")
@@ -195,10 +207,13 @@ struct RecommendView: View {
                             onSelect(song, model.songs)
                         }
                         .padding(.horizontal, 16)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
                     }
                 }
             }
             .padding(.bottom, 96)
+            .animation(.easeInOut(duration: 0.28), value: model.songs.count)
+            .animation(.easeInOut(duration: 0.28), value: ranks.count)
         }
         .refreshable {
             await model.load(force: true)
@@ -278,6 +293,7 @@ struct RecommendView: View {
                         onSelectSearch(song)
                     }
                     .padding(.horizontal, 16)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
 
                 if searchModel.isLoadingMore {
@@ -292,6 +308,7 @@ struct RecommendView: View {
                 }
             }
             .padding(.bottom, 24)
+            .animation(.easeInOut(duration: 0.24), value: searchModel.songs.count)
         }
     }
 

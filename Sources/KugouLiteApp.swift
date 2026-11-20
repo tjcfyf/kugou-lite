@@ -56,7 +56,7 @@ struct RootView: View {
                     .zIndex(tab == 1 ? 1 : 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(.easeInOut(duration: 0.28), value: tab)
+            .animation(.spring(response: 0.34, dampingFraction: 0.88), value: tab)
 
             FloatingTabBar(tab: $tab, onOpenPlayer: { showPlayer = true })
                 .opacity(isSearching ? 0 : 1)
@@ -178,9 +178,15 @@ private struct ToastOverlay: View {
         Group {
             if let toast = player.toast {
                 ToastView(text: toast)
+                    .transition(
+                        .asymmetric(
+                            insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.96)),
+                            removal: .opacity.combined(with: .scale(scale: 0.98))
+                        )
+                    )
             }
         }
-        .animation(.easeOut(duration: 0.22), value: player.toast)
+        .animation(.easeOut(duration: 0.24), value: player.toast)
     }
 }
 

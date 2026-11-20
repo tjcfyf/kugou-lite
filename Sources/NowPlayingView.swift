@@ -452,14 +452,27 @@ struct NowPlayingView: View {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: Theme.text))
                             .frame(width: 56, height: 56)
+                            .transition(.opacity.combined(with: .scale(scale: 0.86)))
                     } else {
-                        Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 52, weight: .semibold))
-                            .foregroundColor(Theme.text)
-                            .frame(width: 64, height: 64)
-                            .contentShape(Rectangle())
+                        ZStack {
+                            Image(systemName: "pause.fill")
+                                .font(.system(size: 52, weight: .semibold))
+                                .foregroundColor(Theme.text)
+                                .opacity(player.isPlaying ? 1 : 0)
+                                .scaleEffect(player.isPlaying ? 1 : 0.86)
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 52, weight: .semibold))
+                                .foregroundColor(Theme.text)
+                                .opacity(player.isPlaying ? 0 : 1)
+                                .scaleEffect(player.isPlaying ? 0.86 : 1)
+                        }
+                        .frame(width: 64, height: 64)
+                        .contentShape(Rectangle())
+                        .transition(.opacity)
                     }
                 }
+                .animation(.easeInOut(duration: 0.20), value: player.isPlaying)
+                .animation(.easeInOut(duration: 0.20), value: player.isLoading)
             }
             .buttonStyle(GlassPressButtonStyle())
 

@@ -116,17 +116,23 @@ struct CoverImage: View {
     var body: some View {
         Group {
             if let image = image {
-                Image(uiImage: image).resizable().scaledToFill()
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .transition(.opacity)
             } else {
                 placeholder
+                    .transition(.opacity)
             }
         }
         .task(id: url?.absoluteString) {
-            image = nil
-            guard let url = url else { return }
+            guard let url = url else {
+                withAnimation(.easeInOut(duration: 0.24)) { image = nil }
+                return
+            }
             let key = url.absoluteString as NSString
             if let cached = CoverCache.shared.cache.object(forKey: key) {
-                image = cached
+                withAnimation(.easeInOut(duration: 0.24)) { image = cached }
                 return
             }
             var request = URLRequest(url: url)
@@ -136,7 +142,7 @@ struct CoverImage: View {
                   let http = response as? HTTPURLResponse, http.statusCode == 200,
                   let decoded = UIImage(data: data) else { return }
             CoverCache.shared.cache.setObject(decoded, forKey: key)
-            image = decoded
+            withAnimation(.easeInOut(duration: 0.26)) { image = decoded }
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
@@ -338,15 +344,15 @@ struct FloatingTabBar: View {
 
             tabButton(title: "我的", icon: "person.crop.circle", tag: 1)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 14)
         .frame(maxWidth: 320)
-        .frame(height: 60)
+        .frame(height: 64)
         .background(
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
                 .fill(.ultraThinMaterial)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
                 .stroke(Theme.border, lineWidth: 0.5)
         )
         .shadow(
@@ -369,22 +375,22 @@ struct FloatingTabBar: View {
         } label: {
             ZStack {
                 if tab == tag {
-                    Capsule()
+                    Circle()
                         .fill(Theme.accent.opacity(colorScheme == .dark ? 0.16 : 0.10))
                         .matchedGeometryEffect(id: "selected-tab", in: tabSelection)
-                        .frame(width: 58, height: 46)
+                        .frame(width: 54, height: 54)
                 }
 
                 VStack(spacing: 2) {
                     Image(systemName: icon)
-                        .font(.system(size: 25, weight: tab == tag ? .semibold : .regular))
+                        .font(.system(size: 26, weight: tab == tag ? .semibold : .regular))
                         .scaleEffect(tab == tag ? 1.06 : 1)
                     Text(title)
                         .font(.system(size: 10, weight: tab == tag ? .semibold : .regular))
                 }
                 .foregroundColor(tab == tag ? Theme.accent : Theme.secondaryText)
             }
-            .frame(width: 66, height: 52)
+            .frame(width: 68, height: 56)
             .contentShape(Rectangle())
         }
         .buttonStyle(GlassPressButtonStyle())
@@ -412,10 +418,10 @@ private struct FloatingAlbumButton: View {
                         .trim(from: 0, to: min(max(player.currentTime / player.duration, 0), 1))
                         .stroke(Theme.accent, lineWidth: 2)
                         .rotationEffect(.degrees(-90))
-                        .frame(width: 53, height: 53)
+                        .frame(width: 55, height: 55)
                 }
             }
-            .frame(width: 56, height: 56)
+            .frame(width: 58, height: 58)
             .scaleEffect(player.isPlaying ? 1.0 : 0.985)
             .contentShape(Circle())
             .animation(.easeInOut(duration: 0.22), value: player.isPlaying)
@@ -435,9 +441,9 @@ private struct BottomArtwork: View {
     var body: some View {
         Group {
             if let song = player.current, let url = song.coverURL {
-                CoverImage(url: url, size: 50, radius: 25)
+                CoverImage(url: url, size: 52, radius: 26)
             } else {
-                RotatingAlbumPlaceholder(size: 50)
+                RotatingAlbumPlaceholder(size: 52)
             }
         }
         .transition(.opacity)
