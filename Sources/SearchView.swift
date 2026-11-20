@@ -120,7 +120,7 @@ struct SearchView: View {
                             .foregroundColor(Theme.secondaryText)
                         Spacer()
                         Button {
-                            onSelect(model.songs[0], model.songs)
+                            onSelect(model.songs[0])
                         } label: {
                             Label("播放全部", systemImage: "play.fill")
                                 .font(.system(size: 11, weight: .semibold))
