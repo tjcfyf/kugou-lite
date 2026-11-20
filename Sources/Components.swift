@@ -319,10 +319,11 @@ struct SongRowWithMenu: View {
     }
 }
 
-/// 底部导航：系统工具栏形态，整条贴底，只用一层 regularMaterial 区分功能层与内容层。
+/// 悬浮底栏：单层系统材质 + hairline + 克制阴影，保留通透感但不做液态玻璃高光。
 struct FloatingTabBar: View {
     @Binding var tab: Int
     let onOpenPlayer: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: 0) {
@@ -336,19 +337,25 @@ struct FloatingTabBar: View {
 
             tabButton(title: "我的", icon: "person.crop.circle", tag: 1)
         }
-        .padding(.horizontal, 28)
-        .frame(maxWidth: .infinity)
-        .frame(height: 54)
-        .background {
-            Rectangle()
+        .padding(.horizontal, 12)
+        .frame(maxWidth: 344)
+        .frame(height: 58)
+        .background(
+            RoundedRectangle(cornerRadius: 29, style: .continuous)
                 .fill(.regularMaterial)
-                .ignoresSafeArea(edges: .bottom)
-        }
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Theme.separator.opacity(0.72))
-                .frame(height: 0.5)
-        }
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 29, style: .continuous)
+                .stroke(Theme.border, lineWidth: 0.5)
+        )
+        .shadow(
+            color: Color.black.opacity(colorScheme == .dark ? 0.28 : 0.10),
+            radius: 18,
+            x: 0,
+            y: 8
+        )
+        .padding(.horizontal, 18)
+        .padding(.bottom, 8)
         .animation(.easeInOut(duration: 0.18), value: tab)
     }
 
@@ -365,7 +372,7 @@ struct FloatingTabBar: View {
                     .font(.system(size: 10, weight: tab == tag ? .semibold : .regular))
             }
             .foregroundColor(tab == tag ? Theme.accent : Theme.secondaryText)
-            .frame(width: 88, height: 48)
+            .frame(width: 72, height: 50)
             .contentShape(Rectangle())
         }
         .buttonStyle(GlassPressButtonStyle())

@@ -204,6 +204,29 @@ struct NowPlayingView: View {
     private var moreMenu: some View {
         Menu {
             if let song = player.current {
+                if !song.artist.isEmpty {
+                    Button {
+                        activeSheet = .artist(ArtistTarget(name: song.artist,
+                                                          authorID: song.AuthorID,
+                                                          cover: song.coverURL))
+                    } label: {
+                        Label("查看作者 · \(song.artist)", systemImage: "person.crop.circle")
+                    }
+                }
+
+                if let albumID = song.AlbumID, let albumName = song.AlbumName, !albumName.isEmpty {
+                    Button {
+                        activeSheet = .album(AlbumTarget(id: albumID,
+                                                         name: albumName,
+                                                         cover: song.coverURL,
+                                                         artist: song.artist))
+                    } label: {
+                        Label("查看当前专辑 · \(albumName)", systemImage: "rectangle.stack")
+                    }
+                }
+
+                Divider()
+
                 Button {
                     activeSheet = .addToPlaylist(song)
                 } label: {
@@ -252,64 +275,13 @@ struct NowPlayingView: View {
     }
 
     private var titleBlock: some View {
-        VStack(spacing: 5) {
-            Text(player.current?.SongName ?? "未在播放")
-                .font(.system(size: 22, weight: .bold))
-                .foregroundColor(Theme.text)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-
-            if let song = player.current {
-                Button {
-                    activeSheet = .artist(ArtistTarget(name: song.artist,
-                                                      authorID: song.AuthorID,
-                                                      cover: song.coverURL))
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(song.artist)
-                            .lineLimit(1)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 8, weight: .semibold))
-                            .opacity(0.55)
-                    }
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(Theme.accent)
-                }
-                .buttonStyle(GlassPressButtonStyle())
-                .disabled(song.artist.isEmpty)
-            }
-
-            if let song = player.current, let albumID = song.AlbumID,
-               let albumName = song.AlbumName, !albumName.isEmpty {
-                Button {
-                    activeSheet = .album(AlbumTarget(id: albumID,
-                                                     name: albumName,
-                                                     cover: song.coverURL,
-                                                     artist: song.artist))
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "rectangle.stack")
-                            .font(.system(size: 9, weight: .medium))
-                        Text(albumName)
-                            .lineLimit(1)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 7, weight: .semibold))
-                            .opacity(0.5)
-                    }
-                    .font(.system(size: 11))
-                    .foregroundColor(Theme.tertiaryText)
-                }
-                .buttonStyle(GlassPressButtonStyle())
-            }
-
-            if !player.currentQuality.isEmpty {
-                Text(qualityLabel)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(Theme.accent)
-            }
-        }
-        .padding(.horizontal, 28)
+        Text(player.current?.SongName ?? "未在播放")
+            .font(.system(size: 22, weight: .bold))
+            .foregroundColor(Theme.text)
+            .lineLimit(2)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 28)
     }
 
     private var displayedTime: Double {
@@ -383,6 +355,14 @@ struct NowPlayingView: View {
             }
             .font(.system(size: 11, weight: .medium))
             .foregroundColor(Theme.secondaryText)
+
+            if !player.currentQuality.isEmpty {
+                Text(qualityLabel)
+                    .font(.system(size: 10, weight: .regular))
+                    .foregroundColor(
+                        Theme.tertiaryText.opacity(colorScheme == .dark ? 0.58 : 0.48)
+                    )
+            }
         }
     }
 

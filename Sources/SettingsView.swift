@@ -441,10 +441,15 @@ struct SettingsView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(Theme.secondaryText)
                 .padding(.leading, 4)
-            content()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
-                .appSurface(cornerRadius: 12)
+
+            // 必须先把 content 收进一个 VStack 再套卡片样式；
+            // 直接修饰 TupleView 会让每一行各自变成一张卡，Divider 也会变成一条空卡片。
+            VStack(alignment: .leading, spacing: 12) {
+                content()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .appSurface(cornerRadius: 12)
         }
     }
 
@@ -650,10 +655,15 @@ struct PlayerSettingsView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(Theme.secondaryText)
                 .padding(.leading, 4)
-            content()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
-                .appSurface(cornerRadius: 12)
+
+            // 必须先把 content 收进一个 VStack 再套卡片样式；
+            // 直接修饰 TupleView 会让每一行各自变成一张卡，Divider 也会变成一条空卡片。
+            VStack(alignment: .leading, spacing: 12) {
+                content()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .appSurface(cornerRadius: 12)
         }
     }
 }
