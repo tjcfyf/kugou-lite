@@ -96,7 +96,7 @@ struct LoginView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
                     .padding(8)
-                    .liquidGlass(cornerRadius: 18)
+                    .frostedGlass(cornerRadius: 18)
             }
 
             Button {

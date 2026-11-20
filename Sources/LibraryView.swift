@@ -96,8 +96,8 @@ struct RecommendView: View {
                         .foregroundColor(Theme.accent)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(Capsule().fill(.ultraThinMaterial))
-                        .overlay(Capsule().stroke(Theme.accent.opacity(0.28), lineWidth: 0.6))
+                        .background(Capsule().fill(Theme.accent.opacity(0.10)))
+                        .overlay(Capsule().stroke(Theme.accent.opacity(0.24), lineWidth: 0.6))
                         .clipShape(Capsule())
                 }
                 Spacer()
@@ -106,7 +106,7 @@ struct RecommendView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(Theme.text.opacity(0.78))
                         .frame(width: 34, height: 34)
-                        .liquidGlass(cornerRadius: 17)
+                        .frostedChip(cornerRadius: 17)
                         .clipShape(Circle())
                 }
                 .buttonStyle(GlassPressButtonStyle())
@@ -175,7 +175,7 @@ struct RecommendView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .liquidGlass(cornerRadius: 18)
+        .frostedGlass(cornerRadius: 18)
         .padding(.horizontal, 16)
         .padding(.top, 6)
         .padding(.bottom, 6)
@@ -334,7 +334,7 @@ struct RecommendView: View {
                         .padding(.horizontal, 10)
                         .padding(.vertical, 7)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .liquidGlass(cornerRadius: 18)
+                        .frostedChip(cornerRadius: 18)
                     }
                 }
             }
@@ -356,7 +356,7 @@ struct RecommendView: View {
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .liquidGlass(cornerRadius: 18)
+                                .frostedChip(cornerRadius: 18)
                         }
                         .buttonStyle(GlassPressButtonStyle())
                     }
@@ -407,7 +407,7 @@ struct RankCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.card.opacity(0.62))
                 if let url = rank.cover.flatMap(URL.init(string:)) {
                     AsyncImage(url: url) { image in
                         image.resizable().scaledToFill()
@@ -435,7 +435,7 @@ struct RankCard: View {
                 .foregroundColor(Theme.secondaryText)
         }
         .padding(8)
-        .liquidGlass(cornerRadius: 16)
+        .frostedPanel(cornerRadius: 16)
     }
 }
 
@@ -528,7 +528,7 @@ struct PlaylistCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.card.opacity(0.62))
                 if let url = playlist.cover.flatMap(URL.init(string:)) {
                     AsyncImage(url: url) { image in
                         image.resizable().scaledToFill()
@@ -556,7 +556,7 @@ struct PlaylistCard: View {
                 .foregroundColor(Theme.secondaryText)
         }
         .padding(8)
-        .liquidGlass(cornerRadius: 16)
+        .frostedPanel(cornerRadius: 16)
     }
 }
 
@@ -726,7 +726,7 @@ struct PlaylistDetailSheet: View {
         .padding(.horizontal, 16)
         .padding(.top, 10)
         .padding(.bottom, 8)
-        .background(.ultraThinMaterial)
+        .background(Theme.card.opacity(0.90))
         .overlay(Rectangle().fill(Theme.separator.opacity(0.35)).frame(height: 0.6), alignment: .top)
     }
 
@@ -1012,7 +1012,7 @@ struct ProfileView: View {
                     .foregroundColor(Theme.tertiaryText)
             }
             .padding(14)
-            .liquidGlass(cornerRadius: 18)
+            .frostedGlass(cornerRadius: 18)
         }
         .buttonStyle(GlassPressButtonStyle())
     }
@@ -1130,7 +1130,7 @@ struct ProfileView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .liquidGlass(cornerRadius: 18)
+        .frostedGlass(cornerRadius: 18)
     }
 
     private var displayName: String {
@@ -1203,7 +1203,7 @@ struct ProfileView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .liquidGlass(cornerRadius: 18)
+        .frostedGlass(cornerRadius: 18)
     }
 
     private var sleepCard: some View {
@@ -1271,7 +1271,7 @@ struct ProfileView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .liquidGlass(cornerRadius: 18)
+        .frostedGlass(cornerRadius: 18)
         .onReceive(timer) { _ in
             guard let deadline = player.sleepDeadline else { sleepText = ""; return }
             let remain = Int(deadline.timeIntervalSinceNow)

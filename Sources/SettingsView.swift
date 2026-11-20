@@ -90,7 +90,7 @@ struct GestureSettingsCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .liquidGlass(cornerRadius: 18)
+        .frostedGlass(cornerRadius: 18)
     }
 }
 
@@ -117,7 +117,7 @@ struct KeepAwakeSettingsCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .liquidGlass(cornerRadius: 18)
+        .frostedGlass(cornerRadius: 18)
     }
 }
 
@@ -206,7 +206,7 @@ struct LyricOffsetSettingsCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .liquidGlass(cornerRadius: 18)
+        .frostedGlass(cornerRadius: 18)
     }
 }
 
@@ -531,7 +531,7 @@ struct SettingsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .liquidGlass(cornerRadius: 18)
+        .frostedGlass(cornerRadius: 18)
     }
 
     private func flashToast() {
@@ -741,7 +741,7 @@ struct PlayerSettingsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .liquidGlass(cornerRadius: 18)
+        .frostedGlass(cornerRadius: 18)
     }
 }
 

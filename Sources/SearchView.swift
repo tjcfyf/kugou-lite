@@ -207,7 +207,7 @@ extension SearchView {
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                        .liquidGlass(cornerRadius: 18)
+                        .frostedGlass(cornerRadius: 18)
                     }
                 }
             }
@@ -229,7 +229,7 @@ extension SearchView {
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .liquidGlass(cornerRadius: 18)
+                                .frostedGlass(cornerRadius: 18)
                         }
                         .buttonStyle(GlassPressButtonStyle())
                     }
