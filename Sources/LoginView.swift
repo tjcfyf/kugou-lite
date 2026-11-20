@@ -29,7 +29,6 @@ struct LoginView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("关闭") { dismiss() }
-                        .foregroundColor(.white)
                 }
             }
         }
@@ -51,7 +50,7 @@ struct LoginView: View {
                 .foregroundColor(Theme.accent)
             Text("已登录")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.text)
             Text("UID \(auth.userid)")
                 .font(.system(size: 12))
                 .foregroundColor(Theme.secondaryText)

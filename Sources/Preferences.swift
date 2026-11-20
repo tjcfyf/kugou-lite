@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import SwiftUI
 
 /// 音质设置。概念版会员越高，能拿到的档位越高；失败会自动往下降。
 enum AudioQuality: String, CaseIterable, Identifiable {
@@ -40,6 +41,7 @@ enum AudioQuality: String, CaseIterable, Identifiable {
 }
 
 enum PlayMode: String, CaseIterable, Identifiable {
+    case sequential
     case loop
     case single
     case shuffle
@@ -48,6 +50,7 @@ enum PlayMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .sequential: return "顺序播放"
         case .loop: return "列表循环"
         case .single: return "单曲循环"
         case .shuffle: return "随机播放"
@@ -56,6 +59,7 @@ enum PlayMode: String, CaseIterable, Identifiable {
 
     var icon: String {
         switch self {
+        case .sequential: return "arrow.right"
         case .loop: return "repeat"
         case .single: return "repeat.1"
         case .shuffle: return "shuffle"
@@ -64,9 +68,34 @@ enum PlayMode: String, CaseIterable, Identifiable {
 
     var next: PlayMode {
         switch self {
+        case .sequential: return .loop
         case .loop: return .single
         case .single: return .shuffle
-        case .shuffle: return .loop
+        case .shuffle: return .sequential
+        }
+    }
+}
+
+enum AppTheme: String, CaseIterable, Identifiable {
+    case system
+    case dark
+    case light
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: return "跟随系统"
+        case .dark: return "深色"
+        case .light: return "浅色"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .dark: return .dark
+        case .light: return .light
         }
     }
 }
@@ -101,10 +130,16 @@ enum Preferences {
     private static let favoriteKey = "kg.favorite.songs"
     private static let playModeKey = "kg.play.mode"
     private static let lyricSizeKey = "kg.lyric.size"
+    static let themeModeKey = "kg.theme.mode"
 
     static var quality: AudioQuality {
         get { AudioQuality(rawValue: UserDefaults.standard.string(forKey: qualityKey) ?? "") ?? .standard }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: qualityKey) }
+    }
+
+    static var themeMode: AppTheme {
+        get { AppTheme(rawValue: UserDefaults.standard.string(forKey: themeModeKey) ?? "") ?? .system }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: themeModeKey) }
     }
 
     static var lyricSize: LyricTextSize {

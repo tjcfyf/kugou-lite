@@ -148,7 +148,7 @@ extension SearchView {
             HStack {
                 Text("最近搜索")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text)
                 Spacer()
                 if !Preferences.searchHistory.isEmpty {
                     Button {
@@ -176,7 +176,7 @@ extension SearchView {
                         } label: {
                             Text(word)
                                 .font(.system(size: 12))
-                                .foregroundColor(.white.opacity(0.85))
+                                .foregroundColor(Theme.text.opacity(0.85))
                                 .lineLimit(1)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
@@ -192,7 +192,7 @@ extension SearchView {
             if !hotKeywords.isEmpty {
                 Text("热门搜索")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text)
                     .padding(.top, 10)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 8)], alignment: .leading, spacing: 8) {
                     ForEach(hotKeywords, id: \.self) { word in
@@ -202,7 +202,7 @@ extension SearchView {
                         } label: {
                             Text(word)
                                 .font(.system(size: 12))
-                                .foregroundColor(.white.opacity(0.85))
+                                .foregroundColor(Theme.text.opacity(0.85))
                                 .lineLimit(1)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
@@ -234,7 +234,7 @@ struct MiniPlayer: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(song.SongName)
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.text)
                             .lineLimit(1)
                         Text(song.artist)
                             .font(.system(size: 11))
@@ -253,11 +253,11 @@ struct MiniPlayer: View {
                 Group {
                     if player.isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .progressViewStyle(CircularProgressViewStyle(tint: Theme.text))
                     } else {
                         Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 19, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.text)
                     }
                 }
                 .frame(width: 36, height: 36)
@@ -269,7 +269,7 @@ struct MiniPlayer: View {
             } label: {
                 Image(systemName: "forward.fill")
                     .font(.system(size: 16))
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(Theme.text.opacity(0.8))
                     .frame(width: 32, height: 32)
             }
             .buttonStyle(.plain)
@@ -278,16 +278,16 @@ struct MiniPlayer: View {
         .frame(height: 58)
         .background(
             ZStack {
-                Color(red: 0.10, green: 0.10, blue: 0.13)
+                Theme.card
                 LinearGradient(
-                    colors: [Color.white.opacity(0.10), Color.clear],
+                    colors: [Theme.chip, Color.clear],
                     startPoint: .top,
                     endPoint: .bottom
                 )
             }
         )
         .overlay(alignment: .top) {
-            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 0.5)
+            Rectangle().fill(Theme.separator).frame(height: 0.5)
         }
     }
 }

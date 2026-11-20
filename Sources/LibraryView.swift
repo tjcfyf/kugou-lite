@@ -182,7 +182,7 @@ struct RecommendView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("发现")
                     .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text)
                 Text("每天一组，按你的口味来")
                     .font(.system(size: 12))
                     .foregroundColor(Theme.secondaryText)
@@ -207,7 +207,7 @@ struct RecommendView: View {
             } label: {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(Theme.text.opacity(0.8))
             }
         }
         .padding(.horizontal, 16)
@@ -264,7 +264,7 @@ struct RankCard: View {
             .frame(width: 108, height: 108)
             Text(rank.name)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.text)
                 .lineLimit(1)
                 .frame(width: 108, alignment: .leading)
             Text("榜单")
@@ -382,7 +382,7 @@ struct PlaylistCard: View {
             .frame(width: 108, height: 108)
             Text(playlist.name)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.text)
                 .lineLimit(1)
                 .frame(width: 108, alignment: .leading)
             Text("\(playlist.count) 首")
@@ -461,7 +461,7 @@ struct SectionTitle: View {
         HStack(spacing: 8) {
             Text(title)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.text)
             if let subtitle = subtitle {
                 Text(subtitle)
                     .font(.system(size: 11))
@@ -492,6 +492,7 @@ struct ProfileView: View {
     @EnvironmentObject private var player: PlayerEngine
     @State private var quality: AudioQuality = Preferences.quality
     @State private var showLogin = false
+    @State private var showSettings = false
     @State private var showDiagnostics = false
     @State private var toast = ""
     @State private var sleepText = ""
@@ -502,9 +503,15 @@ struct ProfileView: View {
         ScrollView {
             VStack(spacing: 18) {
                 accountCard
-                qualityCard
-                sleepCard
-            toolsCard
+
+                Button { showSettings = true } label: {
+                    row(title: "设置", icon: "gearshape")
+                }
+                .buttonStyle(.plain)
+                .background(Theme.card)
+                .cornerRadius(14)
+
+                toolsCard
                 Text("KugouLite · iOS 15 精简版")
                     .font(.system(size: 11))
                     .foregroundColor(Theme.secondaryText)
@@ -515,6 +522,9 @@ struct ProfileView: View {
         .background(Theme.background.ignoresSafeArea())
         .sheet(isPresented: $showLogin) {
             LoginView().environmentObject(player).environmentObject(auth)
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView().environmentObject(player)
         }
         .overlay(alignment: .top) {
             if !toast.isEmpty { ToastView(text: toast) }
@@ -528,7 +538,7 @@ struct ProfileView: View {
                 .foregroundColor(Theme.accent)
             Text(auth.isLoggedIn ? "已登录" : "未登录")
                 .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.text)
             if auth.isLoggedIn {
                 Text("UID \(auth.userid)")
                     .font(.system(size: 12))
@@ -556,7 +566,7 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("播放音质")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.text)
             ForEach(AudioQuality.allCases) { item in
                 Button {
                     quality = item
@@ -573,7 +583,7 @@ struct ProfileView: View {
                     HStack {
                         Text(item.title)
                             .font(.system(size: 13))
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.text)
                         Spacer()
                         if quality == item {
                             Image(systemName: "checkmark")
@@ -600,7 +610,7 @@ struct ProfileView: View {
             HStack(spacing: 6) {
                 Text("睡眠定时")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.text)
                 Spacer()
                 if sleepText.isEmpty {
                     Text("未开启")
@@ -626,10 +636,10 @@ struct ProfileView: View {
                     } label: {
                         Text(minutes == 0 ? "关闭" : "\(minutes) 分")
                             .font(.system(size: 12))
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.text)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
-                            .background(Color.white.opacity(0.08))
+                            .background(Theme.chip)
                             .cornerRadius(9)
                     }
                     .buttonStyle(.plain)
@@ -639,7 +649,7 @@ struct ProfileView: View {
                 Stepper(value: $customMinutes, in: 1...180) {
                     Text("自定义 \(customMinutes) 分钟")
                         .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.85))
+                        .foregroundColor(Theme.text.opacity(0.85))
                 }
                 Button {
                     player.setSleepTimer(minutes: customMinutes)
@@ -680,14 +690,14 @@ struct ProfileView: View {
                 row(title: "清空本地记录", icon: "trash")
             }
             .buttonStyle(.plain)
-            Divider().background(Color.white.opacity(0.08))
+            Divider().background(Theme.separator)
             Button {
                 showDiagnostics = true
             } label: {
                 row(title: "会员领取诊断", icon: "stethoscope")
             }
             .buttonStyle(.plain)
-            Divider().background(Color.white.opacity(0.08))
+            Divider().background(Theme.separator)
             Button {
                 if auth.isLoggedIn {
                     auth.signOut()
@@ -711,7 +721,7 @@ struct ProfileView: View {
                 .frame(width: 18)
             Text(title)
                 .font(.system(size: 13))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.text)
             Spacer()
         }
         .padding(.horizontal, 14)
@@ -742,13 +752,12 @@ struct LibrarySongsView: View {
                         .listRowBackground(Theme.card)
                 } else {
                     ForEach(songs, id: \.rowIdentity) { song in
-                        Button {
-                            player.play(song, in: songs)
-                        } label: {
-                            SongRow(song: song)
-                        }
-                        .buttonStyle(.plain)
-                        .listRowBackground(Theme.card)
+                        SongRow(song: song)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                player.play(song, in: songs)
+                            }
+                            .listRowBackground(Theme.card)
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
                                 if kind == .favorites {
@@ -788,7 +797,6 @@ struct LibrarySongsView: View {
             }
         }
         .navigationViewStyle(.stack)
-        .preferredColorScheme(.dark)
     }
 }
 
@@ -856,7 +864,6 @@ struct QueueView: View {
             }
         }
         .navigationViewStyle(.stack)
-        .preferredColorScheme(.dark)
     }
 }
 

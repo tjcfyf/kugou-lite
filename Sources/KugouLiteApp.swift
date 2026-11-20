@@ -4,13 +4,14 @@ import SwiftUI
 struct KugouLiteApp: App {
     @StateObject private var player = PlayerEngine.shared
     @StateObject private var auth = AuthStore.shared
+    @AppStorage(Preferences.themeModeKey) private var themeRaw = AppTheme.system.rawValue
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(player)
                 .environmentObject(auth)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme((AppTheme(rawValue: themeRaw) ?? .system).colorScheme)
         }
     }
 }

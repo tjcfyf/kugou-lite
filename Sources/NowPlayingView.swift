@@ -23,7 +23,7 @@ struct NowPlayingView: View {
                     HStack(spacing: 8) {
                         Text(player.current?.SongName ?? "未在播放")
                             .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.text)
                             .lineLimit(1)
 
                         if let song = player.current {
@@ -75,22 +75,9 @@ struct NowPlayingView: View {
             VStack {
                 HStack(spacing: 10) {
                     Spacer()
-                    if !sleepText.isEmpty {
-                        Text(sleepText)
-                            .font(.system(size: 11))
-                            .foregroundColor(Theme.accent)
+                    if player.sleepDeadline != nil {
+                        SleepCountdownText(deadline: player.sleepDeadline, fontSize: 11)
                     }
-                    Button {
-                        lyricSize = lyricSize.next
-                        Preferences.lyricSize = lyricSize
-                        player.showToast("歌词字号：\(lyricSize.title)")
-                    } label: {
-                        Text("Aa")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.75))
-                            .padding(10)
-                    }
-                    .buttonStyle(.plain)
                     Menu {
                         ForEach([0, 15, 30, 60], id: \.self) { minutes in
                             Button(minutes == 0 ? "关闭睡眠定时" : "\(minutes) 分钟后暂停") {
@@ -101,7 +88,7 @@ struct NowPlayingView: View {
                     } label: {
                         Image(systemName: player.sleepDeadline == nil ? "moon" : "moon.fill")
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(player.sleepDeadline == nil ? .white.opacity(0.75) : Theme.accent)
+                            .foregroundColor(player.sleepDeadline == nil ? Theme.text.opacity(0.75) : Theme.accent)
                             .padding(10)
                     }
                     Button {
@@ -109,7 +96,7 @@ struct NowPlayingView: View {
                     } label: {
                         Image(systemName: "list.bullet")
                             .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white.opacity(0.75))
+                            .foregroundColor(Theme.text.opacity(0.75))
                             .padding(10)
                     }
                     .buttonStyle(.plain)
@@ -128,7 +115,6 @@ struct NowPlayingView: View {
             }
         }
         .animation(.easeOut(duration: 0.22), value: player.toast)
-        .preferredColorScheme(.dark)
         .sheet(isPresented: $showQueue) {
             QueueView().environmentObject(player)
         }
@@ -146,7 +132,7 @@ struct NowPlayingView: View {
             LinearGradient(
                 colors: [
                     Theme.accent.opacity(0.20),
-                    Color(red: 0.12, green: 0.05, blue: 0.12),
+                    Theme.card,
                     Theme.background,
                 ],
                 startPoint: .topLeading,
@@ -158,7 +144,7 @@ struct NowPlayingView: View {
 
     private var grabber: some View {
         Capsule()
-            .fill(Color.white.opacity(0.25))
+            .fill(Theme.separator)
             .frame(width: 38, height: 5)
             .padding(.bottom, 8)
     }
@@ -189,26 +175,26 @@ struct NowPlayingView: View {
             Button { player.cyclePlayMode() } label: {
                 Image(systemName: player.playMode.icon)
                     .font(.system(size: 19, weight: .semibold))
-                    .foregroundColor(player.playMode == .loop ? .white.opacity(0.55) : Theme.accent)
+                    .foregroundColor(player.playMode == .loop ? Theme.text.opacity(0.55) : Theme.accent)
             }
 
             Button { player.previous() } label: {
                 Image(systemName: "backward.fill")
                     .font(.system(size: 24))
-                    .foregroundColor(.white.opacity(0.85))
+                    .foregroundColor(Theme.text.opacity(0.85))
             }
 
             Button { player.toggle() } label: {
                 ZStack {
                     Circle()
-                        .fill(Color.white)
+                        .fill(Theme.accent)
                         .frame(width: 64, height: 64)
                     if player.isLoading {
                         ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .black))
                     } else {
                         Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(.black)
+                            .foregroundColor(.white)
                     }
                 }
             }
@@ -216,7 +202,7 @@ struct NowPlayingView: View {
             Button { player.next() } label: {
                 Image(systemName: "forward.fill")
                     .font(.system(size: 24))
-                    .foregroundColor(.white.opacity(0.85))
+                    .foregroundColor(Theme.text.opacity(0.85))
             }
         }
         .buttonStyle(.plain)
@@ -236,7 +222,7 @@ struct NowPlayingView: View {
                             Text(line.text)
                                 .font(.system(size: index == player.lyricIndex ? lyricSize.fontSize + 2 : lyricSize.fontSize,
                                               weight: index == player.lyricIndex ? .semibold : .regular))
-                                .foregroundColor(index == player.lyricIndex ? .white : Color.white.opacity(0.38))
+                                .foregroundColor(index == player.lyricIndex ? Theme.text : Theme.secondaryText)
                                 .multilineTextAlignment(.center)
                                 .frame(maxWidth: .infinity)
                                 .contentShape(Rectangle())

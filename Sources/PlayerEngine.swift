@@ -83,21 +83,33 @@ final class PlayerEngine: NSObject, ObservableObject {
     }
 
     func cyclePlayMode() {
-        playMode = playMode.next
-        Preferences.playMode = playMode
-        showToast("播放模式：\(playMode.title)")
+        setPlayMode(playMode.next)
+    }
+
+    func setPlayMode(_ mode: PlayMode) {
+        playMode = mode
+        Preferences.playMode = mode
+        showToast("播放模式：\(mode.title)")
     }
 
     private func advance(automatic: Bool) {
         guard !queue.isEmpty else { return }
-        if automatic, playMode == .shuffle, queue.count > 1 {
+        if playMode == .shuffle, queue.count > 1 {
             let candidates = queue.indices.filter { $0 != index && !recentAutoIndices.contains($0) }
             index = (candidates.isEmpty ? queue.indices.filter { $0 != index } : candidates).randomElement() ?? index
             recentAutoIndices.append(index)
             if recentAutoIndices.count > 6 { recentAutoIndices.removeFirst() }
-        } else {
-            index = (index + 1) % queue.count
+            load(queue[index], resume: false)
+            return
         }
+        if automatic, playMode == .sequential, index == queue.count - 1 {
+            player.pause()
+            isPlaying = false
+            seek(to: 0)
+            showToast("已是最后一首")
+            return
+        }
+        index = (index + 1) % queue.count
         load(queue[index], resume: false)
     }
 

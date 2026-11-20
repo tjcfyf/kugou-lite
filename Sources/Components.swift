@@ -2,10 +2,36 @@ import SwiftUI
 import UIKit
 
 enum Theme {
-    static let background = Color(red: 0.045, green: 0.045, blue: 0.06)
-    static let card = Color(red: 0.10, green: 0.10, blue: 0.12)
+    private static func dynamic(light: UIColor, dark: UIColor) -> Color {
+        Color(UIColor { trait in trait.userInterfaceStyle == .dark ? dark : light })
+    }
+
+    static let background = dynamic(
+        light: UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1),
+        dark: UIColor(red: 0.045, green: 0.045, blue: 0.06, alpha: 1)
+    )
+    static let card = dynamic(
+        light: UIColor.white,
+        dark: UIColor(red: 0.10, green: 0.10, blue: 0.12, alpha: 1)
+    )
     static let accent = Color(red: 1.0, green: 0.27, blue: 0.42)
-    static let secondaryText = Color.white.opacity(0.55)
+    static let text = dynamic(light: .black, dark: .white)
+    static let secondaryText = dynamic(
+        light: UIColor.black.withAlphaComponent(0.55),
+        dark: UIColor.white.withAlphaComponent(0.55)
+    )
+    static let tertiaryText = dynamic(
+        light: UIColor.black.withAlphaComponent(0.28),
+        dark: UIColor.white.withAlphaComponent(0.35)
+    )
+    static let chip = dynamic(
+        light: UIColor.black.withAlphaComponent(0.06),
+        dark: UIColor.white.withAlphaComponent(0.08)
+    )
+    static let separator = dynamic(
+        light: UIColor.black.withAlphaComponent(0.08),
+        dark: UIColor.white.withAlphaComponent(0.08)
+    )
 }
 
 private final class CoverCache {
@@ -62,8 +88,86 @@ struct CoverImage: View {
             )
             Image(systemName: "music.note")
                 .font(.system(size: size * 0.32, weight: .medium))
-                .foregroundColor(.white.opacity(0.35))
+                .foregroundColor(Theme.tertiaryText)
         }
+    }
+}
+
+
+struct SongActionsSheet: View {
+    let song: Song
+    @EnvironmentObject private var player: PlayerEngine
+    @ObservedObject private var library = LibraryStore.shared
+    @Environment(\.dismiss) private var dismiss
+
+    private var isFavorite: Bool {
+        library.favorites.contains(where: { $0.FileHash == song.FileHash })
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                CoverImage(url: song.coverURL, size: 52, radius: 10)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(song.SongName)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                        .lineLimit(2)
+                    Text(song.artist)
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.secondaryText)
+                }
+                Spacer()
+            }
+            .padding(16)
+
+            Divider().background(Theme.separator)
+
+            actionRow(title: "下一首播放", icon: "arrow.up.forward") {
+                player.playNext(song)
+                dismiss()
+            }
+            actionRow(title: isFavorite ? "取消收藏" : "收藏", icon: isFavorite ? "heart.fill" : "heart") {
+                let added = library.toggleFavorite(song)
+                player.showToast(added ? "已收藏" : "已取消收藏")
+                dismiss()
+            }
+            actionRow(title: "加入播放列表末尾", icon: "text.badge.plus") {
+                player.appendToQueue(song)
+                dismiss()
+            }
+
+            Button("取消") { dismiss() }
+                .font(.system(size: 15))
+                .foregroundColor(Theme.secondaryText)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Theme.chip)
+                .cornerRadius(12)
+                .padding(16)
+
+            Spacer(minLength: 0)
+        }
+        .background(Theme.background.ignoresSafeArea())
+    }
+
+    private func actionRow(title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(Theme.accent)
+                    .frame(width: 24)
+                Text(title)
+                    .font(.system(size: 15))
+                    .foregroundColor(Theme.text)
+                Spacer()
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -90,6 +194,7 @@ struct SongRow: View {
     let song: Song
     @EnvironmentObject private var player: PlayerEngine
     @ObservedObject private var library = LibraryStore.shared
+    @State private var showActions = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -99,7 +204,7 @@ struct SongRow: View {
                 HStack(spacing: 6) {
                     Text(song.SongName)
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.text)
                         .lineLimit(1)
                     if song.needsPurchase {
                         Text("VIP")
@@ -121,28 +226,16 @@ struct SongRow: View {
             Spacer(minLength: 8)
             Image(systemName: "play.circle")
                 .font(.system(size: 22))
-                .foregroundColor(.white.opacity(0.35))
+                .foregroundColor(Theme.tertiaryText)
         }
         .padding(.vertical, 6)
         .contentShape(Rectangle())
-        .contextMenu {
-            Button {
-                player.playNext(song)
-            } label: {
-                Label("下一首播放", systemImage: "arrow.up.forward")
-            }
-            Button {
-                player.appendToQueue(song)
-            } label: {
-                Label("加入播放列表", systemImage: "text.badge.plus")
-            }
-            Button {
-                let added = library.toggleFavorite(song)
-                player.showToast(added ? "已收藏" : "已取消收藏")
-            } label: {
-                Label(library.favorites.contains(where: { $0.FileHash == song.FileHash }) ? "取消收藏" : "收藏",
-                      systemImage: library.favorites.contains(where: { $0.FileHash == song.FileHash }) ? "heart.fill" : "heart")
-            }
+        .onLongPressGesture(minimumDuration: 0.35) {
+            showActions = true
+        }
+        .sheet(isPresented: $showActions) {
+            SongActionsSheet(song: song)
+                .environmentObject(player)
         }
     }
 }
