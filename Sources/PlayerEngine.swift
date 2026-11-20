@@ -39,6 +39,8 @@ final class PlayerEngine: NSObject, ObservableObject {
 
     override init() {
         super.init()
+        // 应用启动时就把网络探针跑起来，保证第一次断网点歌也能立刻失败。
+        _ = NetworkStatus.shared
         configureAudioSession()
         timeObserver = player.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 0.25, preferredTimescale: 600),
