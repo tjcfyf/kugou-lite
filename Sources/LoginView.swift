@@ -23,7 +23,7 @@ struct LoginView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.background.ignoresSafeArea())
+            .background(AppBackground())
             .navigationTitle("酷狗账号")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -130,7 +130,7 @@ struct SearchView: View {
             }
             .padding(.bottom, 24)
         }
-        .background(Theme.background.ignoresSafeArea())
+        .background(AppBackground())
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if let song = player.current {
                 MiniPlayer(song: song, onOpen: onOpenPlayer)
@@ -230,10 +230,10 @@ struct MiniPlayer: View {
         HStack(spacing: 12) {
             Button(action: onOpen) {
                 HStack(spacing: 12) {
-                    CoverImage(url: song.coverURL, size: 38, radius: 8)
-                    VStack(alignment: .leading, spacing: 2) {
+                    CoverImage(url: song.coverURL, size: 44, radius: 12)
+                    VStack(alignment: .leading, spacing: 3) {
                         Text(song.SongName)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(Theme.text)
                             .lineLimit(1)
                         Text(song.artist)
@@ -253,14 +253,16 @@ struct MiniPlayer: View {
                 Group {
                     if player.isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: Theme.text))
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     } else {
                         Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 19, weight: .semibold))
-                            .foregroundColor(Theme.text)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
                     }
                 }
-                .frame(width: 36, height: 36)
+                .frame(width: 38, height: 38)
+                .background(Theme.accent)
+                .clipShape(Circle())
             }
             .buttonStyle(.plain)
 
@@ -268,26 +270,27 @@ struct MiniPlayer: View {
                 player.next()
             } label: {
                 Image(systemName: "forward.fill")
-                    .font(.system(size: 16))
-                    .foregroundColor(Theme.text.opacity(0.8))
+                    .font(.system(size: 15))
+                    .foregroundColor(Theme.text.opacity(0.75))
                     .frame(width: 32, height: 32)
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 14)
-        .frame(height: 58)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(
             ZStack {
-                Theme.card
-                LinearGradient(
-                    colors: [Theme.chip, Color.clear],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                Rectangle().fill(.ultraThinMaterial)
+                Theme.card.opacity(0.35)
             }
         )
-        .overlay(alignment: .top) {
-            Rectangle().fill(Theme.separator).frame(height: 0.5)
-        }
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Theme.separator, lineWidth: 0.6)
+        )
+        .shadow(color: .black.opacity(0.10), radius: 14, x: 0, y: 6)
+        .padding(.horizontal, 10)
+        .padding(.bottom, 6)
     }
 }

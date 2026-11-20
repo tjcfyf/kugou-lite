@@ -51,7 +51,7 @@ struct SettingsView: View {
                 }
                 .padding(16)
             }
-            .background(Theme.background.ignoresSafeArea())
+            .background(AppBackground())
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -281,5 +281,149 @@ struct SettingsView: View {
             try? await Task.sleep(nanoseconds: 1_400_000_000)
             toast = ""
         }
+    }
+}
+
+/// 播放页右上角齿轮进入的快捷设置，只放和当前播放相关的东西。
+struct PlayerSettingsView: View {
+    @EnvironmentObject private var player: PlayerEngine
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var quality: AudioQuality = Preferences.quality
+    @State private var lyricSize: LyricTextSize = Preferences.lyricSize
+    @State private var customMinutes = 30
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 16) {
+                    sleepCard
+                    lyricCard
+                    qualityCard
+                }
+                .padding(16)
+            }
+            .background(AppBackground())
+            .navigationTitle("播放设置")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("关闭") { dismiss() }
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
+    }
+
+    private var sleepCard: some View {
+        card(title: "睡眠定时") {
+            HStack {
+                SleepCountdownText(deadline: player.sleepDeadline)
+                Spacer()
+                Text(player.sleepDeadline == nil ? "到点自动暂停" : "实时倒计时")
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.secondaryText)
+            }
+            HStack(spacing: 8) {
+                ForEach([0, 5, 15, 30, 60], id: \.self) { minutes in
+                    Button {
+                        player.setSleepTimer(minutes: minutes == 0 ? nil : minutes)
+                    } label: {
+                        Text(minutes == 0 ? "关闭" : "\(minutes) 分")
+                            .font(.system(size: 12))
+                            .foregroundColor(Theme.text)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Theme.chip)
+                            .cornerRadius(9)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            HStack(spacing: 10) {
+                Stepper(value: $customMinutes, in: 1...180) {
+                    Text("自定义 \(customMinutes) 分钟")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.text.opacity(0.85))
+                }
+                Button {
+                    player.setSleepTimer(minutes: customMinutes)
+                } label: {
+                    Text("开始")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Theme.accent)
+                        .cornerRadius(9)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var lyricCard: some View {
+        card(title: "歌词字号") {
+            HStack(spacing: 8) {
+                ForEach(LyricTextSize.allCases) { item in
+                    Button {
+                        lyricSize = item
+                        Preferences.lyricSize = item
+                    } label: {
+                        Text(item.title)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(lyricSize == item ? .white : Theme.text)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 9)
+                            .background(lyricSize == item ? Theme.accent : Theme.chip)
+                            .cornerRadius(9)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var qualityCard: some View {
+        card(title: "播放音质") {
+            ForEach(AudioQuality.allCases) { item in
+                Button {
+                    quality = item
+                    Preferences.quality = item
+                    player.clearURLCache()
+                    if player.current != nil {
+                        player.reloadCurrentAfterQualityChange()
+                    }
+                } label: {
+                    HStack {
+                        Text(item.title)
+                            .font(.system(size: 13))
+                            .foregroundColor(Theme.text)
+                        Spacer()
+                        if quality == item {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(Theme.accent)
+                        }
+                    }
+                    .padding(.vertical, 5)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func card<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Theme.text)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Theme.card)
+        .cornerRadius(18)
     }
 }

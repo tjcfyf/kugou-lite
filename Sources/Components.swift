@@ -2,36 +2,38 @@ import SwiftUI
 import UIKit
 
 enum Theme {
-    private static func dynamic(light: UIColor, dark: UIColor) -> Color {
-        Color(UIColor { trait in trait.userInterfaceStyle == .dark ? dark : light })
-    }
+    static let background = Color("Background")
+    static let card = Color("Card")
+    static let accent = Color("Accent")
+    static let text = Color("TextPrimary")
+    static let secondaryText = Color("TextSecondary")
+    static let tertiaryText = Color("TextTertiary")
+    static let chip = Color("Chip")
+    static let separator = Color("Separator")
+}
 
-    static let background = dynamic(
-        light: UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1),
-        dark: UIColor(red: 0.045, green: 0.045, blue: 0.06, alpha: 1)
-    )
-    static let card = dynamic(
-        light: UIColor.white,
-        dark: UIColor(red: 0.10, green: 0.10, blue: 0.12, alpha: 1)
-    )
-    static let accent = Color(red: 1.0, green: 0.27, blue: 0.42)
-    static let text = dynamic(light: .black, dark: .white)
-    static let secondaryText = dynamic(
-        light: UIColor.black.withAlphaComponent(0.55),
-        dark: UIColor.white.withAlphaComponent(0.55)
-    )
-    static let tertiaryText = dynamic(
-        light: UIColor.black.withAlphaComponent(0.28),
-        dark: UIColor.white.withAlphaComponent(0.35)
-    )
-    static let chip = dynamic(
-        light: UIColor.black.withAlphaComponent(0.06),
-        dark: UIColor.white.withAlphaComponent(0.08)
-    )
-    static let separator = dynamic(
-        light: UIColor.black.withAlphaComponent(0.08),
-        dark: UIColor.white.withAlphaComponent(0.08)
-    )
+/// 全 App 统一的柔和渐变背景，浅色/深色各一套。
+struct AppBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack {
+            Theme.background
+            RadialGradient(
+                colors: [Theme.accent.opacity(colorScheme == .dark ? 0.16 : 0.13), Color.clear],
+                center: .topLeading,
+                startRadius: 0,
+                endRadius: 620
+            )
+            RadialGradient(
+                colors: [Color(red: 0.32, green: 0.55, blue: 0.86).opacity(colorScheme == .dark ? 0.12 : 0.14), Color.clear],
+                center: .bottomTrailing,
+                startRadius: 0,
+                endRadius: 560
+            )
+        }
+        .ignoresSafeArea()
+    }
 }
 
 private final class CoverCache {
@@ -148,7 +150,7 @@ struct SongActionsSheet: View {
 
             Spacer(minLength: 0)
         }
-        .background(Theme.background.ignoresSafeArea())
+        .background(AppBackground())
     }
 
     private func actionRow(title: String, icon: String, action: @escaping () -> Void) -> some View {
@@ -195,26 +197,28 @@ struct SongRow: View {
     @EnvironmentObject private var player: PlayerEngine
     @ObservedObject private var library = LibraryStore.shared
 
-    var body: some View {
-        HStack(spacing: 12) {
-            CoverImage(url: song.coverURL, size: 46, radius: 10)
+    private var isFavorite: Bool {
+        library.favorites.contains(where: { $0.FileHash == song.FileHash })
+    }
 
-            VStack(alignment: .leading, spacing: 3) {
+    var body: some View {
+        HStack(spacing: 14) {
+            CoverImage(url: song.coverURL, size: 54, radius: 14)
+
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(song.SongName)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(Theme.text)
                         .lineLimit(1)
                     if song.needsPurchase {
                         Text("VIP")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(Theme.accent)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 3)
-                                    .stroke(Theme.accent.opacity(0.7), lineWidth: 0.7)
-                            )
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1.5)
+                            .background(Theme.accent.opacity(0.10))
+                            .clipShape(Capsule())
                     }
                 }
                 Text(song.artist)
@@ -223,11 +227,17 @@ struct SongRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
-            Image(systemName: "play.circle")
-                .font(.system(size: 22))
+            if isFavorite {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Theme.accent)
+            }
+            Image(systemName: "ellipsis")
+                .font(.system(size: 15, weight: .medium))
                 .foregroundColor(Theme.tertiaryText)
+                .frame(width: 24, height: 30)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 9)
         .contentShape(Rectangle())
         .contextMenu {
             Button {
@@ -244,8 +254,8 @@ struct SongRow: View {
                 let added = library.toggleFavorite(song)
                 player.showToast(added ? "已收藏" : "已取消收藏")
             } label: {
-                Label(library.favorites.contains(where: { $0.FileHash == song.FileHash }) ? "取消收藏" : "收藏",
-                      systemImage: library.favorites.contains(where: { $0.FileHash == song.FileHash }) ? "heart.fill" : "heart")
+                Label(isFavorite ? "取消收藏" : "收藏",
+                      systemImage: isFavorite ? "heart.fill" : "heart")
             }
         }
     }

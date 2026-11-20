@@ -2,11 +2,11 @@ import SwiftUI
 
 struct NowPlayingView: View {
     @EnvironmentObject private var player: PlayerEngine
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showQueue = false
-    @State private var sleepText = ""
+    @State private var showPlayerSettings = false
     @ObservedObject private var library = LibraryStore.shared
     @State private var lyricSize: LyricTextSize = Preferences.lyricSize
-    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         ZStack {
@@ -15,7 +15,7 @@ struct NowPlayingView: View {
             VStack(spacing: 0) {
                 grabber
 
-                CoverImage(url: player.current?.coverURL, size: 250, radius: 18)
+                CoverImage(url: player.current?.coverURL, size: 262, radius: 24)
                     .shadow(color: .black.opacity(0.4), radius: 24, x: 0, y: 12)
                     .padding(.top, 8)
 
@@ -64,9 +64,6 @@ struct NowPlayingView: View {
                     .padding(.horizontal, 24)
                     .padding(.top, 18)
 
-                sleepBar
-                    .padding(.top, 6)
-
                 controls
                     .padding(.top, 10)
 
@@ -78,13 +75,10 @@ struct NowPlayingView: View {
             VStack {
                 HStack(spacing: 10) {
                     Spacer()
-                    if player.sleepDeadline != nil {
-                        SleepCountdownText(deadline: player.sleepDeadline, fontSize: 11)
-                    }
                     Button {
-                        showQueue = true
+                        showPlayerSettings = true
                     } label: {
-                        Image(systemName: "list.bullet")
+                        Image(systemName: "slider.horizontal.3")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(Theme.text.opacity(0.75))
                             .padding(10)
@@ -108,25 +102,30 @@ struct NowPlayingView: View {
         .sheet(isPresented: $showQueue) {
             QueueView().environmentObject(player)
         }
-        .onReceive(timer) { _ in
-            guard let deadline = player.sleepDeadline else { sleepText = ""; return }
-            let remain = Int(deadline.timeIntervalSinceNow)
-            if remain <= 0 { sleepText = ""; return }
-            sleepText = String(format: "剩余 %02d:%02d", remain / 60, remain % 60)
+        .sheet(isPresented: $showPlayerSettings) {
+            PlayerSettingsView().environmentObject(player)
         }
+
     }
 
     private var background: some View {
         ZStack {
             Theme.background
+            if let url = player.current?.coverURL {
+                CoverImage(url: url, size: 460, radius: 0)
+                    .scaleEffect(1.9)
+                    .blur(radius: 55)
+                    .opacity(colorScheme == .dark ? 0.55 : 0.40)
+            }
+            Theme.background.opacity(colorScheme == .dark ? 0.35 : 0.55)
             LinearGradient(
                 colors: [
-                    Theme.accent.opacity(0.20),
-                    Theme.card,
-                    Theme.background,
+                    Theme.accent.opacity(colorScheme == .dark ? 0.18 : 0.10),
+                    Color.clear,
+                    Theme.background.opacity(0.8),
                 ],
                 startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                endPoint: .bottom
             )
         }
         .ignoresSafeArea()
@@ -160,36 +159,8 @@ struct NowPlayingView: View {
         }
     }
 
-    private var sleepBar: some View {
-        HStack(spacing: 8) {
-        Menu {
-            ForEach([0, 5, 15, 30, 60], id: \.self) { minutes in
-                Button(minutes == 0 ? "关闭睡眠定时" : "\(minutes) 分钟后暂停") {
-                    player.setSleepTimer(minutes: minutes == 0 ? nil : minutes)
-                    player.showToast(minutes == 0 ? "已关闭睡眠定时" : "\(minutes) 分钟后暂停")
-                }
-            }
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: player.sleepDeadline == nil ? "moon" : "moon.fill")
-                Text("睡眠")
-                    .font(.system(size: 11))
-                    .foregroundColor(player.sleepDeadline == nil ? Theme.secondaryText : Theme.accent)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(Theme.chip)
-            .cornerRadius(12)
-        }
-        .buttonStyle(.plain)
-        if player.sleepDeadline != nil {
-            SleepCountdownText(deadline: player.sleepDeadline, fontSize: 11)
-        }
-        }
-    }
-
     private var controls: some View {
-        HStack(spacing: 30) {
+        HStack(spacing: 24) {
             Button { player.cyclePlayMode() } label: {
                 Image(systemName: player.playMode.icon)
                     .font(.system(size: 19, weight: .semibold))
@@ -221,6 +192,12 @@ struct NowPlayingView: View {
                 Image(systemName: "forward.fill")
                     .font(.system(size: 24))
                     .foregroundColor(Theme.text.opacity(0.85))
+            }
+
+            Button { showQueue = true } label: {
+                Image(systemName: "list.bullet")
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundColor(Theme.text.opacity(0.65))
             }
         }
         .buttonStyle(.plain)

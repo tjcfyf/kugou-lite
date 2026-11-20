@@ -132,7 +132,7 @@ struct RecommendView: View {
             }
             .padding(.bottom, 24)
         }
-        .background(Theme.background.ignoresSafeArea())
+        .background(AppBackground())
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if let song = player.current {
                 MiniPlayer(song: song, onOpen: onOpenPlayer)
@@ -178,36 +178,50 @@ struct RecommendView: View {
     }
 
     private var header: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
                 Text("发现")
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.system(size: 28, weight: .bold))
                     .foregroundColor(Theme.text)
-                Text("每天一组，按你的口味来")
-                    .font(.system(size: 12))
-                    .foregroundColor(Theme.secondaryText)
-            }
-            Spacer()
-            if let first = model.songs.first {
+                Text("今天想听点什么 🎧")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(Theme.accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Theme.accent.opacity(0.10))
+                    .clipShape(Capsule())
+                Spacer()
                 Button {
-                    onSelect(first, model.songs)
+                    Task { await model.load(force: true) }
                 } label: {
-                    Label("播放全部", systemImage: "play.fill")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Theme.accent)
-                        .cornerRadius(14)
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(Theme.text.opacity(0.7))
+                        .frame(width: 34, height: 34)
+                        .background(Theme.chip)
+                        .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
             }
-            Button {
-                Task { await model.load(force: true) }
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(Theme.text.opacity(0.8))
+            HStack {
+                Text("每天一组，按你的口味来")
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.secondaryText)
+                Spacer()
+                if let first = model.songs.first {
+                    Button {
+                        onSelect(first, model.songs)
+                    } label: {
+                        Label("播放全部", systemImage: "play.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(Theme.accent)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
         .padding(.horizontal, 16)
@@ -319,7 +333,7 @@ struct RankDetailSheet: View {
                 }
                 .padding(.bottom, 24)
             }
-            .background(Theme.background.ignoresSafeArea())
+            .background(AppBackground())
             .navigationTitle(rank.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -423,7 +437,7 @@ struct PlaylistDetailSheet: View {
                 }
                 .padding(.bottom, 24)
             }
-            .background(Theme.background.ignoresSafeArea())
+            .background(AppBackground())
             .navigationTitle(playlist.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -460,7 +474,7 @@ struct SectionTitle: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(title)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 18, weight: .bold))
                 .foregroundColor(Theme.text)
             if let subtitle = subtitle {
                 Text(subtitle)
@@ -519,7 +533,7 @@ struct ProfileView: View {
             }
             .padding(16)
         }
-        .background(Theme.background.ignoresSafeArea())
+        .background(AppBackground())
         .sheet(isPresented: $showLogin) {
             LoginView().environmentObject(player).environmentObject(auth)
         }
@@ -771,7 +785,7 @@ struct LibrarySongsView: View {
                 }
             }
             .listStyle(.plain)
-            .background(Theme.background.ignoresSafeArea())
+            .background(AppBackground())
             .navigationTitle(kind.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -820,7 +834,7 @@ struct QueueView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(song.SongName)
                                     .font(.system(size: 14, weight: player.currentIndex == index ? .semibold : .regular))
-                                    .foregroundColor(player.currentIndex == index ? Theme.accent : .white)
+                                    .foregroundColor(player.currentIndex == index ? Theme.accent : Theme.text)
                                     .lineLimit(1)
                                 Text(song.artist)
                                     .font(.system(size: 11))
@@ -847,7 +861,7 @@ struct QueueView: View {
             }
             .environment(\.editMode, $editMode)
             .listStyle(.plain)
-            .background(Theme.background.ignoresSafeArea())
+            .background(AppBackground())
             .navigationTitle("播放列表")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
