@@ -103,7 +103,7 @@ struct AlbumDetailSheet: View {
                 } label: {
                     Text("重新加载")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.onAccent)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                         .background(Theme.accentGradient)

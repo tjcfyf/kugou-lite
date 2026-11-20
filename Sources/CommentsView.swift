@@ -92,7 +92,7 @@ struct CommentsView: View {
                 } label: {
                     Text("重新加载")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.onAccent)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 9)
                         .background(Theme.accentGradient)

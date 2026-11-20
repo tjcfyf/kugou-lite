@@ -225,7 +225,7 @@ struct SettingsView: View {
                             Text(mode.title)
                                 .font(.system(size: 10))
                         }
-                        .foregroundColor(player.playMode == mode ? .white : Theme.text)
+                        .foregroundColor(player.playMode == mode ? Theme.onAccent : Theme.text)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(player.playMode == mode ? Theme.accent : Theme.chip)
@@ -246,7 +246,7 @@ struct SettingsView: View {
                     } label: {
                         Text(item.title)
                             .font(.system(size: 12, weight: player.playbackRate == item.rawValue ? .semibold : .medium))
-                            .foregroundColor(player.playbackRate == item.rawValue ? .white : Theme.text)
+                            .foregroundColor(player.playbackRate == item.rawValue ? Theme.onAccent : Theme.text)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 9)
                             .background(player.playbackRate == item.rawValue ? Theme.accent : Theme.chip)
@@ -353,7 +353,7 @@ struct SettingsView: View {
                             Text(item.title)
                                 .font(.system(size: 10))
                         }
-                        .foregroundColor(lyricSize == item ? .white : Theme.text)
+                        .foregroundColor(lyricSize == item ? Theme.onAccent : Theme.text)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(lyricSize == item ? Theme.accent : Theme.chip)
@@ -384,7 +384,7 @@ struct SettingsView: View {
                 } label: {
                     Text("选择")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.onAccent)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background(Theme.accentGradient)
@@ -414,7 +414,7 @@ struct SettingsView: View {
                 } label: {
                     Text("应用")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.onAccent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(Theme.accentGradient)
@@ -507,7 +507,7 @@ struct SettingsView: View {
                 } label: {
                     Text("开始")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.onAccent)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
                         .background(Theme.accentGradient)
@@ -690,7 +690,7 @@ struct PlayerSettingsView: View {
                 } label: {
                     Text("开始")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.onAccent)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                         .background(Theme.accentGradient)
@@ -714,7 +714,7 @@ struct PlayerSettingsView: View {
                             Text(mode.title)
                                 .font(.system(size: 10))
                         }
-                        .foregroundColor(player.playMode == mode ? .white : Theme.text)
+                        .foregroundColor(player.playMode == mode ? Theme.onAccent : Theme.text)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(player.playMode == mode ? Theme.accent : Theme.chip)
@@ -735,7 +735,7 @@ struct PlayerSettingsView: View {
                     } label: {
                         Text(item.title)
                             .font(.system(size: 12, weight: player.playbackRate == item.rawValue ? .semibold : .medium))
-                            .foregroundColor(player.playbackRate == item.rawValue ? .white : Theme.text)
+                            .foregroundColor(player.playbackRate == item.rawValue ? Theme.onAccent : Theme.text)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
                             .background(player.playbackRate == item.rawValue ? Theme.accent : Theme.chip)
@@ -757,7 +757,7 @@ struct PlayerSettingsView: View {
                     } label: {
                         Text(item.title)
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(lyricSize == item ? .white : Theme.text)
+                            .foregroundColor(lyricSize == item ? Theme.onAccent : Theme.text)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 9)
                             .background(lyricSize == item ? Theme.accent : Theme.chip)

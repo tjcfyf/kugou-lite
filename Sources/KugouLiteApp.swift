@@ -19,21 +19,18 @@ struct KugouLiteApp: App {
     }
     @StateObject private var player = PlayerEngine.shared
     @StateObject private var auth = AuthStore.shared
-    @StateObject private var albumTheme = AlbumThemeStore.shared
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(player)
                 .environmentObject(auth)
-                .environmentObject(albumTheme)
         }
     }
 }
 
 struct RootView: View {
     @EnvironmentObject private var auth: AuthStore
-    @EnvironmentObject private var albumTheme: AlbumThemeStore
     @State private var showPlayer = false
     @State private var showSettings = false
     @State private var tab = 0
@@ -99,8 +96,7 @@ struct RootView: View {
             ToastOverlay()
         }
         .preferredColorScheme(resolvedScheme)
-        .accentColor(albumTheme.accentColor)
-        .animation(.easeInOut(duration: 0.52), value: albumTheme.paletteKey)
+        .accentColor(Theme.accent)
         .background(
             SystemSchemeProbe(scheme: $systemScheme)
                 .frame(width: 1, height: 1)
@@ -113,7 +109,6 @@ struct RootView: View {
             }
         }
         .onChange(of: themeRaw) { _ in applyInterfaceStyle() }
-        .onChange(of: albumTheme.paletteKey) { _ in applyWindowBackground() }
         .task(id: auth.isLoggedIn) {
             if auth.isLoggedIn {
                 await LibraryStore.shared.refreshFavorites(force: true)
@@ -135,16 +130,7 @@ struct RootView: View {
             for window in windowScene.windows {
                 window.overrideUserInterfaceStyle = style
                 window.rootViewController?.view.backgroundColor = .clear
-                window.backgroundColor = albumTheme.windowBackgroundUIColor
-            }
-        }
-    }
-
-    private func applyWindowBackground() {
-        for scene in UIApplication.shared.connectedScenes {
-            guard let windowScene = scene as? UIWindowScene else { continue }
-            for window in windowScene.windows {
-                window.backgroundColor = albumTheme.windowBackgroundUIColor
+                window.backgroundColor = UIColor(named: "Background")
             }
         }
     }

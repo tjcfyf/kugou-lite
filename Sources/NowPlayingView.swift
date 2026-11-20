@@ -3,7 +3,6 @@ import UIKit
 
 struct NowPlayingView: View {
     @EnvironmentObject private var player: PlayerEngine
-    @EnvironmentObject private var albumTheme: AlbumThemeStore
     var onClose: (() -> Void)? = nil
     @ObservedObject private var library = LibraryStore.shared
     @Environment(\.colorScheme) private var colorScheme
@@ -30,15 +29,11 @@ struct NowPlayingView: View {
         return "音质 \(quality)"
     }
 
-    private var playerForeground: (primary: Color, secondary: Color, tertiary: Color) {
-        albumTheme.playerForegroundColors(for: colorScheme)
-    }
-
-    private var playerPrimary: Color { playerForeground.primary }
-    private var playerSecondary: Color { playerForeground.secondary }
-    private var playerTertiary: Color { playerForeground.tertiary }
-    private var playerAccent: Color { albumTheme.accentColor }
-    private var playerAccentForeground: Color { albumTheme.accentForegroundColor(for: colorScheme) }
+    private var playerPrimary: Color { Theme.text }
+    private var playerSecondary: Color { Theme.secondaryText }
+    private var playerTertiary: Color { Theme.tertiaryText }
+    private var playerAccent: Color { Theme.accent }
+    private var playerAccentForeground: Color { Theme.onAccent }
 
     private var artworkSize: CGFloat {
         min(UIScreen.main.bounds.width - 72, 330)
@@ -148,31 +143,22 @@ struct NowPlayingView: View {
     private var background: some View {
         GeometryReader { geo in
             ZStack {
-                Theme.background
-
-                if !(showLyrics && lyricPhotoMode), albumTheme.paletteColor != nil {
-                    let colors = albumTheme.playerGradientColors(for: colorScheme)
-                    LinearGradient(
-                        stops: [
-                            .init(color: colors.top, location: 0),
-                            .init(color: colors.mid, location: 0.48),
-                            .init(color: colors.bottom, location: 1)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                if let url = player.current?.coverURL {
+                    CoverImage(url: url, size: max(geo.size.width, geo.size.height), radius: 0, showsBorder: false)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .scaleEffect(1.12)
+                } else {
+                    Theme.background
                 }
+
+                // iOS 原生毛玻璃：只让 UIVisualEffectView 做材质，不叠任何颜色遮罩。
+                NativeFrostedGlass(style: colorScheme == .dark ? .systemThinMaterialDark : .systemThinMaterialLight)
+                    .frame(width: geo.size.width, height: geo.size.height)
 
                 if showLyrics && lyricPhotoMode, let url = player.current?.coverURL {
-                    CoverImage(url: url, size: max(geo.size.width, geo.size.height), radius: 0)
+                    CoverImage(url: url, size: max(geo.size.width, geo.size.height), radius: 0, showsBorder: false)
                         .frame(width: geo.size.width, height: geo.size.height)
                         .scaleEffect(1.02)
-                        .blur(radius: 0)
-                        .opacity(colorScheme == .dark ? 0.88 : 0.82)
-                }
-
-                if showLyrics && lyricPhotoMode {
-                    Theme.background.opacity(colorScheme == .dark ? 0.38 : 0.56)
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)
@@ -180,7 +166,6 @@ struct NowPlayingView: View {
         }
         .ignoresSafeArea()
         .animation(.easeInOut(duration: 0.35), value: lyricPhotoMode)
-        .animation(.easeInOut(duration: 0.55), value: albumTheme.paletteKey)
     }
 
     private var dismissGesture: some Gesture {
@@ -430,14 +415,14 @@ struct NowPlayingView: View {
                     Capsule()
                         .fill(
                             LinearGradient(
-                                colors: [albumTheme.accentColor.opacity(0.42), albumTheme.accentColor.opacity(0.72)],
+                                colors: [Theme.accent.opacity(0.42), Theme.accent.opacity(0.72)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
                         .frame(width: width * ratio, height: 2.5)
                     Circle()
-                        .fill(albumTheme.accentColor.opacity(0.62))
+                        .fill(Theme.accent.opacity(0.62))
                         .frame(width: 9, height: 9)
                         .overlay(Circle().stroke(playerPrimary.opacity(0.28), lineWidth: 0.6))
                         .offset(x: width * ratio - 4.5)
@@ -448,7 +433,7 @@ struct NowPlayingView: View {
                             .foregroundColor(playerAccentForeground)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(albumTheme.accentColor.opacity(0.78))
+                            .background(Theme.accent.opacity(0.78))
                             .cornerRadius(8)
                             .position(x: min(max(width * ratio, 30), max(width - 30, 30)), y: -12)
                     }
@@ -753,14 +738,8 @@ struct NowPlayingView: View {
     }
 
     private func karaokeColor(_ progress: Double) -> Color {
-        let base = albumTheme.playerForegroundComponents(for: colorScheme)
-        let accent = albumTheme.accentComponents(for: colorScheme)
         let p = min(max(progress, 0), 1)
-        return Color(
-            red: base.0 + (accent.0 - base.0) * p,
-            green: base.1 + (accent.1 - base.1) * p,
-            blue: base.2 + (accent.2 - base.2) * p
-        )
+        return Theme.text.opacity(0.46 + 0.54 * p)
     }
 
     private func closePlayer() {

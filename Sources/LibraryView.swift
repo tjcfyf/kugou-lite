@@ -716,7 +716,7 @@ struct RankDetailSheet: View {
                     Text("播放全部")
                 }
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.onAccent)
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
                 .background(Theme.accentGradient)
@@ -982,7 +982,7 @@ struct PlaylistDetailSheet: View {
                         Text("播放全部")
                     }
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Theme.onAccent)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .background(Theme.accentGradient)
@@ -1026,11 +1026,11 @@ struct PlaylistDetailSheet: View {
                 showTargetPicker = true
             } label: {
                 HStack(spacing: 4) {
-                    if adding { ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white)) }
+                    if adding { ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.onAccent)) }
                     Text(adding ? "加入中…" : "加入歌单")
                         .font(.system(size: 13, weight: .semibold))
                 }
-                .foregroundColor(.white)
+                .foregroundColor(Theme.onAccent)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 9)
                 .background(selectedHashes.isEmpty ? Theme.secondaryText.opacity(0.35) : Theme.accent)
@@ -1431,7 +1431,7 @@ struct ProfileView: View {
                 } label: {
                     Text("扫码登录酷狗概念版")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.onAccent)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                         .background(
@@ -1574,7 +1574,7 @@ struct ProfileView: View {
                 } label: {
                     Text("开始")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.onAccent)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
                         .background(Theme.accentGradient)

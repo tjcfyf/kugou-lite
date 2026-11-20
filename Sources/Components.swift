@@ -4,16 +4,17 @@ import Combine
 
 enum Theme {
     static let background = Color("Background")
-    // 半透明卡片让全局专辑色透出来，但正文仍保持原有的黑白层级。
+    // 半透明卡片让全局专辑色透出来，但正文只用黑/白两级。
     static let card = Color("Card").opacity(0.88)
-    // 跟随根视图的 accentColor，切歌后所有强调色一起换掉。
-    static let accent = Color.accentColor
+    // 强调色也只使用黑/白：暗色主题白，浅色主题黑。
+    static let accent = Color("TextPrimary")
+    static let onAccent = Color("Background")
     static let text = Color("TextPrimary")
-    static let secondaryText = Color("TextSecondary")
-    static let tertiaryText = Color("TextTertiary")
+    static let secondaryText = Color("TextPrimary").opacity(0.72)
+    static let tertiaryText = Color("TextPrimary").opacity(0.46)
     static let chip = Color("Chip").opacity(0.84)
-    static let separator = Color("Separator")
-    static let border = Color("Separator").opacity(0.72)
+    static let separator = Color("TextPrimary").opacity(0.16)
+    static let border = Color("TextPrimary").opacity(0.12)
 
     static var accentGradient: LinearGradient {
         LinearGradient(
@@ -24,29 +25,27 @@ enum Theme {
     }
 }
 
-/// 全局背景：页面底色 + 当前播放封面的主色渐变。所有主页面、sheet 和详情页共用。
+/// 全局背景：只保留底色，不再做全站专辑色染色；唯一的色彩来自播放页的封面磨砂玻璃。
 struct AppBackground: View {
-    @ObservedObject private var albumTheme = AlbumThemeStore.shared
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
-        ZStack {
-            Theme.background
+        Theme.background
+            .ignoresSafeArea()
+    }
+}
 
-            if let palette = albumTheme.paletteColor {
-                LinearGradient(
-                    stops: [
-                        .init(color: palette.opacity(colorScheme == .dark ? 0.56 : 0.34), location: 0),
-                        .init(color: palette.opacity(colorScheme == .dark ? 0.27 : 0.15), location: 0.46),
-                        .init(color: .clear, location: 1)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-        }
-        .ignoresSafeArea()
-        .animation(.easeInOut(duration: 0.55), value: albumTheme.paletteKey)
+/// iOS 原生 UIVisualEffectView 磨砂玻璃。播放页背景用这个，不额外叠任何颜色遮罩。
+struct NativeFrostedGlass: UIViewRepresentable {
+    let style: UIBlurEffect.Style
+
+    func makeUIView(context: Context) -> UIVisualEffectView {
+        let view = UIVisualEffectView(effect: UIBlurEffect(style: style))
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = false
+        return view
+    }
+
+    func updateUIView(_ uiView: UIVisualEffectView, context: Context) {
+        uiView.effect = UIBlurEffect(style: style)
     }
 }
 

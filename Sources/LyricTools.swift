@@ -23,7 +23,7 @@ struct LyricSourceSheet: View {
                             } label: {
                                 Text("重新获取")
                                     .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Theme.onAccent)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 8)
                                     .background(Theme.accentGradient)

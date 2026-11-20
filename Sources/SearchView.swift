@@ -278,7 +278,7 @@ struct MiniPlayer: View {
                     } else {
                         Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Theme.onAccent)
                     }
                 }
                 .frame(width: 38, height: 38)
