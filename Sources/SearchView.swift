@@ -15,15 +15,18 @@ final class SearchModel: ObservableObject {
 
     func schedule() {
         let keyword = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        searchTask?.cancel()
         if keyword.isEmpty {
+            searchTask?.cancel()
             songs = []
             message = nil
             isLoading = false
             lastKeyword = ""
             return
         }
+        // 点历史/热门词时 submit 已经发起同一个关键词的请求，
+        // 这里不能再取消它，否则快捷搜索会一直加载不出来。
         if keyword == lastKeyword { return }
+        searchTask?.cancel()
         searchTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 320_000_000)
             if Task.isCancelled { return }
