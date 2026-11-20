@@ -29,7 +29,7 @@ struct AlbumDetailSheet: View {
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
                     header
                     content
                 }
@@ -139,15 +139,28 @@ struct AlbumDetailSheet: View {
             }
 
             if hasMore {
-                HStack(spacing: 8) {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: Theme.accent))
-                    Text("正在加载更多…")
-                        .font(.system(size: 11))
-                        .foregroundColor(Theme.secondaryText)
+                Button {
+                    Task { await loadMore() }
+                } label: {
+                    HStack(spacing: 8) {
+                        if loadingMore {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: Theme.accent))
+                        } else {
+                            Image(systemName: "arrow.down.circle")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Theme.accent)
+                        }
+                        Text(loadingMore ? "正在加载更多…" : "加载更多（已显示 \(songs.count) 首）")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Theme.secondaryText)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 18)
+                    .contentShape(Rectangle())
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 18)
+                .buttonStyle(.plain)
+                .id("album-more-\(songs.count)")
                 .onAppear {
                     Task { await loadMore() }
                 }
