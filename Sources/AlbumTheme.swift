@@ -81,19 +81,85 @@ final class AlbumThemeStore: ObservableObject {
     /// 播放页背景：不再用近黑/近白打底，而是用中心色的深/浅变体铺满整页，
     /// 只保留从亮到暗的渐变，黑底和白底都尽量少。
     func playerGradientColors(for scheme: ColorScheme) -> (top: Color, mid: Color, bottom: Color) {
+        let colors = playerGradientUIColors(for: scheme)
+        return (Color(uiColor: colors.top), Color(uiColor: colors.mid), Color(uiColor: colors.bottom))
+    }
+
+    /// 播放页前景：按播放页三段背景的平均亮度选深色或浅色，不再固定用白/黑。
+    /// 这样亮封面配深色字、暗封面配浅色字，文字和图标都能真正和背景形成对比。
+    func playerForegroundColors(for scheme: ColorScheme) -> (primary: Color, secondary: Color, tertiary: Color) {
+        let foreground = playerForegroundUIColor(for: scheme)
+        return (Color(uiColor: foreground),
+                Color(uiColor: foreground.withAlphaComponent(0.80)),
+                Color(uiColor: foreground.withAlphaComponent(0.56)))
+    }
+
+    func playerForegroundComponents(for scheme: ColorScheme) -> (Double, Double, Double) {
+        let color = playerForegroundUIColor(for: scheme)
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+            return (1, 1, 1)
+        }
+        return (Double(red), Double(green), Double(blue))
+    }
+
+    /// 强调色如果本身太亮/太暗，文字改用与强调色反差更大的黑或白。
+    func accentForegroundColor(for scheme: ColorScheme) -> Color {
+        let accent = accentUIColor.resolvedColor(with: UITraitCollection(userInterfaceStyle: scheme == .dark ? .dark : .light))
+        return relativeLuminance(accent) < 0.42
+            ? Color(uiColor: UIColor(white: 0.98, alpha: 1))
+            : Color(uiColor: UIColor(red: 0.035, green: 0.045, blue: 0.060, alpha: 1))
+    }
+
+    /// 窗口边缘/安全区露出一部分时，用当前专辑色和底色混出的深/浅色，避免闪纯黑条。
+    var windowBackgroundUIColor: UIColor {
+        UIColor { traits in
+            let base = (UIColor(named: "Background") ?? .black).resolvedColor(with: traits)
+            guard let palette = self.palette else { return base }
+            let tint = palette.resolvedColor(with: traits)
+            let amount: CGFloat = traits.userInterfaceStyle == .dark ? 0.24 : 0.22
+            return self.blend(base, with: tint, amount: amount)
+        }
+    }
+
+    private func playerGradientUIColors(for scheme: ColorScheme) -> (top: UIColor, mid: UIColor, bottom: UIColor) {
         guard let palette = palette else {
-            return (Theme.background, Theme.background, Theme.background)
+            let base = UIColor(named: "Background") ?? .black
+            return (base, base, base)
         }
         let style: UIUserInterfaceStyle = scheme == .dark ? .dark : .light
         let base = palette.resolvedColor(with: UITraitCollection(userInterfaceStyle: style))
         if scheme == .dark {
-            return (Color(uiColor: blend(base, with: .black, amount: 0.12)),
-                    Color(uiColor: blend(base, with: .black, amount: 0.40)),
-                    Color(uiColor: blend(base, with: .black, amount: 0.64)))
+            return (blend(base, with: .black, amount: 0.12),
+                    blend(base, with: .black, amount: 0.40),
+                    blend(base, with: .black, amount: 0.64))
         }
-        return (Color(uiColor: blend(base, with: .white, amount: 0.18)),
-                Color(uiColor: blend(base, with: .white, amount: 0.48)),
-                Color(uiColor: blend(base, with: .white, amount: 0.78)))
+        return (blend(base, with: .white, amount: 0.18),
+                blend(base, with: .white, amount: 0.48),
+                blend(base, with: .white, amount: 0.78))
+    }
+
+    private func playerForegroundUIColor(for scheme: ColorScheme) -> UIColor {
+        guard palette != nil else {
+            return UIColor(named: "TextPrimary") ?? UIColor(white: 0.96, alpha: 1)
+        }
+        let colors = playerGradientUIColors(for: scheme)
+        let average = (relativeLuminance(colors.top) * 0.25)
+                    + (relativeLuminance(colors.mid) * 0.50)
+                    + (relativeLuminance(colors.bottom) * 0.25)
+        if average < 0.42 {
+            return UIColor(white: 0.98, alpha: 1)
+        }
+        return UIColor(red: 0.035, green: 0.045, blue: 0.060, alpha: 1)
+    }
+
+    private func relativeLuminance(_ color: UIColor) -> CGFloat {
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return 0 }
+        func linear(_ value: CGFloat) -> CGFloat {
+            value <= 0.03928 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
     }
 
     private func blend(_ color: UIColor, with other: UIColor, amount: CGFloat) -> UIColor {

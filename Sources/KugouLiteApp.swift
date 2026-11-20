@@ -6,6 +6,16 @@ struct KugouLiteApp: App {
     init() {
         UITableView.appearance().backgroundColor = .clear
         UITableView.appearance().separatorColor = .clear
+        UIScrollView.appearance().backgroundColor = .clear
+
+        // 导航栏改成透明，不再用系统不透明黑底；页面自己铺专辑色背景。
+        let navigationAppearance = UINavigationBarAppearance()
+        navigationAppearance.configureWithTransparentBackground()
+        navigationAppearance.backgroundColor = .clear
+        navigationAppearance.shadowColor = .clear
+        UINavigationBar.appearance().standardAppearance = navigationAppearance
+        UINavigationBar.appearance().scrollEdgeAppearance = navigationAppearance
+        UINavigationBar.appearance().compactAppearance = navigationAppearance
     }
     @StateObject private var player = PlayerEngine.shared
     @StateObject private var auth = AuthStore.shared
@@ -50,16 +60,12 @@ struct RootView: View {
                 discoverTab
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .opacity(tab == 0 ? 1 : 0)
-                    .offset(y: tab == 0 ? 0 : 8)
-                    .scaleEffect(tab == 0 ? 1 : 0.992, anchor: .top)
                     .allowsHitTesting(tab == 0)
                     .zIndex(tab == 0 ? 1 : 0)
 
                 profileTab
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .opacity(tab == 1 ? 1 : 0)
-                    .offset(y: tab == 1 ? 0 : 8)
-                    .scaleEffect(tab == 1 ? 1 : 0.992, anchor: .top)
                     .allowsHitTesting(tab == 1)
                     .zIndex(tab == 1 ? 1 : 0)
             }
@@ -87,6 +93,7 @@ struct RootView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(AppBackground().ignoresSafeArea())
         .animation(.easeInOut(duration: 0.32), value: showPlayer)
         .overlay(alignment: .top) {
             ToastOverlay()
@@ -106,6 +113,7 @@ struct RootView: View {
             }
         }
         .onChange(of: themeRaw) { _ in applyInterfaceStyle() }
+        .onChange(of: albumTheme.paletteKey) { _ in applyWindowBackground() }
         .task(id: auth.isLoggedIn) {
             if auth.isLoggedIn {
                 await LibraryStore.shared.refreshFavorites(force: true)
@@ -126,12 +134,24 @@ struct RootView: View {
             guard let windowScene = scene as? UIWindowScene else { continue }
             for window in windowScene.windows {
                 window.overrideUserInterfaceStyle = style
+                window.rootViewController?.view.backgroundColor = .clear
+                window.backgroundColor = albumTheme.windowBackgroundUIColor
+            }
+        }
+    }
+
+    private func applyWindowBackground() {
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            for window in windowScene.windows {
+                window.backgroundColor = albumTheme.windowBackgroundUIColor
             }
         }
     }
 
     private var discoverTab: some View {
         DiscoverTab(isSearching: $isSearching, onOpenPlayer: { showPlayer = true })
+            .background(AppBackground().ignoresSafeArea())
     }
 
     private var profileTab: some View {
@@ -151,6 +171,7 @@ struct RootView: View {
                 }
         }
         .navigationViewStyle(.stack)
+        .background(AppBackground().ignoresSafeArea())
         .sheet(isPresented: $showSettings) {
             SettingsView()
                 .environmentObject(PlayerEngine.shared)

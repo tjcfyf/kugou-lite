@@ -30,6 +30,16 @@ struct NowPlayingView: View {
         return "音质 \(quality)"
     }
 
+    private var playerForeground: (primary: Color, secondary: Color, tertiary: Color) {
+        albumTheme.playerForegroundColors(for: colorScheme)
+    }
+
+    private var playerPrimary: Color { playerForeground.primary }
+    private var playerSecondary: Color { playerForeground.secondary }
+    private var playerTertiary: Color { playerForeground.tertiary }
+    private var playerAccent: Color { albumTheme.accentColor }
+    private var playerAccentForeground: Color { albumTheme.accentForegroundColor(for: colorScheme) }
+
     private var artworkSize: CGFloat {
         min(UIScreen.main.bounds.width - 72, 330)
     }
@@ -209,7 +219,7 @@ struct NowPlayingView: View {
             } label: {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(Theme.text.opacity(0.75))
+                    .foregroundColor(playerPrimary.opacity(0.82))
                     .frame(width: 40, height: 40)
                     .contentShape(Rectangle())
             }
@@ -220,7 +230,7 @@ struct NowPlayingView: View {
 
             Text("正在播放")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Theme.secondaryText)
+                .foregroundColor(playerSecondary)
 
             Spacer()
 
@@ -237,7 +247,7 @@ struct NowPlayingView: View {
             } label: {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Theme.text.opacity(0.72))
+                    .foregroundColor(playerPrimary.opacity(0.84))
                     .frame(width: 34, height: 44)
                     .contentShape(Rectangle())
             }
@@ -249,11 +259,11 @@ struct NowPlayingView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(player.current?.SongName ?? "未在播放")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(Theme.text)
+                    .foregroundColor(playerPrimary)
                     .lineLimit(1)
                 Text(player.current?.artist ?? "")
                     .font(.system(size: 11))
-                    .foregroundColor(Theme.secondaryText)
+                    .foregroundColor(playerSecondary)
                     .lineLimit(1)
             }
 
@@ -375,7 +385,7 @@ struct NowPlayingView: View {
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(Theme.text.opacity(0.75))
+                .foregroundColor(playerPrimary.opacity(0.82))
                 .frame(width: 40, height: 40)
                 .contentShape(Rectangle())
         }
@@ -394,7 +404,7 @@ struct NowPlayingView: View {
     private var titleBlock: some View {
         Text(player.current?.SongName ?? "未在播放")
             .font(.system(size: 22, weight: .bold))
-            .foregroundColor(Theme.text)
+            .foregroundColor(playerPrimary)
             .lineLimit(2)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
@@ -415,7 +425,7 @@ struct NowPlayingView: View {
                 ZStack(alignment: .leading) {
                     // 透明进度：底线接近音质标签的淡度，播放段用主色渐变保持可读。
                     Capsule()
-                        .fill(Theme.text.opacity(colorScheme == .dark ? 0.11 : 0.08))
+                        .fill(playerPrimary.opacity(colorScheme == .dark ? 0.16 : 0.12))
                         .frame(height: 2.5)
                     Capsule()
                         .fill(
@@ -429,13 +439,13 @@ struct NowPlayingView: View {
                     Circle()
                         .fill(albumTheme.accentColor.opacity(0.62))
                         .frame(width: 9, height: 9)
-                        .overlay(Circle().stroke(Theme.background.opacity(0.34), lineWidth: 0.6))
+                        .overlay(Circle().stroke(playerPrimary.opacity(0.28), lineWidth: 0.6))
                         .offset(x: width * ratio - 4.5)
 
                     if isScrubbing {
                         Text(format(displayedTime))
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(playerAccentForeground)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(albumTheme.accentColor.opacity(0.78))
@@ -474,19 +484,19 @@ struct NowPlayingView: View {
                          ? "-\(format(max(player.duration - displayedTime, 0)))"
                          : format(player.duration))
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(Theme.secondaryText)
+                        .foregroundColor(playerSecondary)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(GlassPressButtonStyle())
             }
             .font(.system(size: 11, weight: .medium))
-            .foregroundColor(Theme.secondaryText)
+            .foregroundColor(playerSecondary)
 
             if !player.currentQuality.isEmpty {
                 Text(qualityLabel)
                     .font(.system(size: 10, weight: .regular))
                     .foregroundColor(
-                        Theme.tertiaryText.opacity(colorScheme == .dark ? 0.58 : 0.48)
+                        playerTertiary.opacity(colorScheme == .dark ? 0.72 : 0.68)
                     )
             }
         }
@@ -500,7 +510,7 @@ struct NowPlayingView: View {
             Button { player.previous() } label: {
                 Image(systemName: "backward.fill")
                     .font(.system(size: 27, weight: .semibold))
-                    .foregroundColor(Theme.text.opacity(0.90))
+                    .foregroundColor(playerPrimary.opacity(0.94))
                     .frame(width: 56, height: 56)
                     .contentShape(Rectangle())
             }
@@ -510,19 +520,19 @@ struct NowPlayingView: View {
                 Group {
                     if player.isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: Theme.text))
+                            .progressViewStyle(CircularProgressViewStyle(tint: playerPrimary))
                             .frame(width: 56, height: 56)
                             .transition(.opacity.combined(with: .scale(scale: 0.86)))
                     } else {
                         ZStack {
                             Image(systemName: "pause.fill")
                                 .font(.system(size: 52, weight: .semibold))
-                                .foregroundColor(Theme.text)
+                                .foregroundColor(playerPrimary)
                                 .opacity(player.isPlaying ? 1 : 0)
                                 .scaleEffect(player.isPlaying ? 1 : 0.86)
                             Image(systemName: "play.fill")
                                 .font(.system(size: 52, weight: .semibold))
-                                .foregroundColor(Theme.text)
+                                .foregroundColor(playerPrimary)
                                 .opacity(player.isPlaying ? 0 : 1)
                                 .scaleEffect(player.isPlaying ? 0.86 : 1)
                         }
@@ -539,7 +549,7 @@ struct NowPlayingView: View {
             Button { player.next() } label: {
                 Image(systemName: "forward.fill")
                     .font(.system(size: 27, weight: .semibold))
-                    .foregroundColor(Theme.text.opacity(0.90))
+                    .foregroundColor(playerPrimary.opacity(0.94))
                     .frame(width: 56, height: 56)
                     .contentShape(Rectangle())
             }
@@ -571,7 +581,7 @@ struct NowPlayingView: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 24, weight: .medium))
-                .foregroundColor(active ? Theme.accent : (disabled ? Theme.tertiaryText : Theme.secondaryText))
+                .foregroundColor(active ? playerAccent : (disabled ? playerTertiary : playerSecondary))
                 .frame(width: 46, height: 46)
                 .contentShape(Rectangle())
         }
@@ -587,7 +597,7 @@ struct NowPlayingView: View {
                     VStack(spacing: 12) {
                         Text(player.isLoading ? "正在缓冲…" : (player.lyricLoading ? "歌词加载中…" : (player.errorMessage ?? "暂无歌词")))
                             .font(.system(size: 13))
-                            .foregroundColor(Theme.secondaryText)
+                            .foregroundColor(playerSecondary)
                         if player.errorMessage != nil && !player.isLoading {
                             Button {
                                 player.retryCurrent()
@@ -597,7 +607,7 @@ struct NowPlayingView: View {
                                     Text("重试")
                                 }
                                 .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(playerAccentForeground)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 7)
                                 .background(Theme.accentGradient)
@@ -613,7 +623,7 @@ struct NowPlayingView: View {
                                     Text("重新加载歌词")
                                 }
                                 .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(Theme.secondaryText)
+                                .foregroundColor(playerSecondary)
                             }
                             .buttonStyle(GlassPressButtonStyle())
                         }
@@ -643,7 +653,7 @@ struct NowPlayingView: View {
                                    !translation.isEmpty {
                                     Text(translation)
                                         .font(.system(size: lyricSize.fontSize - 2, weight: .regular))
-                                        .foregroundColor(Theme.secondaryText.opacity(colorScheme == .dark ? 0.68 : 0.78))
+                                        .foregroundColor(playerSecondary.opacity(colorScheme == .dark ? 0.68 : 0.78))
                                         .lineSpacing(2)
                                 }
 
@@ -651,7 +661,7 @@ struct NowPlayingView: View {
                                    !romanization.isEmpty {
                                     Text(romanization)
                                         .font(.system(size: lyricSize.fontSize - 3, weight: .regular))
-                                        .foregroundColor(Theme.tertiaryText.opacity(colorScheme == .dark ? 0.72 : 0.82))
+                                        .foregroundColor(playerTertiary.opacity(colorScheme == .dark ? 0.72 : 0.82))
                                         .lineSpacing(2)
                                 }
                             }
@@ -712,8 +722,8 @@ struct NowPlayingView: View {
         guard active, !line.words.isEmpty else {
             var plain = AttributedString(line.text)
             plain.foregroundColor = active
-                ? Theme.text
-                : Theme.secondaryText.opacity(colorScheme == .dark ? 0.52 : 0.62)
+                ? playerPrimary
+                : playerSecondary.opacity(colorScheme == .dark ? 0.72 : 0.78)
             return Text(plain)
         }
 
@@ -743,9 +753,7 @@ struct NowPlayingView: View {
     }
 
     private func karaokeColor(_ progress: Double) -> Color {
-        let base: (Double, Double, Double) = colorScheme == .dark
-            ? (1.0, 1.0, 1.0)
-            : (0.043, 0.071, 0.125)
+        let base = albumTheme.playerForegroundComponents(for: colorScheme)
         let accent = albumTheme.accentComponents(for: colorScheme)
         let p = min(max(progress, 0), 1)
         return Color(
