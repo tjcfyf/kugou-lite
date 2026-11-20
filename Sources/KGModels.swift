@@ -19,7 +19,7 @@ struct Song: Identifiable, Equatable {
         guard let hash = json["FileHash"] as? String, !hash.isEmpty,
               let name = json["SongName"] as? String, !name.isEmpty else { return nil }
         FileHash = hash
-        SongName = name
+        SongName = Song.cleanTitle(name)
         SingerName = (json["SingerName"] as? String) ?? ""
         AlbumID = Song.intValue(json["AlbumID"])
         AlbumName = json["AlbumName"] as? String
@@ -45,6 +45,17 @@ struct Song: Identifiable, Equatable {
     static func seconds(_ raw: Any?) -> Int? {
         guard let value = intValue(raw) else { return nil }
         return value > 10000 ? value / 1000 : value
+    }
+
+    /// 歌单接口偶尔把文件名直接当歌名，去掉音频扩展名后再显示。
+    static func cleanTitle(_ raw: String) -> String {
+        let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let extensions = [".mp3", ".flac", ".m4a", ".aac", ".wav", ".ogg", ".ape", ".wma"]
+        let lower = name.lowercased()
+        for ext in extensions where lower.hasSuffix(ext) {
+            return String(name.dropLast(ext.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return name
     }
 
     var id: String { FileHash }

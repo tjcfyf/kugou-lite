@@ -2,6 +2,12 @@ import AVFoundation
 import MediaPlayer
 import UIKit
 
+enum KaraokeMode: String {
+    case unavailable
+    case dualTrack
+    case centerChannel
+}
+
 @MainActor
 final class PlayerEngine: NSObject, ObservableObject {
     static let shared = PlayerEngine()
@@ -26,6 +32,10 @@ final class PlayerEngine: NSObject, ObservableObject {
     @Published private(set) var currentQuality: String = ""
     @Published private(set) var playMode: PlayMode = Preferences.playMode
     @Published private(set) var playbackRate: Float = Preferences.playbackRate
+    @Published private(set) var karaokeEnabled: Bool = Preferences.karaokeEnabled
+    @Published private(set) var karaokeMode: KaraokeMode = .unavailable
+    @Published private(set) var karaokeVocalVolume: Double = Preferences.karaokeVocalVolume
+    @Published private(set) var karaokeAccompanimentVolume: Double = Preferences.karaokeAccompanimentVolume
 
     private let player = AVPlayer()
     private var timeObserver: Any?
@@ -39,6 +49,8 @@ final class PlayerEngine: NSObject, ObservableObject {
     private var rawLyric: [LyricLine] = []
     private var selectedLyricIDs: [String: String] = [:]
     private var urlCache: [String: URL] = [:]
+    private var karaokeURLCache: [String: URL] = [:]
+    private var karaokeTracks: [AVAssetTrack] = []
     private var recentAutoIndices: [Int] = []
     private var settingsVisibleCount = 0
     private var settingsVisible = false
@@ -274,6 +286,43 @@ final class PlayerEngine: NSObject, ObservableObject {
         load(song, resume: true)
     }
 
+    /// 伴唱开关需要重新请求 acappella 双轨，取不到时退回立体声中置声道兼容模式。
+    func setKaraokeEnabled(_ enabled: Bool) {
+        guard karaokeEnabled != enabled else { return }
+        karaokeEnabled = enabled
+        Preferences.karaokeEnabled = enabled
+        if current == nil {
+            karaokeMode = .unavailable
+            AudioEnhancer.shared.setKaraoke(active: false,
+                                            vocal: Float(karaokeVocalVolume),
+                                            accompaniment: Float(karaokeAccompanimentVolume))
+            return
+        }
+        reloadForKaraoke()
+        showToast(enabled ? "伴唱已开启" : "伴唱已关闭")
+    }
+
+    func setKaraokeVolumes(vocal: Double, accompaniment: Double) {
+        let v = min(max(vocal, 0), 1)
+        let a = min(max(accompaniment, 0), 1)
+        karaokeVocalVolume = v
+        karaokeAccompanimentVolume = a
+        Preferences.karaokeVocalVolume = v
+        Preferences.karaokeAccompanimentVolume = a
+        if karaokeMode == .dualTrack {
+            updateKaraokeMix()
+        }
+        AudioEnhancer.shared.setKaraoke(active: karaokeEnabled && karaokeMode == .centerChannel,
+                                        vocal: Float(v),
+                                        accompaniment: Float(a))
+    }
+
+    private func reloadForKaraoke() {
+        guard let song = current else { return }
+        PlaybackMemory.save(currentTime, for: song.FileHash)
+        load(song, resume: true)
+    }
+
     func seek(to seconds: Double) {
         guard player.currentItem != nil else { return }
         let clamped = max(0, min(seconds, max(duration, 0.1)))
@@ -307,6 +356,8 @@ final class PlayerEngine: NSObject, ObservableObject {
         duration = Double(song.Duration ?? 0)
         isLoading = true
         errorMessage = nil
+        karaokeMode = .unavailable
+        karaokeTracks = []
 
         guard NetworkStatus.shared.isConnected else {
             isLoading = false
@@ -331,19 +382,57 @@ final class PlayerEngine: NSObject, ObservableObject {
                     self.urlCache[song.FileHash] = url
                 }
                 if Task.isCancelled { return }
-                let asset = AVURLAsset(url: url)
+
                 let item: AVPlayerItem
-                if AudioEnhancer.shared.isEnabled {
-                    await self.waitForTracks(asset)
-                    item = AVPlayerItem(asset: asset)
-                    AudioEnhancer.shared.attachTap(to: item, asset: asset)
+                var mode: KaraokeMode = .unavailable
+                if self.karaokeEnabled {
+                    var karaokeURL: URL?
+                    if let cached = self.karaokeURLCache[song.FileHash] {
+                        karaokeURL = cached
+                    } else {
+                        do {
+                            karaokeURL = try await KGService.karaokeURL(for: song)
+                        } catch {
+                            karaokeURL = nil
+                        }
+                        if let karaokeURL {
+                            if self.karaokeURLCache.count > 20 { self.karaokeURLCache.removeAll() }
+                            self.karaokeURLCache[song.FileHash] = karaokeURL
+                        }
+                    }
+                    if let karaokeURL {
+                        let karaokeAsset = AVURLAsset(url: karaokeURL)
+                        await self.waitForTracks(karaokeAsset)
+                        let tracks = karaokeAsset.tracks(withMediaType: .audio)
+                        if karaokeAsset.isPlayable, tracks.count >= 2 {
+                            let karaokeItem = AVPlayerItem(asset: karaokeAsset)
+                            self.configureKaraokeMix(on: karaokeItem, tracks: tracks)
+                            item = karaokeItem
+                            mode = .dualTrack
+                            AudioEnhancer.shared.setKaraoke(active: false,
+                                                            vocal: Float(self.karaokeVocalVolume),
+                                                            accompaniment: Float(self.karaokeAccompanimentVolume))
+                        } else {
+                            mode = .centerChannel
+                            item = await self.makeNormalItem(url: url, karaokeFallback: true)
+                        }
+                    } else {
+                        mode = .centerChannel
+                        item = await self.makeNormalItem(url: url, karaokeFallback: true)
+                    }
                 } else {
-                    item = AVPlayerItem(url: url)
+                    AudioEnhancer.shared.setKaraoke(active: false,
+                                                    vocal: Float(self.karaokeVocalVolume),
+                                                    accompaniment: Float(self.karaokeAccompanimentVolume))
+                    item = await self.makeNormalItem(url: url, karaokeFallback: false)
                 }
+                self.karaokeMode = mode
                 item.preferredForwardBufferDuration = 3
                 item.audioTimePitchAlgorithm = .spectral
                 self.player.replaceCurrentItem(with: item)
-                self.currentQuality = KGService.quality(for: song.FileHash) ?? ""
+                self.currentQuality = mode == .dualTrack
+                    ? "伴唱双轨"
+                    : (mode == .centerChannel ? "伴唱·声道" : (KGService.quality(for: song.FileHash) ?? ""))
                 let saved = resume ? PlaybackMemory.position(for: song.FileHash) : 0
                 let total = Double(song.Duration ?? 0)
                 if saved > 5, total <= 0 || saved < total - 5 {
@@ -473,9 +562,48 @@ final class PlayerEngine: NSObject, ObservableObject {
         return result
     }
 
+    private func makeNormalItem(url: URL, karaokeFallback: Bool) async -> AVPlayerItem {
+        let needsTap = karaokeFallback || AudioEnhancer.shared.isEnabled
+        guard needsTap else { return AVPlayerItem(url: url) }
+        if karaokeFallback {
+            AudioEnhancer.shared.setKaraoke(active: true,
+                                            vocal: Float(karaokeVocalVolume),
+                                            accompaniment: Float(karaokeAccompanimentVolume))
+        }
+        let asset = AVURLAsset(url: url)
+        await waitForTracks(asset)
+        let item = AVPlayerItem(asset: asset)
+        AudioEnhancer.shared.attachTap(to: item, asset: asset)
+        return item
+    }
+
+    private func configureKaraokeMix(on item: AVPlayerItem, tracks: [AVAssetTrack]) {
+        karaokeTracks = Array(tracks.prefix(2))
+        item.audioMix = makeKaraokeMix()
+    }
+
+    private func makeKaraokeMix() -> AVMutableAudioMix? {
+        guard karaokeTracks.count >= 2 else { return nil }
+        let mix = AVMutableAudioMix()
+        var parameters: [AVMutableAudioMixInputParameters] = []
+        for (index, track) in karaokeTracks.prefix(2).enumerated() {
+            let parameter = AVMutableAudioMixInputParameters(track: track)
+            let volume = index == 0 ? karaokeVocalVolume : karaokeAccompanimentVolume
+            parameter.setVolume(Float(volume), at: .zero)
+            parameters.append(parameter)
+        }
+        mix.inputParameters = parameters
+        return mix
+    }
+
+    private func updateKaraokeMix() {
+        guard karaokeMode == .dualTrack, let item = player.currentItem else { return }
+        item.audioMix = makeKaraokeMix()
+    }
+
     private func waitForTracks(_ asset: AVURLAsset) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            asset.loadValuesAsynchronously(forKeys: ["tracks"]) {
+            asset.loadValuesAsynchronously(forKeys: ["tracks", "playable"]) {
                 continuation.resume()
             }
         }

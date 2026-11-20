@@ -863,7 +863,7 @@ enum KGService {
         guard let hash = stringValue(item["hash"]), !hash.isEmpty else { return nil }
         var json = item
         json["FileHash"] = hash
-        let fullName = stringValue(item["name"]) ?? stringValue(item["filename"]) ?? ""
+        let fullName = stripAudioExtension(stringValue(item["name"]) ?? stringValue(item["filename"]) ?? "")
         if let range = fullName.range(of: " - ") {
             json["SongName"] = String(fullName[range.upperBound...])
             json["SingerName"] = String(fullName[..<range.lowerBound])
@@ -883,6 +883,10 @@ enum KGService {
         if json["Image"] == nil { json["Image"] = findImage(in: item) }
         if json["Privilege"] == nil { json["Privilege"] = item["privilege"] }
         return Song(json: json)
+    }
+
+    private static func stripAudioExtension(_ raw: String) -> String {
+        Song.cleanTitle(raw)
     }
 
     private static func stringValue(_ value: Any?) -> String? {
@@ -1090,6 +1094,28 @@ enum KGService {
             return url
         }
         if let single = root["url"] as? String, let url = URL(string: single) {
+            return url
+        }
+        return nil
+    }
+
+    /// 伴唱：请求酷狗魔法音乐的 acappella 双音轨（人声 + 伴奏）。
+    /// 只有部分歌曲有该资源，取不到时上层会退回普通播放。
+    static func karaokeURL(for song: Song) async throws -> URL? {
+        guard KGApi.shared.token != nil, KGApi.shared.userid != 0 else { return nil }
+        _ = await KGDevice.registerIfNeeded()
+        KGApi.shared.lastMixSongID = song.MixSongID ?? 0
+        let audioID = song.MixSongID ?? song.Audioid
+        if let url = try? await liteURL(hash: song.FileHash,
+                                        albumID: song.AlbumID,
+                                        albumAudioID: audioID,
+                                        quality: "acappella") {
+            return url
+        }
+        if let url = try? await authorizedURL(hash: song.FileHash,
+                                              albumID: song.AlbumID,
+                                              albumAudioID: audioID,
+                                              quality: "acappella") {
             return url
         }
         return nil

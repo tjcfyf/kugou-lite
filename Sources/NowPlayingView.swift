@@ -20,6 +20,7 @@ struct NowPlayingView: View {
     @State private var lyricClockTime: Double = 0
     @State private var lyricClockDate = Date()
     @State private var dragOffset: CGFloat = 0
+    @State private var artworkPalette: [Color] = []
 
     private var qualityLabel: String {
         let quality = player.currentQuality
@@ -47,6 +48,7 @@ struct NowPlayingView: View {
         case comments(Song)
         case sleep
         case lyricSources
+        case karaoke
 
         var id: String {
             switch self {
@@ -57,6 +59,7 @@ struct NowPlayingView: View {
             case .comments(let song): return "comments-\(song.FileHash)"
             case .sleep: return "sleep"
             case .lyricSources: return "lyric-sources"
+            case .karaoke: return "karaoke"
             }
         }
     }
@@ -136,6 +139,8 @@ struct NowPlayingView: View {
                 SleepTimerSheet().environmentObject(player)
             case .lyricSources:
                 LyricSourceSheet().environmentObject(player)
+            case .karaoke:
+                KaraokeSheet().environmentObject(player)
             }
         }
     }
@@ -143,15 +148,20 @@ struct NowPlayingView: View {
     private var background: some View {
         GeometryReader { geo in
             ZStack {
-                if let url = player.current?.coverURL {
-                    CoverImage(url: url, size: max(geo.size.width, geo.size.height), radius: 0, showsBorder: false)
+                // 专辑图取三色 → 纯色渐变铺底 → iOS 原生磨砂玻璃。
+                // 不再用封面图直接铺底，也不叠任何颜色遮罩。
+                if artworkPalette.count >= 3 {
+                    AngularGradient(gradient: Gradient(colors: artworkPalette + [artworkPalette[0]]),
+                                    center: .center,
+                                    startAngle: .degrees(-90),
+                                    endAngle: .degrees(270))
                         .frame(width: geo.size.width, height: geo.size.height)
-                        .scaleEffect(1.12)
+                        .transition(.opacity)
                 } else {
                     Theme.background
+                        .frame(width: geo.size.width, height: geo.size.height)
                 }
 
-                // iOS 原生毛玻璃：只让 UIVisualEffectView 做材质，不叠任何颜色遮罩。
                 NativeFrostedGlass(style: colorScheme == .dark ? .systemThinMaterialDark : .systemThinMaterialLight)
                     .frame(width: geo.size.width, height: geo.size.height)
 
@@ -159,6 +169,22 @@ struct NowPlayingView: View {
                     CoverImage(url: url, size: max(geo.size.width, geo.size.height), radius: 0, showsBorder: false)
                         .frame(width: geo.size.width, height: geo.size.height)
                         .scaleEffect(1.02)
+                }
+
+                // 只负责下载封面并提取三色，本身不显示。
+                if let url = player.current?.coverURL {
+                    CoverImage(url: url, size: 2, radius: 0, showsBorder: false) { _, image in
+                        guard let image else {
+                            withAnimation(.easeInOut(duration: 0.35)) { artworkPalette = [] }
+                            return
+                        }
+                        let colors = ArtworkPalette.colors(from: image)
+                        withAnimation(.easeInOut(duration: 0.45)) { artworkPalette = colors }
+                    }
+                    .frame(width: 2, height: 2)
+                    .opacity(0.01)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)
@@ -551,12 +577,17 @@ struct NowPlayingView: View {
                 withAnimation(.easeInOut(duration: 0.32)) { showLyrics.toggle() }
             }
             Spacer(minLength: 0)
+            bottomAction(title: "伴唱", icon: "music.mic", active: player.karaokeEnabled,
+                         disabled: player.current == nil) {
+                activeSheet = .karaoke
+            }
+            Spacer(minLength: 0)
             bottomAction(title: "评论", icon: "text.bubble", disabled: player.current == nil) {
                 guard let song = player.current else { return }
                 activeSheet = .comments(song)
             }
         }
-        .padding(.horizontal, 42)
+        .padding(.horizontal, 32)
         .padding(.top, 2)
         .padding(.bottom, 8)
     }
@@ -854,5 +885,146 @@ private struct CrossfadeArtwork: View {
             guard loadToken == token else { return }
             previousImage = nil
         }
+    }
+}
+
+
+struct KaraokeSheet: View {
+    @EnvironmentObject private var player: PlayerEngine
+    @Environment(\.dismiss) private var dismiss
+
+    private var modeTitle: String {
+        switch player.karaokeMode {
+        case .dualTrack: return "双轨伴唱"
+        case .centerChannel: return "立体声兼容分离"
+        case .unavailable: return player.karaokeEnabled ? "正在准备伴唱" : "未开启"
+        }
+    }
+
+    private var modeDetail: String {
+        switch player.karaokeMode {
+        case .dualTrack:
+            return "已取到官方人声/伴奏双轨，可独立调节两条音轨音量。"
+        case .centerChannel:
+            return "这首歌没有官方双轨，使用立体声中置声道估计分离：效果接近伴唱，但不是 AI 级分离。"
+        case .unavailable:
+            return player.karaokeEnabled
+                ? "正在请求伴唱资源，若歌曲不支持会自动退回兼容分离。"
+                : "开启后优先请求官方双轨，取不到时使用兼容分离。"
+        }
+    }
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(alignment: .top, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("伴唱")
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .foregroundColor(Theme.text)
+                                Text(modeTitle)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Theme.secondaryText)
+                            }
+                            Spacer()
+                            Toggle("", isOn: Binding(
+                                get: { player.karaokeEnabled },
+                                set: { player.setKaraokeEnabled($0) }
+                            ))
+                            .labelsHidden()
+                            .tint(Theme.accent)
+                        }
+
+                        Text(modeDetail)
+                            .font(.system(size: 12))
+                            .foregroundColor(Theme.tertiaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(16)
+                    .background(Theme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 18) {
+                        volumeRow(title: "人声", value: player.karaokeVocalVolume) { value in
+                            player.setKaraokeVolumes(vocal: value,
+                                                     accompaniment: player.karaokeAccompanimentVolume)
+                        }
+                        volumeRow(title: "伴奏", value: player.karaokeAccompanimentVolume) { value in
+                            player.setKaraokeVolumes(vocal: player.karaokeVocalVolume,
+                                                     accompaniment: value)
+                        }
+                    }
+                    .padding(16)
+                    .background(Theme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .padding(.top, 14)
+
+                    HStack(spacing: 10) {
+                        presetButton("纯伴奏") {
+                            player.setKaraokeVolumes(vocal: 0, accompaniment: 1)
+                        }
+                        presetButton("纯人声") {
+                            player.setKaraokeVolumes(vocal: 1, accompaniment: 0)
+                        }
+                        presetButton("还原") {
+                            player.setKaraokeVolumes(vocal: 1, accompaniment: 1)
+                        }
+                    }
+                    .padding(.top, 14)
+
+                    Text("人声/伴奏音量只影响当前播放，不会改变歌曲本身的音质。")
+                        .font(.system(size: 11))
+                        .foregroundColor(Theme.tertiaryText)
+                        .padding(.top, 14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Spacer(minLength: 24)
+                }
+                .padding(16)
+            }
+            .background(Theme.background.ignoresSafeArea())
+            .navigationTitle("伴唱")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("完成") { dismiss() }
+                        .foregroundColor(Theme.accent)
+                }
+            }
+        }
+    }
+
+    private func volumeRow(title: String, value: Double, onChange: @escaping (Double) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Theme.text)
+                Spacer()
+                Text("\(Int(value * 100))%")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Theme.secondaryText)
+                    .monospacedDigit()
+            }
+            Slider(value: Binding(get: { value }, set: onChange), in: 0...1)
+                .tint(Theme.accent)
+                .disabled(!player.karaokeEnabled)
+        }
+    }
+
+    private func presetButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(Theme.text)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(Theme.chip)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(GlassPressButtonStyle())
+        .disabled(!player.karaokeEnabled)
     }
 }

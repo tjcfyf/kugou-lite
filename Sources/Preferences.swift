@@ -166,6 +166,9 @@ enum Preferences {
     static let lyricFilterKey = "kg.lyric.filter"
     static let audioEQEnabledKey = "kg.audio.eq.enabled"
     static let audioEQGainsKey = "kg.audio.eq.gains"
+    static let karaokeEnabledKey = "kg.karaoke.enabled"
+    static let karaokeVocalKey = "kg.karaoke.vocal"
+    static let karaokeAccompanimentKey = "kg.karaoke.accompaniment"
 
     static var lyricOffsetMs: Int {
         get { UserDefaults.standard.integer(forKey: lyricOffsetKey) }
@@ -212,6 +215,27 @@ enum Preferences {
             let clamped = min(max(newValue, 0.5), 2.0)
             UserDefaults.standard.set(Double(clamped), forKey: playbackRateKey)
         }
+    }
+
+    static var karaokeEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: karaokeEnabledKey) }
+        set { UserDefaults.standard.set(newValue, forKey: karaokeEnabledKey) }
+    }
+
+    static var karaokeVocalVolume: Double {
+        get {
+            guard UserDefaults.standard.object(forKey: karaokeVocalKey) != nil else { return 1 }
+            return min(max(UserDefaults.standard.double(forKey: karaokeVocalKey), 0), 1)
+        }
+        set { UserDefaults.standard.set(min(max(newValue, 0), 1), forKey: karaokeVocalKey) }
+    }
+
+    static var karaokeAccompanimentVolume: Double {
+        get {
+            guard UserDefaults.standard.object(forKey: karaokeAccompanimentKey) != nil else { return 1 }
+            return min(max(UserDefaults.standard.double(forKey: karaokeAccompanimentKey), 0), 1)
+        }
+        set { UserDefaults.standard.set(min(max(newValue, 0), 1), forKey: karaokeAccompanimentKey) }
     }
 
     static var searchHistory: [String] {

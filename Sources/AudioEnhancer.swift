@@ -8,6 +8,12 @@ struct AudioEQSnapshot {
     let version: Int
 }
 
+struct KaraokeSnapshot {
+    let active: Bool
+    let vocal: Float
+    let accompaniment: Float
+}
+
 private struct BiquadCoefficients {
     var b0: Float
     var b1: Float
@@ -110,6 +116,7 @@ final class AudioEnhancer: ObservableObject {
     private var snapshot = AudioEQSnapshot(enabled: false,
                                           gains: Array(repeating: 0, count: 10),
                                           version: 0)
+    private var karaoke = KaraokeSnapshot(active: false, vocal: 1, accompaniment: 1)
     private let lock = NSLock()
     private var version = 0
 
@@ -140,6 +147,22 @@ final class AudioEnhancer: ObservableObject {
         return snapshot
     }
 
+    func karaokeValue() -> KaraokeSnapshot {
+        lock.lock()
+        defer { lock.unlock() }
+        return karaoke
+    }
+
+    /// 伴唱兼容模式：用立体声中置/侧声道近似拆出人声与伴奏。
+    /// 双轨伴唱时不走这里，由 AVPlayerItem.audioMix 直接控制两条音轨。
+    func setKaraoke(active: Bool, vocal: Float, accompaniment: Float) {
+        lock.lock()
+        karaoke = KaraokeSnapshot(active: active,
+                                  vocal: min(max(vocal, 0), 1),
+                                  accompaniment: min(max(accompaniment, 0), 1))
+        lock.unlock()
+    }
+
     func setGain(_ value: Float, at index: Int) {
         guard gains.indices.contains(index) else { return }
         var next = gains
@@ -162,7 +185,7 @@ final class AudioEnhancer: ObservableObject {
 
     /// 只在开启增强时给 AVPlayerItem 挂处理 tap；关闭时完全不碰播放链路。
     func attachTap(to item: AVPlayerItem, asset: AVURLAsset) {
-        guard isEnabled else { return }
+        guard isEnabled || karaokeValue().active else { return }
         guard let track = asset.tracks(withMediaType: .audio).first else { return }
         let parameters = AVMutableAudioMixInputParameters(track: track)
         guard let tap = makeTap() else { return }
@@ -254,14 +277,20 @@ private final class DSPTapContext {
     }
 
     func process(bufferList: UnsafeMutablePointer<AudioBufferList>, frameCount: CMItemCount) {
-        let snapshot = AudioEnhancer.shared.snapshotValue()
-        guard snapshot.enabled else { return }
-        guard floatFormat, !bands.isEmpty || version < 0 else { return }
-        if snapshot.version != version {
-            apply(snapshot)
+        let eq = AudioEnhancer.shared.snapshotValue()
+        let karaoke = AudioEnhancer.shared.karaokeValue()
+        guard eq.enabled || karaoke.active else { return }
+        guard floatFormat else { return }
+
+        var processEQ = eq.enabled
+        if processEQ {
+            if eq.version != version {
+                apply(eq)
+            }
+            if preamp <= 0 || bands.isEmpty {
+                processEQ = false
+            }
         }
-        guard preamp > 0, !bands.isEmpty else { return }
-        if snapshot.version != version { return }
 
         let abl = UnsafeMutableAudioBufferListPointer(bufferList)
         if interleaved {
@@ -272,32 +301,58 @@ private final class DSPTapContext {
                 guard frames > 0 else { continue }
                 for frame in 0..<frames {
                     let base = frame * channels
-                    for channel in 0..<channels {
-                        var value = data[base + channel]
+                    if processEQ {
+                        for channel in 0..<channels {
+                            var value = data[base + channel]
+                            for band in 0..<10 {
+                                let index = channel * 10 + band
+                                if index < bands.count {
+                                    value = bands[index].process(value)
+                                }
+                            }
+                            data[base + channel] = value * preamp
+                        }
+                    }
+                    if karaoke.active, channels >= 2 {
+                        let left = data[base]
+                        let right = data[base + 1]
+                        let mid = (left + right) * 0.5
+                        let side = (left - right) * 0.5
+                        data[base] = mid * karaoke.vocal + side * karaoke.accompaniment
+                        data[base + 1] = mid * karaoke.vocal - side * karaoke.accompaniment
+                    }
+                }
+            }
+        } else {
+            if processEQ {
+                for channel in 0..<min(abl.count, channels) {
+                    guard let raw = abl[channel].mData else { continue }
+                    let data = raw.assumingMemoryBound(to: Float.self)
+                    let frames = Int(abl[channel].mDataByteSize) / MemoryLayout<Float>.size
+                    for frame in 0..<frames {
+                        var value = data[frame]
                         for band in 0..<10 {
                             let index = channel * 10 + band
                             if index < bands.count {
                                 value = bands[index].process(value)
                             }
                         }
-                        data[base + channel] = value * preamp
+                        data[frame] = value * preamp
                     }
                 }
             }
-        } else {
-            for channel in 0..<min(abl.count, channels) {
-                guard let raw = abl[channel].mData else { continue }
-                let data = raw.assumingMemoryBound(to: Float.self)
-                let frames = Int(abl[channel].mDataByteSize) / MemoryLayout<Float>.size
+            if karaoke.active, channels >= 2, abl.count >= 2,
+               let leftRaw = abl[0].mData, let rightRaw = abl[1].mData {
+                let leftData = leftRaw.assumingMemoryBound(to: Float.self)
+                let rightData = rightRaw.assumingMemoryBound(to: Float.self)
+                let frames = min(Int(abl[0].mDataByteSize), Int(abl[1].mDataByteSize)) / MemoryLayout<Float>.size
                 for frame in 0..<frames {
-                    var value = data[frame]
-                    for band in 0..<10 {
-                        let index = channel * 10 + band
-                        if index < bands.count {
-                            value = bands[index].process(value)
-                        }
-                    }
-                    data[frame] = value * preamp
+                    let left = leftData[frame]
+                    let right = rightData[frame]
+                    let mid = (left + right) * 0.5
+                    let side = (left - right) * 0.5
+                    leftData[frame] = mid * karaoke.vocal + side * karaoke.accompaniment
+                    rightData[frame] = mid * karaoke.vocal - side * karaoke.accompaniment
                 }
             }
         }
