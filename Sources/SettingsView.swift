@@ -747,47 +747,6 @@ struct PlayerSettingsView: View {
         }
     }
 
-    private var audioCard: some View {
-        card(title: "音频增强") {
-            Toggle(isOn: Binding(
-                get: { audio.isEnabled },
-                set: { value in
-                    audio.setEnabled(value)
-                    player.reloadForAudioEnhancement()
-                }
-            )) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("10 段均衡器 + 前级补偿")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Theme.text)
-                    Text("实时处理 AVPlayer PCM；开启后会重载当前歌曲")
-                        .font(.system(size: 10))
-                        .foregroundColor(Theme.secondaryText)
-                }
-            }
-            .tint(Theme.accent)
-
-            Button {
-                showEQ = true
-            } label: {
-                HStack {
-                    Text("调整频段与预设")
-                        .font(.system(size: 12))
-                        .foregroundColor(Theme.text)
-                    Spacer()
-                    Text(String(format: "%+.1f dB", audio.preampDB))
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(Theme.tertiaryText)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(Theme.tertiaryText)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(GlassPressButtonStyle())
-        }
-    }
-
     private var lyricCard: some View {
         card(title: "歌词显示") {
             HStack(spacing: 8) {

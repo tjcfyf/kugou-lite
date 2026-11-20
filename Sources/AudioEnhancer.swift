@@ -329,15 +329,14 @@ private func dspTapInit(tap: MTAudioProcessingTap,
 }
 
 private func dspTapFinalize(tap: MTAudioProcessingTap) {
-    guard let storage = MTAudioProcessingTapGetStorage(tap) else { return }
+    let storage = MTAudioProcessingTapGetStorage(tap)
     Unmanaged<DSPTapContext>.fromOpaque(storage).release()
 }
 
 private func dspTapPrepare(tap: MTAudioProcessingTap,
                            itemCount: CMItemCount,
-                           processingFormat: UnsafePointer<AudioStreamBasicDescription>,
-                           tapStorageOut: UnsafeMutablePointer<UnsafeMutableRawPointer?>?) {
-    guard let storage = MTAudioProcessingTapGetStorage(tap) else { return }
+                           processingFormat: UnsafePointer<AudioStreamBasicDescription>) {
+    let storage = MTAudioProcessingTapGetStorage(tap)
     let context = Unmanaged<DSPTapContext>.fromOpaque(storage).takeUnretainedValue()
     context.prepare(format: processingFormat.pointee)
 }
@@ -361,7 +360,7 @@ private func dspTapProcess(tap: MTAudioProcessingTap,
     guard status == noErr else { return }
     numberFramesOut.pointee = sourceFrames
     flagsOut.pointee = sourceFlags
-    guard let storage = MTAudioProcessingTapGetStorage(tap) else { return }
+    let storage = MTAudioProcessingTapGetStorage(tap)
     let context = Unmanaged<DSPTapContext>.fromOpaque(storage).takeUnretainedValue()
     context.process(bufferList: bufferListInOut, frameCount: sourceFrames)
 }
