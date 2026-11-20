@@ -88,6 +88,8 @@ struct ToastView: View {
 
 struct SongRow: View {
     let song: Song
+    @EnvironmentObject private var player: PlayerEngine
+    @ObservedObject private var library = LibraryStore.shared
 
     var body: some View {
         HStack(spacing: 12) {
@@ -123,5 +125,24 @@ struct SongRow: View {
         }
         .padding(.vertical, 6)
         .contentShape(Rectangle())
+        .contextMenu {
+            Button {
+                player.playNext(song)
+            } label: {
+                Label("下一首播放", systemImage: "arrow.up.forward")
+            }
+            Button {
+                player.appendToQueue(song)
+            } label: {
+                Label("加入播放列表", systemImage: "text.badge.plus")
+            }
+            Button {
+                let added = library.toggleFavorite(song)
+                player.showToast(added ? "已收藏" : "已取消收藏")
+            } label: {
+                Label(library.favorites.contains(where: { $0.FileHash == song.FileHash }) ? "取消收藏" : "收藏",
+                      systemImage: library.favorites.contains(where: { $0.FileHash == song.FileHash }) ? "heart.fill" : "heart")
+            }
+        }
     }
 }

@@ -59,6 +59,23 @@ final class LibraryStore: ObservableObject {
         }
     }
 
+    func removeRecent(_ song: Song) {
+        var list = Preferences.recentSongs
+        list.removeAll { $0.FileHash == song.FileHash }
+        Preferences.recentSongs = list
+        recent = Preferences.recentSongs
+    }
+
+    func clearFavorites() {
+        Preferences.favorites = []
+        favorites = []
+    }
+
+    func clearRecent() {
+        Preferences.recentSongs = []
+        recent = []
+    }
+
     func clear() {
         Preferences.recentSongs = []
         Preferences.searchHistory = []

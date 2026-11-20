@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 /// 音质设置。概念版会员越高，能拿到的档位越高；失败会自动往下降。
 enum AudioQuality: String, CaseIterable, Identifiable {
@@ -70,16 +71,49 @@ enum PlayMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum LyricTextSize: Int, CaseIterable, Identifiable {
+    case small = 0
+    case normal = 1
+    case large = 2
+
+    var id: Int { rawValue }
+    var title: String {
+        switch self {
+        case .small: return "小"
+        case .normal: return "标准"
+        case .large: return "大"
+        }
+    }
+    var fontSize: CGFloat {
+        switch self {
+        case .small: return 13
+        case .normal: return 15
+        case .large: return 18
+        }
+    }
+    var next: LyricTextSize { LyricTextSize(rawValue: (rawValue + 1) % 3) ?? .normal }
+}
+
 enum Preferences {
     private static let qualityKey = "kg.quality"
     private static let historyKey = "kg.search.history"
     private static let recentKey = "kg.recent.songs"
     private static let favoriteKey = "kg.favorite.songs"
     private static let playModeKey = "kg.play.mode"
+    private static let lyricSizeKey = "kg.lyric.size"
 
     static var quality: AudioQuality {
         get { AudioQuality(rawValue: UserDefaults.standard.string(forKey: qualityKey) ?? "") ?? .standard }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: qualityKey) }
+    }
+
+    static var lyricSize: LyricTextSize {
+        get {
+            guard let raw = UserDefaults.standard.object(forKey: lyricSizeKey) as? Int,
+                  let value = LyricTextSize(rawValue: raw) else { return .normal }
+            return value
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: lyricSizeKey) }
     }
 
     static var playMode: PlayMode {

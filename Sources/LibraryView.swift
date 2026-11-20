@@ -101,7 +101,9 @@ struct RecommendView: View {
                 }
 
                 if !library.favorites.isEmpty {
-                    SectionTitle(title: "我的收藏", subtitle: nil)
+                    SectionTitle(title: "我的收藏", subtitle: "\(library.favorites.count) 首", actionTitle: "查看全部") {
+                        sheetTarget = .library(.favorites)
+                    }
                     ForEach(library.favorites, id: \.favoriteRowID) { song in
                         Button {
                             onSelect(song, library.favorites)
@@ -114,7 +116,9 @@ struct RecommendView: View {
                 }
 
                 if !library.recent.isEmpty {
-                    SectionTitle(title: "最近播放", subtitle: "\(library.recent.count) 首")
+                    SectionTitle(title: "最近播放", subtitle: "\(library.recent.count) 首", actionTitle: "查看全部") {
+                        sheetTarget = .library(.recent)
+                    }
                     ForEach(library.recent, id: \.recentRowID) { song in
                         Button {
                             onSelect(song, library.recent)
@@ -166,6 +170,9 @@ struct RecommendView: View {
                     onSelect(song, list)
                     onOpenPlayer()
                 }
+            case .library(let kind):
+                LibrarySongsView(kind: kind)
+                    .environmentObject(player)
             }
         }
     }
@@ -209,14 +216,24 @@ struct RecommendView: View {
     }
 }
 
+enum LibraryKind: String, Identifiable {
+    case favorites
+    case recent
+
+    var id: String { rawValue }
+    var title: String { self == .favorites ? "我的收藏" : "最近播放" }
+}
+
 enum DiscoverSheet: Identifiable {
     case playlist(CloudPlaylist)
     case rank(RankItem)
+    case library(LibraryKind)
 
     var id: String {
         switch self {
         case .playlist(let playlist): return "playlist-\(playlist.id)"
         case .rank(let rank): return "rank-\(rank.id)"
+        case .library(let kind): return "library-\(kind.id)"
         }
     }
 }
@@ -437,6 +454,8 @@ struct PlaylistDetailSheet: View {
 struct SectionTitle: View {
     let title: String
     let subtitle: String?
+    var actionTitle: String? = nil
+    var action: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 8) {
@@ -449,6 +468,18 @@ struct SectionTitle: View {
                     .foregroundColor(Theme.secondaryText)
             }
             Spacer()
+            if let actionTitle = actionTitle, let action = action {
+                Button(action: action) {
+                    HStack(spacing: 2) {
+                        Text(actionTitle)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.secondaryText)
+                }
+                .buttonStyle(.plain)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 18)
@@ -464,6 +495,7 @@ struct ProfileView: View {
     @State private var showDiagnostics = false
     @State private var toast = ""
     @State private var sleepText = ""
+    @State private var customMinutes = 45
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -603,6 +635,28 @@ struct ProfileView: View {
                     .buttonStyle(.plain)
                 }
             }
+            HStack(spacing: 10) {
+                Stepper(value: $customMinutes, in: 1...180) {
+                    Text("自定义 \(customMinutes) 分钟")
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.85))
+                }
+                Button {
+                    player.setSleepTimer(minutes: customMinutes)
+                    sleepText = String(format: "剩余 %02d:00", customMinutes)
+                    toast = "\(customMinutes) 分钟后自动暂停"
+                    Task { try? await Task.sleep(nanoseconds: 1_400_000_000); toast = "" }
+                } label: {
+                    Text("开始")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(Theme.accent)
+                        .cornerRadius(9)
+                }
+                .buttonStyle(.plain)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
@@ -663,6 +717,78 @@ struct ProfileView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 13)
         .contentShape(Rectangle())
+    }
+}
+
+
+struct LibrarySongsView: View {
+    let kind: LibraryKind
+    @ObservedObject private var library = LibraryStore.shared
+    @EnvironmentObject private var player: PlayerEngine
+    @Environment(\.dismiss) private var dismiss
+    @State private var showClearConfirm = false
+
+    private var songs: [Song] {
+        kind == .favorites ? library.favorites : library.recent
+    }
+
+    var body: some View {
+        NavigationView {
+            List {
+                if songs.isEmpty {
+                    Text(kind == .favorites ? "还没有收藏，长按歌曲就能收藏" : "还没有播放记录")
+                        .font(.system(size: 13))
+                        .foregroundColor(Theme.secondaryText)
+                        .listRowBackground(Theme.card)
+                } else {
+                    ForEach(songs, id: \.rowIdentity) { song in
+                        Button {
+                            player.play(song, in: songs)
+                        } label: {
+                            SongRow(song: song)
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(Theme.card)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                if kind == .favorites {
+                                    library.toggleFavorite(song)
+                                } else {
+                                    library.removeRecent(song)
+                                }
+                            } label: { Label("删除", systemImage: "trash") }
+                        }
+                    }
+                }
+            }
+            .listStyle(.plain)
+            .background(Theme.background.ignoresSafeArea())
+            .navigationTitle(kind.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        if let first = songs.first { player.play(first, in: songs) }
+                    } label: {
+                        Label("播放全部", systemImage: "play.fill")
+                    }
+                    .disabled(songs.isEmpty)
+                }
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Button("清空") { showClearConfirm = true }
+                        .disabled(songs.isEmpty)
+                    Button("关闭") { dismiss() }
+                }
+            }
+            .confirmationDialog("确定清空\(kind.title)？", isPresented: $showClearConfirm, titleVisibility: .visible) {
+                Button("清空", role: .destructive) {
+                    if kind == .favorites { library.clearFavorites() } else { library.clearRecent() }
+                }
+                Button("取消", role: .cancel) {}
+            }
+        }
+        .navigationViewStyle(.stack)
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -739,4 +865,5 @@ private extension Song {
     var recommendRowID: String { "rec-\(FileHash)" }
     var favoriteRowID: String { "fav-\(FileHash)" }
     var recentRowID: String { "recent-\(FileHash)" }
+    var rowIdentity: String { FileHash }
 }

@@ -5,6 +5,7 @@ struct NowPlayingView: View {
     @State private var showQueue = false
     @State private var sleepText = ""
     @ObservedObject private var library = LibraryStore.shared
+    @State private var lyricSize: LyricTextSize = Preferences.lyricSize
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -79,6 +80,17 @@ struct NowPlayingView: View {
                             .font(.system(size: 11))
                             .foregroundColor(Theme.accent)
                     }
+                    Button {
+                        lyricSize = lyricSize.next
+                        Preferences.lyricSize = lyricSize
+                        player.showToast("歌词字号：\(lyricSize.title)")
+                    } label: {
+                        Text("Aa")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.75))
+                            .padding(10)
+                    }
+                    .buttonStyle(.plain)
                     Menu {
                         ForEach([0, 15, 30, 60], id: \.self) { minutes in
                             Button(minutes == 0 ? "关闭睡眠定时" : "\(minutes) 分钟后暂停") {
@@ -222,7 +234,7 @@ struct NowPlayingView: View {
                     LazyVStack(spacing: 16) {
                         ForEach(Array(player.lyric.enumerated()), id: \.offset) { index, line in
                             Text(line.text)
-                                .font(.system(size: index == player.lyricIndex ? 17 : 15,
+                                .font(.system(size: index == player.lyricIndex ? lyricSize.fontSize + 2 : lyricSize.fontSize,
                                               weight: index == player.lyricIndex ? .semibold : .regular))
                                 .foregroundColor(index == player.lyricIndex ? .white : Color.white.opacity(0.38))
                                 .multilineTextAlignment(.center)

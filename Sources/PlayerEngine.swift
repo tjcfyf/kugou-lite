@@ -140,6 +140,37 @@ final class PlayerEngine: NSObject, ObservableObject {
         isPlaying = false
     }
 
+    /// 插到当前歌曲后面，下一首就放它。
+    func playNext(_ song: Song) {
+        guard let playing = current else {
+            play(song, in: [song])
+            return
+        }
+        guard playing.FileHash != song.FileHash else {
+            showToast("这首正在播放")
+            return
+        }
+        queue.removeAll { $0.FileHash == song.FileHash }
+        if let newIndex = queue.firstIndex(where: { $0.FileHash == playing.FileHash }) {
+            index = newIndex
+        }
+        queue.insert(song, at: min(index + 1, queue.count))
+        showToast("下一首播放：\(song.SongName)")
+    }
+
+    func appendToQueue(_ song: Song) {
+        if queue.isEmpty {
+            play(song, in: [song])
+            return
+        }
+        guard !queue.contains(where: { $0.FileHash == song.FileHash }) else {
+            showToast("已在播放列表里")
+            return
+        }
+        queue.append(song)
+        showToast("已加入播放列表末尾")
+    }
+
     func jump(to target: Int) {
         guard queue.indices.contains(target) else { return }
         index = target
