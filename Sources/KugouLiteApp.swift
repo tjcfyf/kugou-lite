@@ -3,6 +3,10 @@ import UIKit
 
 @main
 struct KugouLiteApp: App {
+    init() {
+        UITableView.appearance().backgroundColor = .clear
+        UITableView.appearance().separatorColor = .clear
+    }
     @StateObject private var player = PlayerEngine.shared
     @StateObject private var auth = AuthStore.shared
 
@@ -37,14 +41,21 @@ struct RootView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Group {
-                if tab == 0 {
-                    discoverTab
-                } else {
-                    profileTab
-                }
+            ZStack {
+                discoverTab
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .opacity(tab == 0 ? 1 : 0)
+                    .allowsHitTesting(tab == 0)
+                    .zIndex(tab == 0 ? 1 : 0)
+
+                profileTab
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .opacity(tab == 1 ? 1 : 0)
+                    .allowsHitTesting(tab == 1)
+                    .zIndex(tab == 1 ? 1 : 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(.easeInOut(duration: 0.26), value: tab)
 
             FloatingTabBar(tab: $tab, onOpenPlayer: { showPlayer = true })
         }
@@ -67,6 +78,11 @@ struct RootView: View {
                 .frame(width: 1, height: 1)
         )
         .onAppear { applyInterfaceStyle() }
+        .onChange(of: tab) { value in
+            if value != 0 {
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            }
+        }
         .onChange(of: themeRaw) { _ in applyInterfaceStyle() }
         .task(id: auth.isLoggedIn) {
             if auth.isLoggedIn {

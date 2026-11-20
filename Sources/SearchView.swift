@@ -169,7 +169,7 @@ extension SearchView {
                             .font(.system(size: 12))
                             .foregroundColor(Theme.secondaryText)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(GlassPressButtonStyle())
                 }
             }
 
@@ -190,7 +190,7 @@ extension SearchView {
                                     .lineLimit(1)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(GlassPressButtonStyle())
 
                             Button {
                                 Preferences.removeSearch(word)
@@ -202,13 +202,12 @@ extension SearchView {
                                     .frame(width: 24, height: 22)
                                     .contentShape(Rectangle())
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(GlassPressButtonStyle())
                         }
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Theme.card)
-                        .cornerRadius(10)
+                        .liquidGlass(cornerRadius: 18)
                     }
                 }
             }
@@ -230,10 +229,9 @@ extension SearchView {
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Theme.card)
-                                .cornerRadius(10)
+                                .liquidGlass(cornerRadius: 18)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(GlassPressButtonStyle())
                     }
                 }
             }
@@ -268,7 +266,7 @@ struct MiniPlayer: View {
                 }
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GlassPressButtonStyle())
 
             Button {
                 player.toggle()
@@ -287,7 +285,7 @@ struct MiniPlayer: View {
                 .background(Theme.accent)
                 .clipShape(Circle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GlassPressButtonStyle())
 
             Button {
                 player.next()
@@ -297,7 +295,7 @@ struct MiniPlayer: View {
                     .foregroundColor(Theme.text.opacity(0.75))
                     .frame(width: 32, height: 32)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GlassPressButtonStyle())
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

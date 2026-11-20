@@ -5,7 +5,6 @@ struct NowPlayingView: View {
     @EnvironmentObject private var player: PlayerEngine
     @Environment(\.colorScheme) private var colorScheme
     @State private var activeSheet: PlayerSheet?
-    @ObservedObject private var library = LibraryStore.shared
     @State private var lyricSize: LyricTextSize = Preferences.lyricSize
     @State private var showRemaining = false
     @GestureState private var coverDragOffset: CGFloat = 0
@@ -13,7 +12,6 @@ struct NowPlayingView: View {
     @AppStorage(Preferences.coverDoubleTapKey) private var coverDoubleTapEnabled = true
     @AppStorage(Preferences.keepAwakeKey) private var keepAwake = false
     @AppStorage(Preferences.lyricFollowKey) private var lyricAutoFollow = true
-    @State private var coverPressed = false
     @State private var isScrubbing = false
     @State private var scrubTime: Double = 0
 
@@ -51,13 +49,7 @@ struct NowPlayingView: View {
                 grabber
 
                 CoverImage(url: player.current?.coverURL, size: 262, radius: 24)
-                    .shadow(color: .black.opacity(coverPressed ? 0.26 : 0.4),
-                            radius: coverPressed ? 14 : 24,
-                            x: 0,
-                            y: coverPressed ? 7 : 12)
-                    .scaleEffect(coverPressed ? 0.955 : 1.0)
-                    .opacity(coverPressed ? 0.94 : 1.0)
-                    .animation(.interactiveSpring(response: 0.26, dampingFraction: 0.72), value: coverPressed)
+                    .shadow(color: .black.opacity(0.40), radius: 24, x: 0, y: 12)
                     .offset(x: coverDragOffset)
                     .animation(.interactiveSpring(response: 0.34, dampingFraction: 0.82), value: coverDragOffset)
                     .gesture(
@@ -80,27 +72,6 @@ struct NowPlayingView: View {
                         guard coverDoubleTapEnabled else { return }
                         player.toggle()
                     }
-                    .onLongPressGesture(
-                        minimumDuration: 0.55,
-                        maximumDistance: 30,
-                        pressing: { pressing in
-                            withAnimation(.interactiveSpring(response: 0.26, dampingFraction: 0.72)) {
-                                coverPressed = pressing
-                            }
-                        },
-                        perform: {
-                            guard let song = player.current else { return }
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            Task {
-                                let added = await library.toggleFavorite(song)
-                                if let added = added {
-                                    player.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
-                                } else {
-                                    player.showToast(library.favoritesMessage)
-                                }
-                            }
-                        }
-                    )
                     .padding(.top, 8)
 
                 VStack(spacing: 4) {
@@ -127,7 +98,7 @@ struct NowPlayingView: View {
                                 .font(.system(size: 13))
                                 .foregroundColor(Theme.secondaryText)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(GlassPressButtonStyle())
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -151,7 +122,7 @@ struct NowPlayingView: View {
                             .font(.system(size: 11))
                             .foregroundColor(Theme.secondaryText)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(GlassPressButtonStyle())
                         .padding(.top, 1)
                     }
 
@@ -281,7 +252,7 @@ struct NowPlayingView: View {
             Button { activeSheet = .queue } label: {
                 playlistActionLabel(title: "播放列表", icon: "list.bullet")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GlassPressButtonStyle())
 
             Spacer(minLength: 0)
 
@@ -291,7 +262,7 @@ struct NowPlayingView: View {
             } label: {
                 playlistActionLabel(title: "加入歌单", icon: "text.badge.plus")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GlassPressButtonStyle())
             .disabled(player.current == nil)
             .opacity(player.current == nil ? 0.45 : 1)
         }
@@ -391,7 +362,7 @@ struct NowPlayingView: View {
                         .foregroundColor(Theme.text.opacity(0.62))
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassPressButtonStyle())
             }
             .font(.system(size: 11, weight: .medium))
             .foregroundColor(Theme.text.opacity(0.62))
@@ -399,24 +370,36 @@ struct NowPlayingView: View {
     }
 
     private var controls: some View {
-        HStack(spacing: 24) {
-            Button { player.cyclePlayMode() } label: {
-                Image(systemName: player.playMode.icon)
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundColor(player.playMode == .loop ? Theme.text.opacity(0.55) : Theme.accent)
-            }
+        HStack(spacing: 30) {
+            Spacer(minLength: 0)
 
             Button { player.previous() } label: {
-                Image(systemName: "backward.fill")
-                    .font(.system(size: 24))
-                    .foregroundColor(Theme.text.opacity(0.85))
+                ZStack {
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .frame(width: 48, height: 48)
+                        .overlay(Circle().stroke(Color.white.opacity(0.30), lineWidth: 0.7))
+                        .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 5)
+                    Image(systemName: "backward.fill")
+                        .font(.system(size: 21))
+                        .foregroundColor(Theme.text.opacity(0.82))
+                }
             }
+            .buttonStyle(GlassPressButtonStyle())
 
             Button { player.toggle() } label: {
                 ZStack {
                     Circle()
-                        .fill(Theme.accent)
-                        .frame(width: 64, height: 64)
+                        .fill(
+                            LinearGradient(
+                                colors: [Theme.accent.opacity(0.92), Theme.accent, Theme.accent.opacity(0.75)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 66, height: 66)
+                        .overlay(Circle().stroke(Color.white.opacity(0.45), lineWidth: 1))
+                        .shadow(color: Theme.accent.opacity(0.45), radius: 18, x: 0, y: 8)
                     if player.isLoading {
                         ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .black))
                     } else {
@@ -426,17 +409,24 @@ struct NowPlayingView: View {
                     }
                 }
             }
+            .buttonStyle(GlassPressButtonStyle())
 
             Button { player.next() } label: {
-                Image(systemName: "forward.fill")
-                    .font(.system(size: 24))
-                    .foregroundColor(Theme.text.opacity(0.85))
+                ZStack {
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .frame(width: 48, height: 48)
+                        .overlay(Circle().stroke(Color.white.opacity(0.30), lineWidth: 0.7))
+                        .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 5)
+                    Image(systemName: "forward.fill")
+                        .font(.system(size: 21))
+                        .foregroundColor(Theme.text.opacity(0.82))
+                }
             }
+            .buttonStyle(GlassPressButtonStyle())
 
-            Color.clear
-                .frame(width: 19, height: 34)
+            Spacer(minLength: 0)
         }
-        .buttonStyle(.plain)
     }
 
     private var lyricView: some View {
@@ -462,7 +452,7 @@ struct NowPlayingView: View {
                                 .background(Theme.accent)
                                 .cornerRadius(9)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(GlassPressButtonStyle())
                         } else if !player.lyricLoading {
                             Button {
                                 player.reloadLyric()
@@ -474,7 +464,7 @@ struct NowPlayingView: View {
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(Theme.secondaryText)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(GlassPressButtonStyle())
                         }
                     }
                     .padding(.top, 24)

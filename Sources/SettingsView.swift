@@ -90,8 +90,7 @@ struct GestureSettingsCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(Theme.card)
-        .cornerRadius(14)
+        .liquidGlass(cornerRadius: 18)
     }
 }
 
@@ -118,8 +117,7 @@ struct KeepAwakeSettingsCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(Theme.card)
-        .cornerRadius(14)
+        .liquidGlass(cornerRadius: 18)
     }
 }
 
@@ -155,7 +153,7 @@ struct LyricOffsetSettingsCard: View {
                         .background(Theme.chip)
                         .cornerRadius(9)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassPressButtonStyle())
                 .disabled(player.lyricOffsetMs <= -3000)
 
                 Button {
@@ -169,7 +167,7 @@ struct LyricOffsetSettingsCard: View {
                         .background(Theme.chip)
                         .cornerRadius(9)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassPressButtonStyle())
 
                 Button {
                     player.setLyricOffset(milliseconds: player.lyricOffsetMs + 500)
@@ -182,7 +180,7 @@ struct LyricOffsetSettingsCard: View {
                         .background(Theme.chip)
                         .cornerRadius(9)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassPressButtonStyle())
                 .disabled(player.lyricOffsetMs >= 3000)
             }
 
@@ -208,8 +206,7 @@ struct LyricOffsetSettingsCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(Theme.card)
-        .cornerRadius(14)
+        .liquidGlass(cornerRadius: 18)
     }
 }
 
@@ -283,7 +280,7 @@ struct SettingsView: View {
                             .background(themeRaw == mode.rawValue ? Theme.accent : Theme.chip)
                             .cornerRadius(9)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(GlassPressButtonStyle())
                 }
             }
         }
@@ -308,7 +305,7 @@ struct SettingsView: View {
                         .background(player.playMode == mode ? Theme.accent : Theme.chip)
                         .cornerRadius(9)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(GlassPressButtonStyle())
                 }
             }
         }
@@ -329,7 +326,7 @@ struct SettingsView: View {
                             .background(player.playbackRate == item.rawValue ? Theme.accent : Theme.chip)
                             .cornerRadius(9)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(GlassPressButtonStyle())
                 }
             }
             Text("切换后立即生效，人声不会变调")
@@ -367,7 +364,7 @@ struct SettingsView: View {
                     .padding(.vertical, 5)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassPressButtonStyle())
             }
             Text("取不到高音质时会自动降到下一档")
                 .font(.system(size: 11))
@@ -395,7 +392,7 @@ struct SettingsView: View {
                         .background(lyricSize == item ? Theme.accent : Theme.chip)
                         .cornerRadius(9)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(GlassPressButtonStyle())
                 }
             }
         }
@@ -429,7 +426,7 @@ struct SettingsView: View {
                             .background(Theme.chip)
                             .cornerRadius(9)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(GlassPressButtonStyle())
                 }
             }
             SleepWaitForTrackEndToggle()
@@ -453,7 +450,7 @@ struct SettingsView: View {
                         .background(Theme.accent)
                         .cornerRadius(9)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassPressButtonStyle())
             }
         }
     }
@@ -465,7 +462,7 @@ struct SettingsView: View {
             } label: {
                 settingRow(title: "会员领取诊断", icon: "stethoscope")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GlassPressButtonStyle())
 
             Divider().background(Theme.separator)
 
@@ -482,7 +479,7 @@ struct SettingsView: View {
                 settingRow(title: auth.isLoggedIn ? "退出登录" : "未登录",
                            icon: "rectangle.portrait.and.arrow.right")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GlassPressButtonStyle())
         }
     }
 
@@ -495,7 +492,7 @@ struct SettingsView: View {
             } label: {
                 settingRow(title: "清空本地记录", icon: "trash")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GlassPressButtonStyle())
 
             Divider().background(Theme.separator)
 
@@ -506,7 +503,7 @@ struct SettingsView: View {
             } label: {
                 settingRow(title: "清空播放缓存", icon: "arrow.triangle.2.circlepath")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GlassPressButtonStyle())
         }
     }
 
@@ -534,8 +531,7 @@ struct SettingsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(Theme.card)
-        .cornerRadius(14)
+        .liquidGlass(cornerRadius: 18)
     }
 
     private func flashToast() {
@@ -612,7 +608,7 @@ struct PlayerSettingsView: View {
                             .background(Theme.chip)
                             .cornerRadius(9)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(GlassPressButtonStyle())
                 }
             }
             SleepWaitForTrackEndToggle()
@@ -633,7 +629,7 @@ struct PlayerSettingsView: View {
                         .background(Theme.accent)
                         .cornerRadius(9)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassPressButtonStyle())
             }
         }
     }
@@ -657,7 +653,7 @@ struct PlayerSettingsView: View {
                         .background(player.playMode == mode ? Theme.accent : Theme.chip)
                         .cornerRadius(9)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(GlassPressButtonStyle())
                 }
             }
         }
@@ -678,7 +674,7 @@ struct PlayerSettingsView: View {
                             .background(player.playbackRate == item.rawValue ? Theme.accent : Theme.chip)
                             .cornerRadius(9)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(GlassPressButtonStyle())
                 }
             }
         }
@@ -700,7 +696,7 @@ struct PlayerSettingsView: View {
                             .background(lyricSize == item ? Theme.accent : Theme.chip)
                             .cornerRadius(9)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(GlassPressButtonStyle())
                 }
             }
         }
@@ -731,7 +727,7 @@ struct PlayerSettingsView: View {
                     .padding(.vertical, 5)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassPressButtonStyle())
             }
         }
     }
@@ -745,8 +741,7 @@ struct PlayerSettingsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(Theme.card)
-        .cornerRadius(18)
+        .liquidGlass(cornerRadius: 18)
     }
 }
 

@@ -46,9 +46,12 @@ struct RecommendView: View {
 
             if searchMode {
                 searchBar
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 searchBody
+                    .transition(.opacity)
             } else {
                 discoverBody
+                    .transition(.opacity)
             }
         }
         .background(AppBackground())
@@ -93,19 +96,20 @@ struct RecommendView: View {
                         .foregroundColor(Theme.accent)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(Theme.accent.opacity(0.10))
+                        .background(Capsule().fill(.ultraThinMaterial))
+                        .overlay(Capsule().stroke(Theme.accent.opacity(0.28), lineWidth: 0.6))
                         .clipShape(Capsule())
                 }
                 Spacer()
                 Button(action: toggleSearch) {
                     Image(systemName: searchMode ? "xmark" : "magnifyingglass")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(Theme.text.opacity(0.7))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Theme.text.opacity(0.78))
                         .frame(width: 34, height: 34)
-                        .background(Theme.chip)
+                        .liquidGlass(cornerRadius: 17)
                         .clipShape(Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassPressButtonStyle())
                 .accessibilityLabel(searchMode ? "关闭搜索" : "搜索")
             }
 
@@ -124,10 +128,20 @@ struct RecommendView: View {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 7)
-                                .background(Theme.accent)
+                                .background(
+                                    Capsule().fill(
+                                        LinearGradient(
+                                            colors: [Theme.accent.opacity(0.92), Theme.accent],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                )
+                                .overlay(Capsule().stroke(Color.white.opacity(0.32), lineWidth: 0.7))
+                                .shadow(color: Theme.accent.opacity(0.32), radius: 10, x: 0, y: 5)
                                 .clipShape(Capsule())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(GlassPressButtonStyle())
                     }
                 }
             }
@@ -156,13 +170,12 @@ struct RecommendView: View {
                         .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassPressButtonStyle())
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(Theme.card)
-        .cornerRadius(12)
+        .liquidGlass(cornerRadius: 18)
         .padding(.horizontal, 16)
         .padding(.top, 6)
         .padding(.bottom, 6)
@@ -194,7 +207,7 @@ struct RecommendView: View {
                                 Button { sheetTarget = .rank(rank) } label: {
                                     RankCard(rank: rank)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(GlassPressButtonStyle())
                             }
                         }
                         .padding(.horizontal, 16)
@@ -283,7 +296,7 @@ struct RecommendView: View {
                             .font(.system(size: 12))
                             .foregroundColor(Theme.secondaryText)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(GlassPressButtonStyle())
                 }
             }
 
@@ -304,7 +317,7 @@ struct RecommendView: View {
                                     .lineLimit(1)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(GlassPressButtonStyle())
 
                             Button {
                                 Preferences.removeSearch(word)
@@ -316,13 +329,12 @@ struct RecommendView: View {
                                     .frame(width: 24, height: 22)
                                     .contentShape(Rectangle())
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(GlassPressButtonStyle())
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 7)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Theme.card)
-                        .cornerRadius(10)
+                        .liquidGlass(cornerRadius: 18)
                     }
                 }
             }
@@ -344,10 +356,9 @@ struct RecommendView: View {
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Theme.card)
-                                .cornerRadius(10)
+                                .liquidGlass(cornerRadius: 18)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(GlassPressButtonStyle())
                     }
                 }
             }
@@ -357,7 +368,7 @@ struct RecommendView: View {
     }
 
     private func toggleSearch() {
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(.easeInOut(duration: 0.26)) {
             searchMode.toggle()
         }
         if searchMode {
@@ -396,7 +407,7 @@ struct RankCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             ZStack {
-                RoundedRectangle(cornerRadius: 10).fill(Theme.card)
+                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.ultraThinMaterial)
                 if let url = rank.cover.flatMap(URL.init(string:)) {
                     AsyncImage(url: url) { image in
                         image.resizable().scaledToFill()
@@ -423,6 +434,8 @@ struct RankCard: View {
                 .font(.system(size: 10))
                 .foregroundColor(Theme.secondaryText)
         }
+        .padding(8)
+        .liquidGlass(cornerRadius: 16)
     }
 }
 
@@ -465,7 +478,7 @@ struct RankDetailSheet: View {
                                 .foregroundColor(Theme.accent)
                                 .padding(.vertical, 14)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(GlassPressButtonStyle())
                     }
                 }
                 .padding(.bottom, 24)
@@ -515,7 +528,7 @@ struct PlaylistCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             ZStack {
-                RoundedRectangle(cornerRadius: 10).fill(Theme.card)
+                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.ultraThinMaterial)
                 if let url = playlist.cover.flatMap(URL.init(string:)) {
                     AsyncImage(url: url) { image in
                         image.resizable().scaledToFill()
@@ -542,6 +555,8 @@ struct PlaylistCard: View {
                 .font(.system(size: 10))
                 .foregroundColor(Theme.secondaryText)
         }
+        .padding(8)
+        .liquidGlass(cornerRadius: 16)
     }
 }
 
@@ -588,7 +603,7 @@ struct PlaylistDetailSheet: View {
                             }
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(Theme.accent)
-                            .buttonStyle(.plain)
+                            .buttonStyle(GlassPressButtonStyle())
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 14)
@@ -609,7 +624,7 @@ struct PlaylistDetailSheet: View {
                                         SongRow(song: song, showsMore: false)
                                     }
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(GlassPressButtonStyle())
                             } else {
                                 Button {
                                     dismiss()
@@ -619,7 +634,7 @@ struct PlaylistDetailSheet: View {
                                 } label: {
                                     SongRow(song: song, showsMore: false)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(GlassPressButtonStyle())
                                 SongMoreMenu(song: song)
                             }
                         }
@@ -639,7 +654,7 @@ struct PlaylistDetailSheet: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(GlassPressButtonStyle())
                         .disabled(loadingMore)
                         .id("playlist-more-\(songs.count)")
                     } else if !loading && !message.isEmpty && !songs.isEmpty {
@@ -705,13 +720,14 @@ struct PlaylistDetailSheet: View {
                 .background(selectedHashes.isEmpty ? Theme.secondaryText.opacity(0.35) : Theme.accent)
                 .cornerRadius(18)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GlassPressButtonStyle())
             .disabled(selectedHashes.isEmpty || adding)
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)
         .padding(.bottom, 8)
-        .background(Theme.card.opacity(0.96))
+        .background(.ultraThinMaterial)
+        .overlay(Rectangle().fill(Theme.separator.opacity(0.35)).frame(height: 0.6), alignment: .top)
     }
 
     private func toggle(_ song: Song) {
@@ -790,17 +806,17 @@ struct PlaylistTargetPicker: View {
                         ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
                         Text("读取歌单…").font(.system(size: 12)).foregroundColor(Theme.secondaryText)
                     }
-                    .listRowBackground(Theme.card)
+                    .listRowBackground(GlassRowBackground())
                 } else if !message.isEmpty {
                     Text(message)
                         .font(.system(size: 12))
                         .foregroundColor(Theme.secondaryText)
-                        .listRowBackground(Theme.card)
+                        .listRowBackground(GlassRowBackground())
                 } else if playlists.isEmpty {
                     Text("没有可写入的自建歌单，先在酷狗创建或取消收藏后再试")
                         .font(.system(size: 12))
                         .foregroundColor(Theme.secondaryText)
-                        .listRowBackground(Theme.card)
+                        .listRowBackground(GlassRowBackground())
                 } else {
                     ForEach(playlists) { playlist in
                         Button {
@@ -824,12 +840,13 @@ struct PlaylistTargetPicker: View {
                                     .foregroundColor(Theme.tertiaryText)
                             }
                         }
-                        .buttonStyle(.plain)
-                        .listRowBackground(Theme.card)
+                        .buttonStyle(GlassPressButtonStyle())
+                        .listRowBackground(GlassRowBackground())
                     }
                 }
             }
             .listStyle(.plain)
+            .listRowSeparator(.hidden)
             .background(AppBackground())
             .navigationTitle("选择歌单")
             .navigationBarTitleDisplayMode(.inline)
@@ -881,7 +898,7 @@ struct SectionTitle: View {
                     .font(.system(size: 11))
                     .foregroundColor(Theme.secondaryText)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassPressButtonStyle())
             }
         }
         .padding(.horizontal, 16)
@@ -995,10 +1012,9 @@ struct ProfileView: View {
                     .foregroundColor(Theme.tertiaryText)
             }
             .padding(14)
-            .background(Theme.card)
-            .cornerRadius(14)
+            .liquidGlass(cornerRadius: 18)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GlassPressButtonStyle())
     }
 
     private var playlistsSection: some View {
@@ -1021,7 +1037,7 @@ struct ProfileView: View {
                         .font(.system(size: 11))
                         .foregroundColor(Theme.secondaryText)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(GlassPressButtonStyle())
                 }
             }
             if !auth.isLoggedIn {
@@ -1055,7 +1071,7 @@ struct ProfileView: View {
                             } label: {
                                 PlaylistCard(playlist: playlist)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(GlassPressButtonStyle())
                         }
                     }
                 }
@@ -1114,8 +1130,7 @@ struct ProfileView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .background(Theme.card)
-        .cornerRadius(16)
+        .liquidGlass(cornerRadius: 18)
     }
 
     private var displayName: String {
@@ -1180,7 +1195,7 @@ struct ProfileView: View {
                     }
                     .padding(.vertical, 4)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassPressButtonStyle())
             }
             Text("取不到高音质时会自动降到下一档")
                 .font(.system(size: 11))
@@ -1188,8 +1203,7 @@ struct ProfileView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(Theme.card)
-        .cornerRadius(14)
+        .liquidGlass(cornerRadius: 18)
     }
 
     private var sleepCard: some View {
@@ -1229,7 +1243,7 @@ struct ProfileView: View {
                             .background(Theme.chip)
                             .cornerRadius(9)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(GlassPressButtonStyle())
                 }
             }
             HStack(spacing: 10) {
@@ -1252,13 +1266,12 @@ struct ProfileView: View {
                         .background(Theme.accent)
                         .cornerRadius(9)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassPressButtonStyle())
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(Theme.card)
-        .cornerRadius(14)
+        .liquidGlass(cornerRadius: 18)
         .onReceive(timer) { _ in
             guard let deadline = player.sleepDeadline else { sleepText = ""; return }
             let remain = Int(deadline.timeIntervalSinceNow)
@@ -1346,7 +1359,7 @@ struct LibrarySongsView: View {
                             .font(.system(size: 13))
                             .foregroundColor(Theme.secondaryText)
                     }
-                    .listRowBackground(Theme.card)
+                    .listRowBackground(GlassRowBackground())
                 } else if songs.isEmpty {
                     Text(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                          ? (kind == .favorites
@@ -1355,7 +1368,7 @@ struct LibrarySongsView: View {
                          : "没有匹配的歌曲")
                         .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
-                        .listRowBackground(Theme.card)
+                        .listRowBackground(GlassRowBackground())
                 } else {
                     ForEach(songs, id: \.rowIdentity) { song in
                         HStack(spacing: 8) {
@@ -1366,12 +1379,13 @@ struct LibrarySongsView: View {
                                 }
                             SongMoreMenu(song: song)
                         }
-                        .listRowBackground(Theme.card)
+                        .listRowBackground(GlassRowBackground())
                     }
                     .onDelete(perform: deleteSongs)
                 }
             }
             .listStyle(.plain)
+            .listRowSeparator(.hidden)
             .background(AppBackground())
             .navigationTitle(kind.title)
             .navigationBarTitleDisplayMode(.inline)
@@ -1473,7 +1487,7 @@ struct QueueView: View {
                         }
                     }
                     .padding(.vertical, 4)
-                    .listRowBackground(Theme.card)
+                    .listRowBackground(GlassRowBackground())
                 }
 
                 ForEach(Array(player.queueSongs.enumerated()), id: \.element.id) { index, song in
@@ -1500,9 +1514,9 @@ struct QueueView: View {
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(GlassPressButtonStyle())
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .listRowBackground(Theme.card)
+                    .listRowBackground(GlassRowBackground())
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) {
                             player.removeFromQueue(at: index)
@@ -1515,6 +1529,7 @@ struct QueueView: View {
             }
             .environment(\.editMode, $editMode)
             .listStyle(.plain)
+            .listRowSeparator(.hidden)
             .background(AppBackground())
             .navigationTitle("播放列表")
             .navigationBarTitleDisplayMode(.inline)

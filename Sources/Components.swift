@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Combine
 
 enum Theme {
     static let background = Color("Background")
@@ -8,7 +9,7 @@ enum Theme {
     static let text = Color("TextPrimary")
     static let secondaryText = Color("TextSecondary")
     static let tertiaryText = Color("TextTertiary")
-    static let chip = Color("Chip")
+    static let chip = Color("Chip").opacity(0.72)
     static let separator = Color("Separator")
 }
 
@@ -17,22 +18,139 @@ struct AppBackground: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        ZStack {
-            Theme.background
-            RadialGradient(
-                colors: [Theme.accent.opacity(colorScheme == .dark ? 0.16 : 0.13), Color.clear],
-                center: .topLeading,
-                startRadius: 0,
-                endRadius: 620
-            )
-            RadialGradient(
-                colors: [Color(red: 0.32, green: 0.55, blue: 0.86).opacity(colorScheme == .dark ? 0.12 : 0.14), Color.clear],
-                center: .bottomTrailing,
-                startRadius: 0,
-                endRadius: 560
-            )
+        GeometryReader { geo in
+            ZStack {
+                Theme.background
+
+                RadialGradient(
+                    colors: [Theme.accent.opacity(colorScheme == .dark ? 0.22 : 0.16), Color.clear],
+                    center: .topLeading,
+                    startRadius: 0,
+                    endRadius: max(geo.size.width, geo.size.height) * 0.82
+                )
+
+                RadialGradient(
+                    colors: [Color(red: 0.28, green: 0.58, blue: 0.95).opacity(colorScheme == .dark ? 0.16 : 0.18), Color.clear],
+                    center: .bottomTrailing,
+                    startRadius: 0,
+                    endRadius: max(geo.size.width, geo.size.height) * 0.72
+                )
+
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Theme.accent.opacity(colorScheme == .dark ? 0.20 : 0.12), Color.clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: geo.size.width * 0.92, height: geo.size.width * 0.92)
+                    .blur(radius: 70)
+                    .offset(x: -geo.size.width * 0.34, y: -geo.size.height * 0.34)
+
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(red: 0.36, green: 0.72, blue: 0.98).opacity(colorScheme == .dark ? 0.14 : 0.12), Color.clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: geo.size.width * 0.78, height: geo.size.width * 0.78)
+                    .blur(radius: 85)
+                    .offset(x: geo.size.width * 0.32, y: geo.size.height * 0.26)
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
         .ignoresSafeArea()
+    }
+}
+
+/// 液态玻璃卡片：半透明材质、斜向高光、渐变描边和柔和投影。
+struct LiquidGlassSurface: ViewModifier {
+    var cornerRadius: CGFloat = 20
+    var tint: Color = Theme.accent
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(colorScheme == .dark ? 0.10 : 0.26),
+                                    tint.opacity(colorScheme == .dark ? 0.08 : 0.04),
+                                    Color.clear
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(colorScheme == .dark ? 0.42 : 0.72),
+                                Color.white.opacity(0.06),
+                                tint.opacity(colorScheme == .dark ? 0.40 : 0.26)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.9
+                    )
+            )
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.30 : 0.10), radius: 18, x: 0, y: 10)
+            .shadow(color: tint.opacity(colorScheme == .dark ? 0.14 : 0.08), radius: 22, x: 0, y: 0)
+    }
+}
+
+extension View {
+    func liquidGlass(cornerRadius: CGFloat = 20, tint: Color = Theme.accent) -> some View {
+        modifier(LiquidGlassSurface(cornerRadius: cornerRadius, tint: tint))
+    }
+}
+
+/// 列表行的液态玻璃底。
+struct GlassRowBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(.ultraThinMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(colorScheme == .dark ? 0.28 : 0.55),
+                                Color.white.opacity(0.04)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.7
+                    )
+            )
+            .padding(.vertical, 3)
+            .padding(.horizontal, 10)
+    }
+}
+
+/// 玻璃按钮的轻微按压回弹。
+struct GlassPressButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .opacity(configuration.isPressed ? 0.86 : 1.0)
+            .animation(.spring(response: 0.28, dampingFraction: 0.72), value: configuration.isPressed)
     }
 }
 
@@ -175,7 +293,7 @@ struct SongActionsSheet: View {
             .padding(.vertical, 14)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GlassPressButtonStyle())
     }
 }
 
@@ -227,7 +345,7 @@ struct SongMoreMenu: View {
                 .frame(width: 34, height: 34)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GlassPressButtonStyle())
     }
 }
 
@@ -252,7 +370,7 @@ struct SongRowWithMenu: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GlassPressButtonStyle())
             SongMoreMenu(song: song)
         }
     }
@@ -264,6 +382,9 @@ struct FloatingTabBar: View {
     let onOpenPlayer: () -> Void
 
     @EnvironmentObject private var player: PlayerEngine
+
+    @State private var artworkRotation: Double = 0
+    private let rotationTimer = Timer.publish(every: 0.04, on: .main, in: .common).autoconnect()
 
     var body: some View {
         HStack(spacing: 0) {
@@ -280,22 +401,22 @@ struct FloatingTabBar: View {
         .padding(.horizontal, 16)
         .frame(maxWidth: 340)
         .frame(height: 66)
-        .background(
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .stroke(Theme.separator.opacity(0.5), lineWidth: 0.6)
-        )
-        .shadow(color: .black.opacity(0.16), radius: 16, x: 0, y: 8)
+        .liquidGlass(cornerRadius: 30)
+        .animation(.easeInOut(duration: 0.22), value: tab)
         .padding(.horizontal, 20)
         .padding(.bottom, 6)
+        .onReceive(rotationTimer) { _ in
+            guard player.isPlaying else { return }
+            artworkRotation += 1.8
+            if artworkRotation >= 360 { artworkRotation -= 360 }
+        }
     }
 
     private func tabButton(title: String, icon: String, tag: Int) -> some View {
         Button {
-            tab = tag
+            withAnimation(.easeInOut(duration: 0.22)) {
+                tab = tag
+            }
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: icon)
@@ -307,7 +428,7 @@ struct FloatingTabBar: View {
             .frame(width: 76, height: 54)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GlassPressButtonStyle())
     }
 
     private var albumButton: some View {
@@ -319,11 +440,15 @@ struct FloatingTabBar: View {
             onOpenPlayer()
         } label: {
             ZStack {
-                if let song = player.current, let url = song.coverURL {
-                    CoverImage(url: url, size: 46, radius: 23)
-                } else {
-                    RotatingAlbumPlaceholder(size: 46)
+                Group {
+                    if let song = player.current, let url = song.coverURL {
+                        CoverImage(url: url, size: 46, radius: 23)
+                    } else {
+                        RotatingAlbumPlaceholder(size: 46)
+                    }
                 }
+                .transition(.opacity)
+                .rotationEffect(.degrees(artworkRotation))
 
                 if player.current != nil, player.duration > 0 {
                     Circle()
@@ -335,16 +460,16 @@ struct FloatingTabBar: View {
             }
             .frame(width: 54, height: 54)
             .contentShape(Circle())
+            .animation(.easeInOut(duration: 0.24), value: player.current?.id)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GlassPressButtonStyle())
         .accessibilityLabel("当前播放")
     }
 }
 
-/// 没有歌曲封面时的通用圆形封面，缓慢旋转。
+/// 没有歌曲封面时的通用圆形封面；播放时由底栏统一驱动旋转。
 struct RotatingAlbumPlaceholder: View {
     let size: CGFloat
-    @State private var spinning = false
 
     var body: some View {
         ZStack {
@@ -369,11 +494,6 @@ struct RotatingAlbumPlaceholder: View {
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
-        .rotationEffect(.degrees(spinning ? 360 : 0))
-        .animation(.linear(duration: 7).repeatForever(autoreverses: false), value: spinning)
-        .onAppear {
-            spinning = true
-        }
     }
 }
 
@@ -446,6 +566,7 @@ struct SongRow: View {
         }
         .padding(.vertical, 9)
         .contentShape(Rectangle())
+        .animation(.easeInOut(duration: 0.22), value: isFavorite)
         .contextMenu {
             Button {
                 player.playNext(song)

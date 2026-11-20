@@ -116,7 +116,7 @@ struct AlbumDetailSheet: View {
                         .background(Theme.accent)
                         .clipShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassPressButtonStyle())
             }
             .padding(.top, 36)
             .padding(.horizontal, 24)
@@ -150,7 +150,7 @@ struct AlbumDetailSheet: View {
                     .padding(.vertical, 18)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassPressButtonStyle())
                 .id("album-more-\(songs.count)")
                 .onAppear {
                     Task { await loadMore() }
