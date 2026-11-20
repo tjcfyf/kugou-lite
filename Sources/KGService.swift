@@ -670,6 +670,29 @@ enum KGService {
                     if !songs.isEmpty { return songs }
                 }
             }
+
+            // v3 偶发只返回空壳，换云歌单旧端点再试一次。
+            let fallbackBody: [String: Any] = [
+                "listid": listid,
+                "userid": KGApi.shared.userid,
+                "type": types.first ?? 0,
+                "page": page,
+                "pagesize": pageSize,
+                "area_code": 1,
+                "allplatform": 1,
+                "show_cover": 1,
+                "show_relate_goods": 0,
+                "token": token
+            ]
+            if let data = try? await KGApi.shared.post(
+                path: "/v4/get_list_all_file",
+                params: ["plat": "1"],
+                body: fallbackBody,
+                router: "cloudlist.service.kugou.com",
+                lite: true
+            ), !parsePlaylistSongs(data).isEmpty {
+                return parsePlaylistSongs(data)
+            }
         }
 
         // 官方推荐歌单只有 global_collection_id，走老接口。
@@ -697,16 +720,43 @@ enum KGService {
 
     private static func parsePlaylistSongs(_ data: Data) -> [Song] {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
-        let container = root["data"] as? [String: Any]
-        let raw = container?["songs"] as? [[String: Any]]
-            ?? container?["info"] as? [[String: Any]]
-            ?? container?["list"] as? [[String: Any]]
-            ?? container?["file_list"] as? [[String: Any]]
-            ?? root["songs"] as? [[String: Any]]
-            ?? root["info"] as? [[String: Any]]
-            ?? root["data"] as? [[String: Any]]
-            ?? []
-        return raw.compactMap { normalizePlaylistSong($0) }
+        var raw: [[String: Any]] = []
+
+        func appendArray(_ value: Any?) {
+            if let list = value as? [[String: Any]] {
+                raw.append(contentsOf: list)
+            }
+        }
+
+        if let container = root["data"] as? [String: Any] {
+            appendArray(container["songs"])
+            appendArray(container["list"])
+            appendArray(container["lists"])
+            appendArray(container["file_list"])
+            appendArray(container["file"])
+            appendArray(container["info"])
+            if let info = container["info"] as? [String: Any] {
+                appendArray(info["songs"])
+                appendArray(info["list"])
+                appendArray(info["file"])
+                appendArray(info["file_list"])
+                appendArray(info["data"])
+            }
+        }
+        appendArray(root["data"])
+        appendArray(root["songs"])
+        appendArray(root["info"])
+        appendArray(root["list"])
+
+        var unique: [[String: Any]] = []
+        var seen = Set<String>()
+        for item in raw {
+            let key = stringValue(item["hash"]) ?? stringValue(item["FileHash"]) ?? ""
+            if key.isEmpty || seen.insert(key).inserted {
+                unique.append(item)
+            }
+        }
+        return unique.compactMap { normalizePlaylistSong($0) }
     }
 
     private static func normalizePlaylistSong(_ item: [String: Any]) -> Song? {

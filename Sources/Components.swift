@@ -179,6 +179,58 @@ struct SongActionsSheet: View {
     }
 }
 
+/// 歌曲右侧三个点的可点菜单；用于歌单/我喜欢等自定义行，避免点三个点变成播放。
+struct SongMoreMenu: View {
+    let song: Song
+    @EnvironmentObject private var player: PlayerEngine
+    @ObservedObject private var library = LibraryStore.shared
+
+    private var isFavorite: Bool {
+        library.isFavorite(song)
+    }
+
+    var body: some View {
+        Menu {
+            Button {
+                player.playNext(song)
+            } label: {
+                Label("下一首播放", systemImage: "arrow.up.forward")
+            }
+            Button {
+                player.appendToQueue(song)
+            } label: {
+                Label("加入播放列表", systemImage: "text.badge.plus")
+            }
+            Button {
+                Task {
+                    let added = await library.toggleFavorite(song)
+                    if let added = added {
+                        player.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
+                    } else {
+                        player.showToast(library.favoritesMessage)
+                    }
+                }
+            } label: {
+                Label(isFavorite ? "取消我喜欢" : "我喜欢",
+                      systemImage: isFavorite ? "heart.fill" : "heart")
+            }
+            Button {
+                UIPasteboard.general.string = "\(song.SongName) - \(song.artist)"
+                player.showToast("已复制歌曲信息")
+            } label: {
+                Label("复制歌名和歌手", systemImage: "doc.on.doc")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(Theme.tertiaryText)
+                .frame(width: 34, height: 34)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 struct ToastView: View {
     let text: String
 
@@ -200,6 +252,7 @@ struct ToastView: View {
 
 struct SongRow: View {
     let song: Song
+    var showsMore: Bool = true
     @EnvironmentObject private var player: PlayerEngine
     @ObservedObject private var library = LibraryStore.shared
 
@@ -238,10 +291,12 @@ struct SongRow: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(Theme.accent)
             }
-            Image(systemName: "ellipsis")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(Theme.tertiaryText)
-                .frame(width: 24, height: 30)
+            if showsMore {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(Theme.tertiaryText)
+                    .frame(width: 24, height: 30)
+            }
         }
         .padding(.vertical, 9)
         .contentShape(Rectangle())

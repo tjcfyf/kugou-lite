@@ -54,11 +54,6 @@ struct RootView: View {
             NowPlayingView()
                 .environmentObject(player)
         }
-        .sheet(isPresented: $showSettings) {
-            SettingsView()
-                .environmentObject(player)
-                .environmentObject(auth)
-        }
         .overlay(alignment: .top) {
             if let toast = player.toast {
                 ToastView(text: toast)
@@ -127,6 +122,11 @@ struct RootView: View {
             .onSubmit(of: .search) { model.submit() }
         }
         .navigationViewStyle(.stack)
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environmentObject(player)
+                .environmentObject(auth)
+        }
     }
 
     private var recommendTab: some View {

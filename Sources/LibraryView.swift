@@ -255,7 +255,9 @@ struct RankDetailSheet: View {
                     ForEach(songs) { song in
                         Button {
                             dismiss()
-                            onSelect(song, songs)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+                                onSelect(song, songs)
+                            }
                         } label: {
                             SongRow(song: song)
                         }
@@ -285,7 +287,9 @@ struct RankDetailSheet: View {
                     if !songs.isEmpty {
                         Button {
                             dismiss()
-                            onSelect(songs[0], songs)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+                                onSelect(songs[0], songs)
+                            }
                         } label: { Label("播放全部", systemImage: "play.fill") }
                     }
                 }
@@ -400,27 +404,34 @@ struct PlaylistDetailSheet: View {
                     }
 
                     ForEach(songs) { song in
-                        Button {
+                        HStack(spacing: 8) {
                             if isSelecting {
-                                toggle(song)
-                            } else {
-                                dismiss()
-                                onSelect(song, songs)
-                            }
-                        } label: {
-                            HStack(spacing: 8) {
-                                if isSelecting {
-                                    Image(systemName: selectedHashes.contains(song.id) ? "checkmark.circle.fill" : "circle")
-                                        .font(.system(size: 18, weight: .medium))
-                                        .foregroundColor(selectedHashes.contains(song.id) ? Theme.accent : Theme.secondaryText)
-                                        .frame(width: 22)
+                                Button {
+                                    toggle(song)
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: selectedHashes.contains(song.id) ? "checkmark.circle.fill" : "circle")
+                                            .font(.system(size: 18, weight: .medium))
+                                            .foregroundColor(selectedHashes.contains(song.id) ? Theme.accent : Theme.secondaryText)
+                                            .frame(width: 22)
+                                        SongRow(song: song, showsMore: false)
+                                    }
                                 }
-                                SongRow(song: song)
+                                .buttonStyle(.plain)
+                            } else {
+                                Button {
+                                    dismiss()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+                                        onSelect(song, songs)
+                                    }
+                                } label: {
+                                    SongRow(song: song, showsMore: false)
+                                }
+                                .buttonStyle(.plain)
+                                SongMoreMenu(song: song)
                             }
                         }
-                        .buttonStyle(.plain)
                         .padding(.horizontal, 16)
-                        .contentShape(Rectangle())
                     }
 
                     if !loading && !songs.isEmpty && hasMore {
@@ -463,7 +474,9 @@ struct PlaylistDetailSheet: View {
                     if !songs.isEmpty {
                         Button {
                             dismiss()
-                            onSelect(songs[0], songs)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+                                onSelect(songs[0], songs)
+                            }
                         } label: { Label("播放全部", systemImage: "play.fill") }
                     }
                 }
@@ -1114,6 +1127,21 @@ struct LibrarySongsView: View {
         }
     }
 
+    private func deleteSongs(at offsets: IndexSet) {
+        for index in offsets {
+            guard songs.indices.contains(index) else { continue }
+            let song = songs[index]
+            if kind == .favorites {
+                Task {
+                    let result = await library.toggleFavorite(song)
+                    if result == nil { player.showToast(library.favoritesMessage) }
+                }
+            } else {
+                library.removeRecent(song)
+            }
+        }
+    }
+
     var body: some View {
         NavigationView {
             List {
@@ -1137,25 +1165,17 @@ struct LibrarySongsView: View {
                         .listRowBackground(Theme.card)
                 } else {
                     ForEach(songs, id: \.rowIdentity) { song in
-                        SongRow(song: song)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                player.play(song, in: songs)
-                            }
-                            .listRowBackground(Theme.card)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
-                                if kind == .favorites {
-                                    Task {
-                                        let result = await library.toggleFavorite(song)
-                                        if result == nil { player.showToast(library.favoritesMessage) }
-                                    }
-                                } else {
-                                    library.removeRecent(song)
+                        HStack(spacing: 8) {
+                            SongRow(song: song, showsMore: false)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    player.play(song, in: songs)
                                 }
-                            } label: { Label("删除", systemImage: "trash") }
+                            SongMoreMenu(song: song)
                         }
+                        .listRowBackground(Theme.card)
                     }
+                    .onDelete(perform: deleteSongs)
                 }
             }
             .listStyle(.plain)
