@@ -692,9 +692,8 @@ struct ProfileView: View {
     var onOpenPlayer: () -> Void = {}
     @State private var quality: AudioQuality = Preferences.quality
     @State private var showLogin = false
-    @State private var showSettings = false
-    @State private var showDiagnostics = false
     @State private var profile: KugouProfile?
+    @State private var vipText = ""
     @State private var playlists: [CloudPlaylist] = []
     @State private var playlistsLoading = false
     @State private var playlistsMessage = ""
@@ -712,14 +711,6 @@ struct ProfileView: View {
                 favoritesCard
                 playlistsSection
 
-                Button { showSettings = true } label: {
-                    row(title: "设置", icon: "gearshape")
-                }
-                .buttonStyle(.plain)
-                .background(Theme.card)
-                .cornerRadius(14)
-
-                toolsCard
                 Text("KugouLite · iOS 15 精简版")
                     .font(.system(size: 11))
                     .foregroundColor(Theme.secondaryText)
@@ -730,9 +721,6 @@ struct ProfileView: View {
         .background(AppBackground())
         .sheet(isPresented: $showLogin) {
             LoginView().environmentObject(player).environmentObject(auth)
-        }
-        .sheet(isPresented: $showSettings) {
-            SettingsView().environmentObject(player)
         }
         .sheet(isPresented: $showFavorites) {
             LibrarySongsView(kind: .favorites).environmentObject(player)
@@ -873,9 +861,11 @@ struct ProfileView: View {
     private func loadProfile() async {
         guard auth.isLoggedIn else {
             profile = nil
+            vipText = ""
             return
         }
         profile = await KGUser.profile()
+        vipText = await KGUser.vipText() ?? ""
     }
 
     private var accountCard: some View {
@@ -887,10 +877,11 @@ struct ProfileView: View {
                         .font(.system(size: 19, weight: .semibold))
                         .foregroundColor(Theme.text)
                         .lineLimit(1)
-                    if auth.isLoggedIn {
-                        Text("UID \(auth.userid)")
+                    if !vipText.isEmpty {
+                        Text(vipText)
                             .font(.system(size: 11))
-                            .foregroundColor(Theme.secondaryText)
+                            .foregroundColor(Theme.accent)
+                            .lineLimit(2)
                     }
                     if let signature = profile?.signature, !signature.isEmpty {
                         Text(signature)
@@ -901,16 +892,18 @@ struct ProfileView: View {
                 }
                 Spacer(minLength: 0)
             }
-            Button {
-                showLogin = true
-            } label: {
-                Text(auth.isLoggedIn ? "查看账号 / 会员状态" : "扫码登录酷狗概念版")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 9)
-                    .background(Theme.accent)
-                    .cornerRadius(18)
+            if !auth.isLoggedIn {
+                Button {
+                    showLogin = true
+                } label: {
+                    Text("扫码登录酷狗概念版")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 9)
+                        .background(Theme.accent)
+                        .cornerRadius(18)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1068,55 +1061,7 @@ struct ProfileView: View {
         }
     }
 
-    private var toolsCard: some View {
-        VStack(spacing: 0) {
-            Button {
-                LibraryStore.shared.clear()
-                toast = "已清空搜索与最近播放"
-                Task { try? await Task.sleep(nanoseconds: 1_400_000_000); toast = "" }
-            } label: {
-                row(title: "清空本地记录", icon: "trash")
-            }
-            .buttonStyle(.plain)
-            Divider().background(Theme.separator)
-            Button {
-                showDiagnostics = true
-            } label: {
-                row(title: "会员领取诊断", icon: "stethoscope")
-            }
-            .buttonStyle(.plain)
-            Divider().background(Theme.separator)
-            Button {
-                if auth.isLoggedIn {
-                    auth.signOut()
-                    toast = "已退出登录"
-                    Task { try? await Task.sleep(nanoseconds: 1_200_000_000); toast = "" }
-                }
-            } label: {
-                row(title: auth.isLoggedIn ? "退出登录" : "未登录", icon: "rectangle.portrait.and.arrow.right")
-            }
-            .buttonStyle(.plain)
-        }
-        .background(Theme.card)
-        .cornerRadius(14)
-    }
 
-    private func row(title: String, icon: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 13))
-                .foregroundColor(Theme.secondaryText)
-                .frame(width: 18)
-            Text(title)
-                .font(.system(size: 13))
-                .foregroundColor(Theme.text)
-            Spacer()
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 13)
-        .contentShape(Rectangle())
-    }
-}
 
 
 private enum LibrarySongSort: String, CaseIterable, Identifiable {

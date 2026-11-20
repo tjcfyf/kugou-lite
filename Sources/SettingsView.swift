@@ -215,6 +215,7 @@ struct LyricOffsetSettingsCard: View {
 
 struct SettingsView: View {
     @EnvironmentObject private var player: PlayerEngine
+    @EnvironmentObject private var auth: AuthStore
     @Environment(\.dismiss) private var dismiss
 
     @AppStorage(Preferences.themeModeKey) private var themeRaw = AppTheme.system.rawValue
@@ -222,6 +223,7 @@ struct SettingsView: View {
     @State private var lyricSize: LyricTextSize = Preferences.lyricSize
     @State private var customMinutes = 45
     @State private var toast = ""
+    @State private var showDiagnostics = false
 
     var body: some View {
         NavigationView {
@@ -237,6 +239,7 @@ struct SettingsView: View {
                     LyricOffsetSettingsCard()
                     sleepCard
                     storageCard
+                    accountCard
 
                     Text("KugouLite · iOS 15 精简版")
                         .font(.system(size: 11))
@@ -255,6 +258,9 @@ struct SettingsView: View {
             }
             .overlay(alignment: .top) {
                 if !toast.isEmpty { ToastView(text: toast) }
+            }
+            .sheet(isPresented: $showDiagnostics) {
+                VipDiagnosticsSheet()
             }
         }
         .navigationViewStyle(.stack)
@@ -449,6 +455,34 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+    }
+
+    private var accountCard: some View {
+        card(title: "账号与诊断") {
+            Button {
+                showDiagnostics = true
+            } label: {
+                settingRow(title: "会员领取诊断", icon: "stethoscope")
+            }
+            .buttonStyle(.plain)
+
+            Divider().background(Theme.separator)
+
+            Button {
+                guard auth.isLoggedIn else {
+                    toast = "当前未登录"
+                    flashToast()
+                    return
+                }
+                auth.signOut()
+                toast = "已退出登录"
+                flashToast()
+            } label: {
+                settingRow(title: auth.isLoggedIn ? "退出登录" : "未登录",
+                           icon: "rectangle.portrait.and.arrow.right")
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -713,5 +747,49 @@ struct PlayerSettingsView: View {
         .padding(14)
         .background(Theme.card)
         .cornerRadius(18)
+    }
+}
+
+
+private struct VipDiagnosticsSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var report = "正在诊断，预计需要十几秒…"
+    @State private var finished = false
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    if !finished {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
+                            Text("正在检查领取链路…")
+                                .font(.system(size: 12))
+                                .foregroundColor(Theme.secondaryText)
+                        }
+                    }
+                    Text(report)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(Theme.text.opacity(0.85))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
+                .padding(16)
+            }
+            .background(AppBackground())
+            .navigationTitle("会员领取诊断")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("关闭") { dismiss() }
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
+        .task {
+            report = await KGVIP.probeReport()
+            finished = true
+        }
     }
 }

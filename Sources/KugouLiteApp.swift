@@ -21,6 +21,7 @@ struct RootView: View {
     @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var auth: AuthStore
     @State private var showPlayer = false
+    @State private var showSettings = false
     @State private var tab = 0
     @AppStorage(Preferences.themeModeKey) private var themeRaw = AppTheme.system.rawValue
     @State private var systemScheme: ColorScheme = UITraitCollection.current.userInterfaceStyle == .dark ? .dark : .light
@@ -51,6 +52,11 @@ struct RootView: View {
         .sheet(isPresented: $showPlayer) {
             NowPlayingView()
                 .environmentObject(player)
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environmentObject(player)
+                .environmentObject(auth)
         }
         .overlay(alignment: .top) {
             if let toast = player.toast {
@@ -94,6 +100,16 @@ struct RootView: View {
             )
             .navigationTitle("搜索")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("设置")
+                }
+            }
             .searchable(
                 text: $model.query,
                 placement: .navigationBarDrawer(displayMode: .always),
