@@ -20,11 +20,7 @@ struct KugouLiteApp: App {
 }
 
 struct RootView: View {
-    @StateObject private var model = SearchModel()
-    @StateObject private var recommendModel = RecommendModel()
-    @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var auth: AuthStore
-    @ObservedObject private var library = LibraryStore.shared
     @State private var showPlayer = false
     @State private var showSettings = false
     @State private var tab = 0
@@ -62,15 +58,10 @@ struct RootView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sheet(isPresented: $showPlayer) {
             NowPlayingView()
-                .environmentObject(player)
+                .environmentObject(PlayerEngine.shared)
         }
         .overlay(alignment: .top) {
-            Group {
-                if let toast = player.toast {
-                    ToastView(text: toast)
-                }
-            }
-            .animation(.easeOut(duration: 0.22), value: player.toast)
+            ToastOverlay()
         }
         .preferredColorScheme(resolvedScheme)
         .background(
@@ -86,9 +77,9 @@ struct RootView: View {
         .onChange(of: themeRaw) { _ in applyInterfaceStyle() }
         .task(id: auth.isLoggedIn) {
             if auth.isLoggedIn {
-                await library.refreshFavorites(force: true)
+                await LibraryStore.shared.refreshFavorites(force: true)
             } else {
-                library.resetFavorites()
+                LibraryStore.shared.resetFavorites()
             }
         }
     }
@@ -109,24 +100,7 @@ struct RootView: View {
     }
 
     private var discoverTab: some View {
-        NavigationView {
-            RecommendView(
-                model: recommendModel,
-                searchModel: model,
-                onSelect: { song, list in
-                    player.play(song, in: list)
-                    showPlayer = true
-                },
-                onSelectSearch: { song in
-                    player.play(song, in: model.songs)
-                    showPlayer = true
-                },
-                onOpenPlayer: { showPlayer = true }
-            )
-            .navigationBarHidden(true)
-            .task { await recommendModel.load() }
-        }
-        .navigationViewStyle(.stack)
+        DiscoverTab(onOpenPlayer: { showPlayer = true })
     }
 
     private var profileTab: some View {
@@ -148,12 +122,53 @@ struct RootView: View {
         .navigationViewStyle(.stack)
         .sheet(isPresented: $showSettings) {
             SettingsView()
-                .environmentObject(player)
+                .environmentObject(PlayerEngine.shared)
                 .environmentObject(auth)
         }
     }
 }
 
+
+private struct DiscoverTab: View {
+    let onOpenPlayer: () -> Void
+
+    @StateObject private var model = SearchModel()
+    @StateObject private var recommendModel = RecommendModel()
+
+    var body: some View {
+        NavigationView {
+            RecommendView(
+                model: recommendModel,
+                searchModel: model,
+                onSelect: { song, list in
+                    PlayerEngine.shared.play(song, in: list)
+                    onOpenPlayer()
+                },
+                onSelectSearch: { song in
+                    PlayerEngine.shared.play(song, in: model.songs)
+                    onOpenPlayer()
+                },
+                onOpenPlayer: onOpenPlayer
+            )
+            .navigationBarHidden(true)
+            .task { await recommendModel.load() }
+        }
+        .navigationViewStyle(.stack)
+    }
+}
+
+private struct ToastOverlay: View {
+    @EnvironmentObject private var player: PlayerEngine
+
+    var body: some View {
+        Group {
+            if let toast = player.toast {
+                ToastView(text: toast)
+            }
+        }
+        .animation(.easeOut(duration: 0.22), value: player.toast)
+    }
+}
 
 private final class SchemeProbeController: UIViewController {
     var onChange: ((UIUserInterfaceStyle) -> Void)?

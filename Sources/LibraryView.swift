@@ -27,7 +27,6 @@ final class RecommendModel: ObservableObject {
 struct RecommendView: View {
     @ObservedObject var model: RecommendModel
     @ObservedObject var searchModel: SearchModel
-    @EnvironmentObject private var player: PlayerEngine
     let onSelect: (Song, [Song]) -> Void
     let onSelectSearch: (Song) -> Void
     let onOpenPlayer: () -> Void
@@ -909,8 +908,8 @@ struct SectionTitle: View {
 
 struct ProfileView: View {
     @EnvironmentObject private var auth: AuthStore
-    @EnvironmentObject private var player: PlayerEngine
     @ObservedObject private var library = LibraryStore.shared
+    private var player: PlayerEngine { PlayerEngine.shared }
     var onOpenPlayer: () -> Void = {}
     @State private var quality: AudioQuality = Preferences.quality
     @State private var showLogin = false
@@ -1300,7 +1299,7 @@ private enum LibrarySongSort: String, CaseIterable, Identifiable {
 struct LibrarySongsView: View {
     let kind: LibraryKind
     @ObservedObject private var library = LibraryStore.shared
-    @EnvironmentObject private var player: PlayerEngine
+    private var player: PlayerEngine { PlayerEngine.shared }
     @Environment(\.dismiss) private var dismiss
     @State private var showClearConfirm = false
     @State private var sort: LibrarySongSort = .recent

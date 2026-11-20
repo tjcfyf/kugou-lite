@@ -278,12 +278,7 @@ struct NowPlayingView: View {
         .foregroundColor(Theme.text.opacity(0.88))
         .padding(.horizontal, 14)
         .frame(height: 34)
-        .background(Capsule().fill(.ultraThinMaterial))
-        .overlay(
-            Capsule()
-                .stroke(Color.white.opacity(0.28), lineWidth: 0.6)
-        )
-        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 3)
+        .background(Capsule().fill(.regularMaterial))
     }
 
     private func addToPlaylist(_ song: Song, _ target: CloudPlaylist) async {
@@ -376,10 +371,8 @@ struct NowPlayingView: View {
             Button { player.previous() } label: {
                 ZStack {
                     Circle()
-                        .fill(.ultraThinMaterial)
+                        .fill(.regularMaterial)
                         .frame(width: 48, height: 48)
-                        .overlay(Circle().stroke(Color.white.opacity(0.30), lineWidth: 0.7))
-                        .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 5)
                     Image(systemName: "backward.fill")
                         .font(.system(size: 21))
                         .foregroundColor(Theme.text.opacity(0.82))
@@ -390,16 +383,8 @@ struct NowPlayingView: View {
             Button { player.toggle() } label: {
                 ZStack {
                     Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Theme.accent.opacity(0.92), Theme.accent, Theme.accent.opacity(0.75)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .fill(Theme.accent)
                         .frame(width: 66, height: 66)
-                        .overlay(Circle().stroke(Color.white.opacity(0.45), lineWidth: 1))
-                        .shadow(color: Theme.accent.opacity(0.45), radius: 18, x: 0, y: 8)
                     if player.isLoading {
                         ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .black))
                     } else {
@@ -414,10 +399,8 @@ struct NowPlayingView: View {
             Button { player.next() } label: {
                 ZStack {
                     Circle()
-                        .fill(.ultraThinMaterial)
+                        .fill(.regularMaterial)
                         .frame(width: 48, height: 48)
-                        .overlay(Circle().stroke(Color.white.opacity(0.30), lineWidth: 0.7))
-                        .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 5)
                     Image(systemName: "forward.fill")
                         .font(.system(size: 21))
                         .foregroundColor(Theme.text.opacity(0.82))

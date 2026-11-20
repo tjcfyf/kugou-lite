@@ -15,94 +15,42 @@ enum Theme {
 
 /// 全 App 统一的柔和渐变背景，浅色/深色各一套。
 struct AppBackground: View {
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                Theme.background
-
-                // 低成本的双色氛围光：只用渐变，不再叠加全屏模糊圆斑。
-                RadialGradient(
-                    colors: [Theme.accent.opacity(colorScheme == .dark ? 0.18 : 0.13), Color.clear],
-                    center: .topLeading,
-                    startRadius: 0,
-                    endRadius: max(geo.size.width, geo.size.height) * 0.78
-                )
-
-                RadialGradient(
-                    colors: [Color(red: 0.30, green: 0.56, blue: 0.92).opacity(colorScheme == .dark ? 0.13 : 0.14), Color.clear],
-                    center: .bottomTrailing,
-                    startRadius: 0,
-                    endRadius: max(geo.size.width, geo.size.height) * 0.70
-                )
-
-                LinearGradient(
-                    colors: [Color.white.opacity(colorScheme == .dark ? 0.02 : 0.10), Color.clear, Color.black.opacity(colorScheme == .dark ? 0.08 : 0.02)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
+        ZStack {
+            Color(UIColor.systemGroupedBackground)
+            LinearGradient(
+                colors: [Color.white.opacity(0.03), Color.clear, Color.black.opacity(0.03)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
         }
         .ignoresSafeArea()
     }
 }
 
-/// iOS 18 风格的磨砂玻璃：系统 regularMaterial + 单层高光 + 细描边，默认不投影。
+/// 系统级磨砂玻璃：只使用 regularMaterial，不加自绘高光、彩色阴影或渐变边框。
 struct FrostedGlassSurface: ViewModifier {
     var cornerRadius: CGFloat = 20
-    var tint: Color = Theme.accent
     var elevated: Bool = false
-    @Environment(\.colorScheme) private var colorScheme
 
     func body(content: Content) -> some View {
         content
             .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(.regularMaterial)
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(colorScheme == .dark ? 0.07 : 0.16),
-                                    tint.opacity(colorScheme == .dark ? 0.04 : 0.025),
-                                    Color.clear
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                }
-            )
-            .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(colorScheme == .dark ? 0.34 : 0.58),
-                                Color.white.opacity(0.04),
-                                tint.opacity(colorScheme == .dark ? 0.20 : 0.13)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 0.7
-                    )
+                    .fill(.regularMaterial)
             )
             .shadow(
-                color: elevated ? .black.opacity(colorScheme == .dark ? 0.22 : 0.10) : .clear,
-                radius: elevated ? 8 : 0,
+                color: elevated ? Color.black.opacity(0.14) : Color.clear,
+                radius: elevated ? 10 : 0,
                 x: 0,
-                y: elevated ? 4 : 0
+                y: elevated ? 5 : 0
             )
     }
 }
 
 extension View {
-    func frostedGlass(cornerRadius: CGFloat = 20, tint: Color = Theme.accent, elevated: Bool = false) -> some View {
-        modifier(FrostedGlassSurface(cornerRadius: cornerRadius, tint: tint, elevated: elevated))
+    func frostedGlass(cornerRadius: CGFloat = 20, elevated: Bool = false) -> some View {
+        modifier(FrostedGlassSurface(cornerRadius: cornerRadius, elevated: elevated))
     }
 
     /// 搜索词、筛选项等小面积胶囊：用半透明色块替代材质模糊，避免一屏几十层 blur。
@@ -110,7 +58,7 @@ extension View {
         modifier(FrostedChipSurface(cornerRadius: cornerRadius))
     }
 
-    /// 横向滚动的卡片：只保留磨砂色块和描边，不再为每张卡创建系统 blur。
+    /// 横向滚动的卡片：使用系统次级背景色，不再为每张卡创建系统 blur。
     func frostedPanel(cornerRadius: CGFloat = 16) -> some View {
         modifier(FrostedPanelSurface(cornerRadius: cornerRadius))
     }
@@ -123,11 +71,7 @@ struct FrostedPanelSurface: ViewModifier {
         content
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Theme.card.opacity(0.56))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color.white.opacity(0.14), lineWidth: 0.7)
+                    .fill(Color(UIColor.secondarySystemBackground))
             )
     }
 }
@@ -139,26 +83,16 @@ struct FrostedChipSurface: ViewModifier {
         content
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Theme.card.opacity(0.46))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color.white.opacity(0.12), lineWidth: 0.6)
+                    .fill(Color(UIColor.secondarySystemBackground))
             )
     }
 }
 
 /// 列表行的低成本磨砂底；不用逐行系统 blur。
 struct GlassRowBackground: View {
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
         RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(Theme.card.opacity(0.40))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.white.opacity(colorScheme == .dark ? 0.10 : 0.22), lineWidth: 0.6)
-            )
+            .fill(Color(UIColor.secondarySystemBackground).opacity(0.62))
             .padding(.vertical, 3)
             .padding(.horizontal, 10)
     }
@@ -401,15 +335,13 @@ struct FloatingTabBar: View {
     @Binding var tab: Int
     let onOpenPlayer: () -> Void
 
-    @EnvironmentObject private var player: PlayerEngine
-
     var body: some View {
         HStack(spacing: 0) {
             tabButton(title: "发现", icon: "sparkles", tag: 0)
 
             Spacer(minLength: 0)
 
-            albumButton
+            FloatingAlbumButton(onOpenPlayer: onOpenPlayer)
 
             Spacer(minLength: 0)
 
@@ -443,7 +375,13 @@ struct FloatingTabBar: View {
         .buttonStyle(GlassPressButtonStyle())
     }
 
-    private var albumButton: some View {
+}
+
+private struct FloatingAlbumButton: View {
+    @EnvironmentObject private var player: PlayerEngine
+    let onOpenPlayer: () -> Void
+
+    var body: some View {
         Button {
             guard player.current != nil else {
                 player.showToast("先选一首歌")
