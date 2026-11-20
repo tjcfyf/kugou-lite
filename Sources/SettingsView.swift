@@ -145,6 +145,10 @@ struct SettingsView: View {
     @State private var customMinutes = 45
     @State private var toast = ""
     @State private var showDiagnostics = false
+    @State private var showLyricSource = false
+    @State private var showEQ = false
+    @State private var lyricFilterDraft = Preferences.lyricFilter
+    @ObservedObject private var audio = AudioEnhancer.shared
 
     var body: some View {
         NavigationView {
@@ -154,13 +158,16 @@ struct SettingsView: View {
                     playModeCard
                     speedCard
                     qualityCard
+                    audioCard
                     lyricCard
+                    lyricSourceCard
+                    lyricFilterCard
                     LyricOffsetSettingsCard()
                     sleepCard
                     storageCard
                     accountCard
 
-                    Text("KugouLite · iOS 15 精简版")
+                    Text("Sonora · iOS 15 精简版")
                         .font(.system(size: 11))
                         .foregroundColor(Theme.secondaryText)
                         .padding(.top, 6)
@@ -180,6 +187,12 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showDiagnostics) {
                 VipDiagnosticsSheet()
+            }
+            .sheet(isPresented: $showLyricSource) {
+                LyricSourceSheet().environmentObject(player)
+            }
+            .sheet(isPresented: $showEQ) {
+                AudioEQSheet().environmentObject(player)
             }
         }
         .navigationViewStyle(.stack)
@@ -285,8 +298,49 @@ struct SettingsView: View {
         }
     }
 
+    private var audioCard: some View {
+        card(title: "音频增强") {
+            Toggle(isOn: Binding(
+                get: { audio.isEnabled },
+                set: { value in
+                    audio.setEnabled(value)
+                    player.reloadForAudioEnhancement()
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("10 段均衡器 + 前级补偿")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                    Text("实时处理 AVPlayer PCM；开启后会重载当前歌曲")
+                        .font(.system(size: 10))
+                        .foregroundColor(Theme.secondaryText)
+                }
+            }
+            .tint(Theme.accent)
+
+            Button {
+                showEQ = true
+            } label: {
+                HStack {
+                    Text("调整频段与预设")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.text)
+                    Spacer()
+                    Text(String(format: "%+.1f dB", audio.preampDB))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(Theme.tertiaryText)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Theme.tertiaryText)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(GlassPressButtonStyle())
+        }
+    }
+
     private var lyricCard: some View {
-        card(title: "歌词字号") {
+        card(title: "歌词显示") {
             HStack(spacing: 8) {
                 ForEach(LyricTextSize.allCases) { item in
                     Button {
@@ -309,6 +363,102 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    private var lyricSourceCard: some View {
+        card(title: "歌词来源") {
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(currentLyricSourceTitle)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                        .lineLimit(2)
+                    Text(player.lyricTranslationAvailable ? "含翻译，可用 KRC 逐字高亮" : "默认使用 KRC 逐字歌词，失败时回落 LRC")
+                        .font(.system(size: 10))
+                        .foregroundColor(Theme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                Button {
+                    showLyricSource = true
+                } label: {
+                    Text("选择")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Theme.accent)
+                        .cornerRadius(9)
+                }
+                .buttonStyle(GlassPressButtonStyle())
+                .disabled(player.current == nil)
+            }
+        }
+    }
+
+    private var lyricFilterCard: some View {
+        card(title: "歌词正则过滤") {
+            TextField("例如 ^作词|^作曲，匹配的行会被隐藏", text: $lyricFilterDraft)
+                .font(.system(size: 12))
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .appChip(cornerRadius: 9)
+                .autocapitalization(.none)
+                .disableAutocorrection(true)
+                .onSubmit { applyLyricFilter() }
+
+            HStack(spacing: 8) {
+                Button {
+                    applyLyricFilter()
+                } label: {
+                    Text("应用")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Theme.accent)
+                        .cornerRadius(9)
+                }
+                .buttonStyle(GlassPressButtonStyle())
+
+                Button {
+                    lyricFilterDraft = ""
+                    player.setLyricFilter("")
+                    toast = "已清除歌词过滤"
+                    flashToast()
+                } label: {
+                    Text("清除")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.text)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Theme.chip)
+                        .cornerRadius(9)
+                }
+                .buttonStyle(GlassPressButtonStyle())
+            }
+        }
+    }
+
+    private var currentLyricSourceTitle: String {
+        guard let id = player.lyricSourceID,
+              let candidate = player.lyricCandidates.first(where: { $0.id == id }) else {
+            return player.current == nil ? "未在播放" : "自动匹配"
+        }
+        return candidate.song ?? "自动匹配"
+    }
+
+    private func applyLyricFilter() {
+        let value = lyricFilterDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !value.isEmpty, (try? NSRegularExpression(pattern: value)) == nil {
+            toast = "正则表达式无效"
+            flashToast()
+            return
+        }
+        player.setLyricFilter(value)
+        toast = value.isEmpty ? "已清除歌词过滤" : "歌词过滤已应用"
+        flashToast()
     }
 
     private var sleepCard: some View {
@@ -597,8 +747,49 @@ struct PlayerSettingsView: View {
         }
     }
 
+    private var audioCard: some View {
+        card(title: "音频增强") {
+            Toggle(isOn: Binding(
+                get: { audio.isEnabled },
+                set: { value in
+                    audio.setEnabled(value)
+                    player.reloadForAudioEnhancement()
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("10 段均衡器 + 前级补偿")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                    Text("实时处理 AVPlayer PCM；开启后会重载当前歌曲")
+                        .font(.system(size: 10))
+                        .foregroundColor(Theme.secondaryText)
+                }
+            }
+            .tint(Theme.accent)
+
+            Button {
+                showEQ = true
+            } label: {
+                HStack {
+                    Text("调整频段与预设")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.text)
+                    Spacer()
+                    Text(String(format: "%+.1f dB", audio.preampDB))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(Theme.tertiaryText)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Theme.tertiaryText)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(GlassPressButtonStyle())
+        }
+    }
+
     private var lyricCard: some View {
-        card(title: "歌词字号") {
+        card(title: "歌词显示") {
             HStack(spacing: 8) {
                 ForEach(LyricTextSize.allCases) { item in
                     Button {

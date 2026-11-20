@@ -337,15 +337,15 @@ struct FloatingTabBar: View {
 
             tabButton(title: "我的", icon: "person.crop.circle", tag: 1)
         }
-        .padding(.horizontal, 12)
-        .frame(maxWidth: 344)
-        .frame(height: 58)
+        .padding(.horizontal, 10)
+        .frame(maxWidth: 300)
+        .frame(height: 56)
         .background(
-            RoundedRectangle(cornerRadius: 29, style: .continuous)
-                .fill(.regularMaterial)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(.ultraThinMaterial)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 29, style: .continuous)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(Theme.border, lineWidth: 0.5)
         )
         .shadow(
@@ -365,14 +365,14 @@ struct FloatingTabBar: View {
                 tab = tag
             }
         } label: {
-            VStack(spacing: 3) {
+            VStack(spacing: 2) {
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: tab == tag ? .semibold : .regular))
+                    .font(.system(size: 24, weight: tab == tag ? .semibold : .regular))
                 Text(title)
                     .font(.system(size: 10, weight: tab == tag ? .semibold : .regular))
             }
             .foregroundColor(tab == tag ? Theme.accent : Theme.secondaryText)
-            .frame(width: 72, height: 50)
+            .frame(width: 62, height: 50)
             .contentShape(Rectangle())
         }
         .buttonStyle(GlassPressButtonStyle())
@@ -400,10 +400,10 @@ private struct FloatingAlbumButton: View {
                         .trim(from: 0, to: min(max(player.currentTime / player.duration, 0), 1))
                         .stroke(Theme.accent, lineWidth: 2)
                         .rotationEffect(.degrees(-90))
-                        .frame(width: 51, height: 51)
+                        .frame(width: 49, height: 49)
                 }
             }
-            .frame(width: 54, height: 54)
+            .frame(width: 52, height: 52)
             .contentShape(Circle())
             .animation(.easeInOut(duration: 0.24), value: player.current?.id)
         }

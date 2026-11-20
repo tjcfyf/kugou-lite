@@ -151,9 +151,30 @@ struct LyricSearchEnvelope: Decodable {
     let candidates: [LyricCandidate]?
 }
 
-struct LyricCandidate: Decodable {
+struct LyricCandidate: Decodable, Identifiable, Equatable {
     let id: String
     let accesskey: String
+    let song: String?
+    let singer: String?
+    let duration: Int?
+    let krctype: Int?
+    let language: String?
+
+    var title: String {
+        let value = song?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return value.isEmpty ? "未命名歌词" : value
+    }
+
+    var subtitle: String {
+        var pieces: [String] = []
+        if let singer = singer, !singer.isEmpty { pieces.append(singer) }
+        if let duration = duration, duration > 0 {
+            let seconds = duration / 1000
+            pieces.append(String(format: "%d:%02d", seconds / 60, seconds % 60))
+        }
+        if krctype == 1 || krctype == 2 { pieces.append("逐字") }
+        return pieces.joined(separator: " · ")
+    }
 }
 
 struct LyricDownloadEnvelope: Decodable {

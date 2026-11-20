@@ -14,6 +14,9 @@ final class PlayerEngine: NSObject, ObservableObject {
     @Published private(set) var lyric: [LyricLine] = []
     @Published private(set) var lyricLoading = false
     @Published private(set) var lyricIndex: Int = 0
+    @Published private(set) var lyricCandidates: [LyricCandidate] = []
+    @Published private(set) var lyricSourceID: String?
+    @Published private(set) var lyricTranslationAvailable = false
     @Published var errorMessage: String?
     @Published var toast: String?
     @Published private(set) var sleepDeadline: Date?
@@ -33,6 +36,8 @@ final class PlayerEngine: NSObject, ObservableObject {
     var currentIndex: Int { index }
     private var loadTask: Task<Void, Never>?
     private var lyricTask: Task<Void, Never>?
+    private var rawLyric: [LyricLine] = []
+    private var selectedLyricIDs: [String: String] = [:]
     private var urlCache: [String: URL] = [:]
     private var recentAutoIndices: [Int] = []
     private var settingsVisibleCount = 0
@@ -262,6 +267,13 @@ final class PlayerEngine: NSObject, ObservableObject {
         load(song, resume: true)
     }
 
+    /// 音频增强开关会改变 AVPlayerItem 的 audioMix，需要重建当前 item 才能挂上/摘下 DSP tap。
+    func reloadForAudioEnhancement() {
+        guard let song = current else { return }
+        PlaybackMemory.save(currentTime, for: song.FileHash)
+        load(song, resume: true)
+    }
+
     func seek(to seconds: Double) {
         guard player.currentItem != nil else { return }
         let clamped = max(0, min(seconds, max(duration, 0.1)))
@@ -285,6 +297,10 @@ final class PlayerEngine: NSObject, ObservableObject {
 
         current = song
         lyric = []
+        rawLyric = []
+        lyricCandidates = []
+        lyricSourceID = nil
+        lyricTranslationAvailable = false
         lyricIndex = 0
         lyricLoading = true
         currentTime = 0
@@ -315,7 +331,15 @@ final class PlayerEngine: NSObject, ObservableObject {
                     self.urlCache[song.FileHash] = url
                 }
                 if Task.isCancelled { return }
-                let item = AVPlayerItem(url: url)
+                let asset = AVURLAsset(url: url)
+                let item: AVPlayerItem
+                if AudioEnhancer.shared.isEnabled {
+                    await self.waitForTracks(asset)
+                    item = AVPlayerItem(asset: asset)
+                    AudioEnhancer.shared.attachTap(to: item, asset: asset)
+                } else {
+                    item = AVPlayerItem(url: url)
+                }
                 item.preferredForwardBufferDuration = 3
                 item.audioTimePitchAlgorithm = .spectral
                 self.player.replaceCurrentItem(with: item)
@@ -368,13 +392,92 @@ final class PlayerEngine: NSObject, ObservableObject {
         lyricLoading = true
         lyricTask = Task { [weak self] in
             guard let self = self else { return }
-            let lines = (try? await KGService.lyric(hash: song.FileHash,
-                                                     title: song.SongName,
-                                                     artist: song.artist)) ?? []
+            let candidates = (try? await KGService.lyricCandidates(hash: song.FileHash,
+                                                                   title: song.SongName,
+                                                                   artist: song.artist)) ?? []
             if Task.isCancelled { return }
-            self.lyricLoading = false
+            self.lyricCandidates = candidates
+
+            let preferred = self.selectedLyricIDs[song.FileHash]
+            let ordered = self.orderCandidates(candidates, preferred: preferred)
+            var lines: [LyricLine] = []
+            var chosen: LyricCandidate?
+            for candidate in ordered.prefix(4) {
+                if Task.isCancelled { return }
+                if let value = try? await KGService.lyric(candidate: candidate), !value.isEmpty {
+                    lines = value
+                    chosen = candidate
+                    break
+                }
+            }
+            // 候选接口没有结果时再退回旧的自动歌词链路。
+            if lines.isEmpty, !Task.isCancelled,
+               let fallback = try? await KGService.lyric(hash: song.FileHash,
+                                                          title: song.SongName,
+                                                          artist: song.artist),
+               !fallback.isEmpty {
+                lines = fallback
+            }
+            guard !Task.isCancelled else { return }
             guard self.current?.FileHash == song.FileHash else { return }
-            self.lyric = lines
+            self.lyricLoading = false
+            if let chosen = chosen {
+                self.selectedLyricIDs[song.FileHash] = chosen.id
+                self.lyricSourceID = chosen.id
+            }
+            self.applyLyric(lines)
+        }
+    }
+
+    func selectLyricSource(_ candidate: LyricCandidate) {
+        guard let song = current else { return }
+        lyricTask?.cancel()
+        selectedLyricIDs[song.FileHash] = candidate.id
+        lyricSourceID = candidate.id
+        lyricLoading = true
+        lyricTask = Task { [weak self] in
+            guard let self = self else { return }
+            let lines = (try? await KGService.lyric(candidate: candidate)) ?? []
+            guard !Task.isCancelled else { return }
+            guard self.current?.FileHash == song.FileHash else { return }
+            self.lyricLoading = false
+            self.applyLyric(lines)
+        }
+    }
+
+    func setLyricFilter(_ pattern: String) {
+        Preferences.lyricFilter = pattern
+        lyric = LyricParser.filter(rawLyric, pattern: pattern)
+        lyricIndex = 0
+        updateLyricIndex(currentTime)
+    }
+
+    private func applyLyric(_ lines: [LyricLine]) {
+        rawLyric = lines
+        lyric = LyricParser.filter(lines, pattern: Preferences.lyricFilter)
+        lyricTranslationAvailable = lines.contains { line in
+            !(line.translation ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        lyricIndex = 0
+        updateLyricIndex(currentTime)
+    }
+
+    private func orderCandidates(_ candidates: [LyricCandidate], preferred: String?) -> [LyricCandidate] {
+        guard let preferred = preferred,
+              let index = candidates.firstIndex(where: { $0.id == preferred }) else {
+            return candidates
+        }
+        var result = candidates
+        let item = result.remove(at: index)
+        result.insert(item, at: 0)
+        return result
+    }
+
+    private func waitForTracks(_ asset: AVURLAsset) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            asset.loadValuesAsynchronously(forKeys: ["tracks"]) {
+                continuation.resume()
+            }
         }
     }
 

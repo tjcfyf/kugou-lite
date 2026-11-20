@@ -154,10 +154,21 @@ enum Preferences {
     static let sleepWaitKey = "kg.sleep.waitforend"
     static let lyricOffsetKey = "kg.lyric.offset"
     static let lyricFollowKey = "kg.lyric.follow"
+    static let lyricTranslationKey = "kg.lyric.translation"
+    static let lyricRomanizationKey = "kg.lyric.romanization"
+    static let lyricPhotoModeKey = "kg.lyric.photo"
+    static let lyricFilterKey = "kg.lyric.filter"
+    static let audioEQEnabledKey = "kg.audio.eq.enabled"
+    static let audioEQGainsKey = "kg.audio.eq.gains"
 
     static var lyricOffsetMs: Int {
         get { UserDefaults.standard.integer(forKey: lyricOffsetKey) }
         set { UserDefaults.standard.set(newValue, forKey: lyricOffsetKey) }
+    }
+
+    static var lyricFilter: String {
+        get { UserDefaults.standard.string(forKey: lyricFilterKey) ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: lyricFilterKey) }
     }
     static let themeModeKey = "kg.theme.mode"
 

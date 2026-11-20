@@ -11,6 +11,9 @@ struct NowPlayingView: View {
     @State private var showRemaining = true
     @State private var showLyrics = false
     @AppStorage(Preferences.lyricFollowKey) private var lyricAutoFollow = true
+    @AppStorage(Preferences.lyricTranslationKey) private var showTranslation = false
+    @AppStorage(Preferences.lyricRomanizationKey) private var showRomanization = false
+    @AppStorage(Preferences.lyricPhotoModeKey) private var lyricPhotoMode = false
     @State private var isScrubbing = false
     @State private var scrubTime: Double = 0
 
@@ -33,6 +36,7 @@ struct NowPlayingView: View {
         case addToPlaylist(Song)
         case comments(Song)
         case sleep
+        case lyricSources
 
         var id: String {
             switch self {
@@ -42,6 +46,7 @@ struct NowPlayingView: View {
             case .addToPlaylist(let song): return "add-\(song.FileHash)"
             case .comments(let song): return "comments-\(song.FileHash)"
             case .sleep: return "sleep"
+            case .lyricSources: return "lyric-sources"
             }
         }
     }
@@ -106,6 +111,8 @@ struct NowPlayingView: View {
                 CommentsView(song: song)
             case .sleep:
                 SleepTimerSheet().environmentObject(player)
+            case .lyricSources:
+                LyricSourceSheet().environmentObject(player)
             }
         }
     }
@@ -117,11 +124,15 @@ struct NowPlayingView: View {
                     ZStack {
                         if let url = player.current?.coverURL {
                             CoverImage(url: url, size: max(geo.size.width, geo.size.height), radius: 0)
-                                .scaleEffect(1.28)
-                                .blur(radius: 56)
-                                .opacity(colorScheme == .dark ? 0.28 : 0.12)
+                                .scaleEffect(showLyrics && lyricPhotoMode ? 1.02 : 1.28)
+                                .blur(radius: showLyrics && lyricPhotoMode ? 0 : 56)
+                                .opacity(showLyrics && lyricPhotoMode
+                                         ? (colorScheme == .dark ? 0.88 : 0.82)
+                                         : (colorScheme == .dark ? 0.28 : 0.12))
                         }
-                        Theme.background.opacity(colorScheme == .dark ? 0.64 : 0.86)
+                        Theme.background.opacity(showLyrics && lyricPhotoMode
+                                                 ? (colorScheme == .dark ? 0.38 : 0.56)
+                                                 : (colorScheme == .dark ? 0.64 : 0.86))
                     }
                     .frame(width: geo.size.width, height: geo.size.height)
                     .clipped()
@@ -231,6 +242,51 @@ struct NowPlayingView: View {
                     activeSheet = .addToPlaylist(song)
                 } label: {
                     Label("加入歌单", systemImage: "text.badge.plus")
+                }
+
+                Button {
+                    activeSheet = .lyricSources
+                } label: {
+                    Label("歌词来源", systemImage: "text.quote")
+                }
+            }
+
+            if showLyrics {
+                Divider()
+
+                Button {
+                    showTranslation.toggle()
+                    if showTranslation && !player.lyricTranslationAvailable {
+                        player.showToast("当前歌词没有译文")
+                    }
+                } label: {
+                    Label(showTranslation ? "隐藏歌词翻译" : "显示歌词翻译",
+                          systemImage: showTranslation ? "captions.bubble.fill" : "captions.bubble")
+                }
+
+                Button {
+                    showRomanization.toggle()
+                    if showRomanization && player.lyric.isEmpty {
+                        player.showToast("当前没有可显示的音译")
+                    }
+                } label: {
+                    Label(showRomanization ? "隐藏歌词音译" : "显示歌词音译",
+                          systemImage: showRomanization ? "character.book.closed.fill" : "character.book.closed")
+                }
+
+                Button {
+                    lyricPhotoMode.toggle()
+                } label: {
+                    Label(lyricPhotoMode ? "关闭写真模式" : "写真模式",
+                          systemImage: lyricPhotoMode ? "photo.fill" : "photo")
+                }
+            }
+
+            if !showLyrics {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.24)) { showLyrics = true }
+                } label: {
+                    Label("全屏歌词", systemImage: "arrow.up.left.and.arrow.down.right")
                 }
             }
 
@@ -489,22 +545,37 @@ struct NowPlayingView: View {
                 } else {
                     LazyVStack(alignment: .leading, spacing: 16) {
                         ForEach(Array(player.lyric.enumerated()), id: \.offset) { index, line in
-                            Text(line.text)
-                                .font(.system(size: index == player.lyricIndex
-                                              ? lyricSize.fontSize + 7
-                                              : lyricSize.fontSize + 1,
-                                              weight: index == player.lyricIndex ? .bold : .medium))
-                                .foregroundColor(index == player.lyricIndex
-                                                 ? Theme.text
-                                                 : Theme.secondaryText.opacity(colorScheme == .dark ? 0.52 : 0.62))
-                                .lineSpacing(3)
-                                .multilineTextAlignment(.leading)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    player.seek(to: max(0, line.time - Double(player.lyricOffsetMs) / 1000))
+                            VStack(alignment: .leading, spacing: 5) {
+                                lyricText(line, active: index == player.lyricIndex)
+                                    .font(.system(size: index == player.lyricIndex
+                                                  ? lyricSize.fontSize + 7
+                                                  : lyricSize.fontSize + 1,
+                                                  weight: index == player.lyricIndex ? .bold : .medium))
+                                    .lineSpacing(3)
+                                    .multilineTextAlignment(.leading)
+
+                                if showTranslation, let translation = line.translation,
+                                   !translation.isEmpty {
+                                    Text(translation)
+                                        .font(.system(size: lyricSize.fontSize - 1, weight: .regular))
+                                        .foregroundColor(Theme.secondaryText.opacity(colorScheme == .dark ? 0.68 : 0.78))
+                                        .lineSpacing(2)
                                 }
-                                .id(index)
+
+                                if showRomanization, let romanization = line.romanization,
+                                   !romanization.isEmpty {
+                                    Text(romanization)
+                                        .font(.system(size: lyricSize.fontSize - 2, weight: .regular))
+                                        .foregroundColor(Theme.tertiaryText.opacity(colorScheme == .dark ? 0.72 : 0.82))
+                                        .lineSpacing(2)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                player.seek(to: max(0, line.time - Double(player.lyricOffsetMs) / 1000))
+                            }
+                            .id(index)
                         }
                     }
                     .padding(.horizontal, 28)
@@ -535,6 +606,24 @@ struct NowPlayingView: View {
                 endPoint: .bottom
             )
         )
+    }
+
+    private func lyricText(_ line: LyricLine, active: Bool) -> Text {
+        guard active, !line.words.isEmpty else {
+            var plain = AttributedString(line.text)
+            plain.foregroundColor = active
+                ? Theme.text
+                : Theme.secondaryText.opacity(colorScheme == .dark ? 0.52 : 0.62)
+            return Text(plain)
+        }
+        let time = player.currentTime + Double(player.lyricOffsetMs) / 1000
+        var result = AttributedString()
+        for word in line.words {
+            var part = AttributedString(word.text)
+            part.foregroundColor = time >= word.start ? Theme.accent : Theme.text
+            result += part
+        }
+        return Text(result)
     }
 
     private func addToPlaylist(_ song: Song, _ target: CloudPlaylist) async {

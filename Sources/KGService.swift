@@ -1273,16 +1273,41 @@ enum KGService {
         return nil
     }
 
-    static func lyric(hash: String, title: String, artist: String = "") async throws -> [LyricLine] {
+    /// 返回当前歌曲可选的歌词来源；优先标题精确匹配，再补歌手+标题候选。
+    static func lyricCandidates(hash: String, title: String, artist: String = "") async throws -> [LyricCandidate] {
         let keywords = [title, artist.isEmpty ? title : "\(artist) \(title)"]
-        for keyword in keywords {
-            guard let candidates = try? await lyricCandidates(keyword: keyword, hash: hash),
-                  !candidates.isEmpty else { continue }
-            for candidate in candidates.prefix(3) {
-                if let lines = try? await lyricLines(id: candidate.id, accessKey: candidate.accesskey),
-                   !lines.isEmpty {
-                    return lines
-                }
+        var seen = Set<String>()
+        var result: [LyricCandidate] = []
+        for keyword in keywords where !keyword.isEmpty {
+            guard let batch = try? await lyricCandidates(keyword: keyword, hash: hash) else { continue }
+            for candidate in batch where seen.insert(candidate.id).inserted {
+                result.append(candidate)
+            }
+        }
+        return result
+    }
+
+    /// 下载指定歌词来源。优先 KRC（逐字），失败时回落 LRC。
+    static func lyric(candidate: LyricCandidate) async throws -> [LyricLine] {
+        if let data = try? await lyricPayload(id: candidate.id, accessKey: candidate.accesskey, fmt: "krc"),
+           let text = LyricParser.decodeKRC(data) {
+            let lines = LyricParser.parse(text)
+            if !lines.isEmpty { return lines }
+        }
+        if let data = try? await lyricPayload(id: candidate.id, accessKey: candidate.accesskey, fmt: "lrc"),
+           let text = String(data: data, encoding: .utf8) {
+            let lines = LyricParser.parse(text)
+            if !lines.isEmpty { return lines }
+        }
+        throw KGError.server("这条歌词暂时无法解析")
+    }
+
+    /// 兼容旧调用：自动选第一条能解析的候选。
+    static func lyric(hash: String, title: String, artist: String = "") async throws -> [LyricLine] {
+        let candidates = try await lyricCandidates(hash: hash, title: title, artist: artist)
+        for candidate in candidates.prefix(4) {
+            if let lines = try? await lyric(candidate: candidate), !lines.isEmpty {
+                return lines
             }
         }
         return []
@@ -1302,28 +1327,41 @@ enum KGService {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let raw = root["candidates"] as? [[String: Any]] else { return [] }
         return raw.compactMap { item in
-            guard let id = item["id"].map({ String(describing: $0) }),
-                  let key = item["accesskey"] as? String, !key.isEmpty else { return nil }
-            return LyricCandidate(id: id, accesskey: key)
+            let rawID = item["id"]
+            let id: String?
+            if let string = rawID as? String { id = string }
+            else if let number = rawID as? NSNumber { id = number.stringValue }
+            else { id = nil }
+            guard let value = id, let key = item["accesskey"] as? String, !key.isEmpty else { return nil }
+            return LyricCandidate(
+                id: value,
+                accesskey: key,
+                song: item["song"] as? String,
+                singer: item["singer"] as? String,
+                duration: Song.intValue(item["duration"]),
+                krctype: Song.intValue(item["krctype"]),
+                language: item["language"] as? String
+            )
         }
     }
 
-    private static func lyricLines(id: String, accessKey: String) async throws -> [LyricLine] {
+    private static func lyricPayload(id: String, accessKey: String, fmt: String) async throws -> Data? {
         var components = URLComponents(string: "https://lyrics.kugou.com/download")!
         components.queryItems = [
             URLQueryItem(name: "ver", value: "1"),
             URLQueryItem(name: "client", value: "pc"),
             URLQueryItem(name: "id", value: id),
             URLQueryItem(name: "accesskey", value: accessKey),
-            URLQueryItem(name: "fmt", value: "lrc"),
+            URLQueryItem(name: "fmt", value: fmt),
             URLQueryItem(name: "charset", value: "utf8"),
         ]
-        guard let url = components.url else { return [] }
+        guard let url = components.url else { return nil }
         let data = try await KGApi.shared.plain(url)
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let content = root["content"] as? String,
-              let bytes = Data(base64Encoded: content),
-              let text = String(data: bytes, encoding: .utf8) else { return [] }
-        return LyricParser.parse(text)
+              let decoded = Data(base64Encoded: content, options: .ignoreUnknownCharacters),
+              !decoded.isEmpty else { return nil }
+        return decoded
     }
+
 }
