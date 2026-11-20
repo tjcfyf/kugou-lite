@@ -10,6 +10,10 @@ struct NowPlayingView: View {
     @State private var lyricSize: LyricTextSize = Preferences.lyricSize
     @State private var showRemaining = false
     @GestureState private var coverDragOffset: CGFloat = 0
+    @AppStorage(Preferences.coverSwipeKey) private var coverSwipeEnabled = true
+    @AppStorage(Preferences.coverDoubleTapKey) private var coverDoubleTapEnabled = true
+
+    private var gestureMode: Bool { coverSwipeEnabled && coverDoubleTapEnabled }
 
     var body: some View {
         ZStack {
@@ -25,11 +29,13 @@ struct NowPlayingView: View {
                     .gesture(
                         DragGesture(minimumDistance: 12)
                             .updating($coverDragOffset) { value, state, _ in
+                                guard coverSwipeEnabled else { return }
                                 if abs(value.translation.width) > abs(value.translation.height) {
                                     state = value.translation.width
                                 }
                             }
                             .onEnded { value in
+                                guard coverSwipeEnabled else { return }
                                 let dx = value.translation.width
                                 guard abs(dx) > 55, abs(dx) > abs(value.translation.height) else { return }
                                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -37,6 +43,7 @@ struct NowPlayingView: View {
                             }
                     )
                     .onTapGesture(count: 2) {
+                        guard coverDoubleTapEnabled else { return }
                         player.toggle()
                     }
                     .padding(.top, 8)
@@ -97,16 +104,30 @@ struct NowPlayingView: View {
                     .padding(.horizontal, 24)
                     .padding(.top, 18)
 
-                controls
-                    .padding(.top, 10)
+                if !gestureMode {
+                    controls
+                        .padding(.top, 10)
+                }
 
                 lyricView
                     .frame(maxHeight: .infinity)
-                    .padding(.top, 8)
+                    .padding(.top, gestureMode ? 4 : 8)
             }
+            .animation(.easeInOut(duration: 0.24), value: gestureMode)
 
             VStack {
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
+                    if gestureMode {
+                        Button { showQueue = true } label: {
+                            Image(systemName: "list.bullet")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Theme.text.opacity(0.7))
+                                .frame(width: 30, height: 30)
+                                .background(Theme.chip)
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                    }
                     Spacer()
                     Button {
                         showPlayerSettings = true

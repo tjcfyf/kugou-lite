@@ -151,6 +151,8 @@ enum Preferences {
     private static let playModeKey = "kg.play.mode"
     private static let lyricSizeKey = "kg.lyric.size"
     private static let playbackRateKey = "kg.playback.rate"
+    static let coverSwipeKey = "kg.gesture.cover.swipe"
+    static let coverDoubleTapKey = "kg.gesture.cover.doubletap"
     static let themeModeKey = "kg.theme.mode"
 
     static var quality: AudioQuality {

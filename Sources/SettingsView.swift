@@ -23,6 +23,56 @@ struct SleepCountdownText: View {
     }
 }
 
+struct GestureSettingsCard: View {
+    @AppStorage(Preferences.coverSwipeKey) private var swipeEnabled = true
+    @AppStorage(Preferences.coverDoubleTapKey) private var doubleTapEnabled = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("播放页手势")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Theme.text)
+
+            Toggle(isOn: $swipeEnabled) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("左右滑动封面切歌")
+                        .font(.system(size: 13))
+                        .foregroundColor(Theme.text)
+                    Text("左滑下一首，右滑上一首")
+                        .font(.system(size: 11))
+                        .foregroundColor(Theme.secondaryText)
+                }
+            }
+            .toggleStyle(SwitchToggleStyle(tint: Theme.accent))
+
+            Divider().background(Theme.separator)
+
+            Toggle(isOn: $doubleTapEnabled) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("双击封面暂停 / 播放")
+                        .font(.system(size: 13))
+                        .foregroundColor(Theme.text)
+                    Text("双击专辑封面切换播放状态")
+                        .font(.system(size: 11))
+                        .foregroundColor(Theme.secondaryText)
+                }
+            }
+            .toggleStyle(SwitchToggleStyle(tint: Theme.accent))
+
+            Text(swipeEnabled && doubleTapEnabled
+                 ? "手势模式已开启：播放页隐藏底部控制按钮，歌词自动上移，只保留顶部设置和播放列表入口"
+                 : "两个开关都打开后，播放页会隐藏底部控制按钮，改用滑动切歌和双击暂停")
+                .font(.system(size: 11))
+                .foregroundColor(swipeEnabled && doubleTapEnabled ? Theme.accent.opacity(0.9) : Theme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Theme.card)
+        .cornerRadius(14)
+    }
+}
+
 struct SettingsView: View {
     @EnvironmentObject private var player: PlayerEngine
     @Environment(\.dismiss) private var dismiss
@@ -38,6 +88,7 @@ struct SettingsView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     appearanceCard
+                    GestureSettingsCard()
                     playModeCard
                     speedCard
                     qualityCard
@@ -322,6 +373,8 @@ struct PlayerSettingsView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 16) {
+                    GestureSettingsCard()
+                    playModeCard
                     sleepCard
                     speedCard
                     lyricCard
@@ -384,6 +437,31 @@ struct PlayerSettingsView: View {
                         .cornerRadius(9)
                 }
                 .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var playModeCard: some View {
+        card(title: "播放模式") {
+            HStack(spacing: 8) {
+                ForEach(PlayMode.allCases) { mode in
+                    Button {
+                        player.setPlayMode(mode)
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: mode.icon)
+                                .font(.system(size: 15, weight: .semibold))
+                            Text(mode.title)
+                                .font(.system(size: 10))
+                        }
+                        .foregroundColor(player.playMode == mode ? .white : Theme.text)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(player.playMode == mode ? Theme.accent : Theme.chip)
+                        .cornerRadius(9)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
     }
