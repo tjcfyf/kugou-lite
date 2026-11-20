@@ -121,6 +121,9 @@ struct NowPlayingView: View {
         .simultaneousGesture(dismissGesture)
         .animation(.easeInOut(duration: 0.32), value: showLyrics)
         .animation(.easeOut(duration: 0.22), value: player.toast)
+        .onChange(of: player.current?.FileHash) { _ in
+            artworkPalette = []
+        }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
             case .queue:
@@ -151,10 +154,9 @@ struct NowPlayingView: View {
                 // 专辑图取三色 → 纯色渐变铺底 → iOS 原生磨砂玻璃。
                 // 不再用封面图直接铺底，也不叠任何颜色遮罩。
                 if artworkPalette.count >= 3 {
-                    AngularGradient(gradient: Gradient(colors: artworkPalette + [artworkPalette[0]]),
-                                    center: .center,
-                                    startAngle: .degrees(-90),
-                                    endAngle: .degrees(270))
+                    LinearGradient(gradient: Gradient(colors: artworkPalette),
+                                   startPoint: .topLeading,
+                                   endPoint: .bottomTrailing)
                         .frame(width: geo.size.width, height: geo.size.height)
                         .transition(.opacity)
                 } else {
