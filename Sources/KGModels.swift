@@ -69,6 +69,42 @@ struct Song: Identifiable, Equatable {
     }
 }
 
+/// 酷狗歌曲评论。只保留界面真正需要的字段，避免接口字段变化时整页解析失败。
+struct SongComment: Identifiable, Equatable {
+    let id: String
+    let userName: String
+    let content: String
+    let timeText: String
+    let avatarURL: URL?
+    let replyCount: Int
+
+    init?(json: [String: Any], fallbackID: String) {
+        guard let content = json["content"] as? String,
+              !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+
+        let rawID = Song.intValue(json["id"]) ?? 0
+        id = "\(rawID)-\(fallbackID)"
+        userName = (json["user_name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "酷狗用户"
+        self.content = content
+        let rawTime = (json["addtime"] as? String) ?? ""
+        timeText = rawTime.count >= 10 ? String(rawTime.prefix(10)) : rawTime
+        let rawAvatar = json["user_pic"] as? String
+        if var avatar = rawAvatar, !avatar.isEmpty {
+            if avatar.hasPrefix("http://") { avatar = "https://" + avatar.dropFirst(7) }
+            avatarURL = URL(string: avatar)
+        } else {
+            avatarURL = nil
+        }
+        replyCount = Song.intValue(json["reply_num"]) ?? 0
+    }
+}
+
+struct CommentPage {
+    let comments: [SongComment]
+    let total: Int
+    let hasMore: Bool
+}
+
 struct CloudPlaylist: Identifiable, Equatable {
     let id: String
     let name: String

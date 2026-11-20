@@ -3,6 +3,7 @@ import UIKit
 
 struct NowPlayingView: View {
     @EnvironmentObject private var player: PlayerEngine
+    @ObservedObject private var library = LibraryStore.shared
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     @State private var activeSheet: PlayerSheet?
@@ -10,9 +11,6 @@ struct NowPlayingView: View {
     @State private var showRemaining = true
     @State private var showLyrics = false
     @GestureState private var coverDragOffset: CGFloat = 0
-    @AppStorage(Preferences.coverSwipeKey) private var coverSwipeEnabled = true
-    @AppStorage(Preferences.coverDoubleTapKey) private var coverDoubleTapEnabled = true
-    @AppStorage(Preferences.keepAwakeKey) private var keepAwake = false
     @AppStorage(Preferences.lyricFollowKey) private var lyricAutoFollow = true
     @State private var isScrubbing = false
     @State private var scrubTime: Double = 0
@@ -34,6 +32,8 @@ struct NowPlayingView: View {
         case album(AlbumTarget)
         case artist(ArtistTarget)
         case addToPlaylist(Song)
+        case comments(Song)
+        case sleep
 
         var id: String {
             switch self {
@@ -41,6 +41,8 @@ struct NowPlayingView: View {
             case .album(let target): return "album-\(target.id)"
             case .artist(let target): return "artist-\(target.id)"
             case .addToPlaylist(let song): return "add-\(song.FileHash)"
+            case .comments(let song): return "comments-\(song.FileHash)"
+            case .sleep: return "sleep"
             }
         }
     }
@@ -51,30 +53,32 @@ struct NowPlayingView: View {
 
             VStack(spacing: 0) {
                 grabber
-                topBar
 
-                Spacer(minLength: 14)
+                if showLyrics {
+                    lyricsTopBar
+                    lyricView
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    topBar
 
-                artwork
+                    Spacer(minLength: 14)
 
-                Spacer(minLength: 16)
+                    artwork
 
-                titleBlock
-                progress
-                    .padding(.horizontal, 24)
-                    .padding(.top, 16)
+                    Spacer(minLength: 16)
+
+                    titleBlock
+                    progress
+                        .padding(.horizontal, 24)
+                        .padding(.top, 16)
+                }
 
                 controls
-                    .padding(.top, 18)
+                    .padding(.top, showLyrics ? 8 : 18)
 
                 Spacer(minLength: 8)
 
                 bottomActions
-            }
-
-            if showLyrics {
-                lyricsOverlay
-                    .zIndex(10)
             }
 
             if let toast = player.toast {
@@ -85,17 +89,8 @@ struct NowPlayingView: View {
                 .zIndex(11)
             }
         }
-        .animation(.easeInOut(duration: 0.26), value: showLyrics)
+        .animation(.easeInOut(duration: 0.24), value: showLyrics)
         .animation(.easeOut(duration: 0.22), value: player.toast)
-        .onAppear {
-            UIApplication.shared.isIdleTimerDisabled = keepAwake
-        }
-        .onDisappear {
-            UIApplication.shared.isIdleTimerDisabled = false
-        }
-        .onChange(of: keepAwake) { enabled in
-            UIApplication.shared.isIdleTimerDisabled = enabled
-        }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
             case .queue:
@@ -108,6 +103,10 @@ struct NowPlayingView: View {
                 AlbumDetailSheet(target: target).environmentObject(player)
             case .artist(let target):
                 ArtistDetailSheet(target: target).environmentObject(player)
+            case .comments(let song):
+                CommentsView(song: song)
+            case .sleep:
+                SleepTimerSheet().environmentObject(player)
             }
         }
     }
@@ -171,35 +170,86 @@ struct NowPlayingView: View {
 
             Spacer()
 
-            Menu {
-                Button {
-                    activeSheet = .queue
-                } label: {
-                    Label("播放列表", systemImage: "list.bullet")
-                }
-                if let song = player.current {
-                    Button {
-                        activeSheet = .addToPlaylist(song)
-                    } label: {
-                        Label("加入歌单", systemImage: "text.badge.plus")
-                    }
-                }
-                Button {
-                    withAnimation(.easeInOut(duration: 0.26)) { showLyrics = true }
-                } label: {
-                    Label("歌词", systemImage: "music.note")
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(Theme.text.opacity(0.75))
-                    .frame(width: 40, height: 40)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityLabel("更多")
+            moreMenu
         }
         .padding(.horizontal, 12)
         .frame(height: 42)
+    }
+
+    private var lyricsTopBar: some View {
+        HStack(spacing: 10) {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Theme.text.opacity(0.72))
+                    .frame(width: 34, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(GlassPressButtonStyle())
+            .accessibilityLabel("关闭播放页")
+
+            CoverImage(url: player.current?.coverURL, size: 44, radius: 8)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(player.current?.SongName ?? "未在播放")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Theme.text)
+                    .lineLimit(1)
+                Text(player.current?.artist ?? "")
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.secondaryText)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            moreMenu
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 58)
+    }
+
+    private var moreMenu: some View {
+        Menu {
+            if let song = player.current {
+                Button {
+                    activeSheet = .addToPlaylist(song)
+                } label: {
+                    Label("加入歌单", systemImage: "text.badge.plus")
+                }
+            }
+
+            Button {
+                activeSheet = .sleep
+            } label: {
+                Label("睡眠模式", systemImage: "moon.zzz")
+            }
+
+            if let song = player.current {
+                Button {
+                    Task {
+                        let added = await library.toggleFavorite(song)
+                        if let added = added {
+                            player.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
+                        } else {
+                            player.showToast(library.favoritesMessage)
+                        }
+                    }
+                } label: {
+                    Label("我喜欢",
+                          systemImage: library.isFavorite(song) ? "heart.fill" : "heart")
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(Theme.text.opacity(0.75))
+                .frame(width: 40, height: 40)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("更多")
     }
 
     private var artwork: some View {
@@ -211,13 +261,11 @@ struct NowPlayingView: View {
             .gesture(
                 DragGesture(minimumDistance: 12)
                     .updating($coverDragOffset) { value, state, _ in
-                        guard coverSwipeEnabled else { return }
                         if abs(value.translation.width) > abs(value.translation.height) {
                             state = value.translation.width
                         }
                     }
                     .onEnded { value in
-                        guard coverSwipeEnabled else { return }
                         let dx = value.translation.width
                         guard abs(dx) > 55, abs(dx) > abs(value.translation.height) else { return }
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -225,7 +273,6 @@ struct NowPlayingView: View {
                     }
             )
             .onTapGesture(count: 2) {
-                guard coverDoubleTapEnabled else { return }
                 player.toggle()
             }
             .padding(.horizontal, 36)
@@ -413,16 +460,16 @@ struct NowPlayingView: View {
     private var bottomActions: some View {
         HStack(spacing: 0) {
             bottomAction(title: "歌词", icon: "music.note", active: showLyrics) {
-                withAnimation(.easeInOut(duration: 0.26)) { showLyrics = true }
+                withAnimation(.easeInOut(duration: 0.24)) { showLyrics.toggle() }
+            }
+            Spacer()
+            bottomAction(title: "评论", icon: "text.bubble", disabled: player.current == nil) {
+                guard let song = player.current else { return }
+                activeSheet = .comments(song)
             }
             Spacer()
             bottomAction(title: "播放列表", icon: "list.bullet") {
                 activeSheet = .queue
-            }
-            Spacer()
-            bottomAction(title: "加入歌单", icon: "text.badge.plus", disabled: player.current == nil) {
-                guard let song = player.current else { return }
-                activeSheet = .addToPlaylist(song)
             }
         }
         .padding(.horizontal, 40)
@@ -445,39 +492,6 @@ struct NowPlayingView: View {
         }
         .buttonStyle(GlassPressButtonStyle())
         .disabled(disabled)
-    }
-
-    private var lyricsOverlay: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("歌词")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(Theme.text)
-                Spacer()
-                Button {
-                    withAnimation(.easeInOut(duration: 0.26)) { showLyrics = false }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(Theme.secondaryText)
-                        .frame(width: 36, height: 36)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(GlassPressButtonStyle())
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 14)
-            .padding(.bottom, 8)
-
-            Rectangle()
-                .fill(Theme.separator)
-                .frame(height: 0.5)
-
-            lyricView
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Theme.background.opacity(0.96).ignoresSafeArea())
-        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     private var lyricView: some View {
@@ -520,14 +534,19 @@ struct NowPlayingView: View {
                     }
                     .padding(.top, 24)
                 } else {
-                    LazyVStack(spacing: 16) {
+                    LazyVStack(alignment: .leading, spacing: 16) {
                         ForEach(Array(player.lyric.enumerated()), id: \.offset) { index, line in
                             Text(line.text)
-                                .font(.system(size: index == player.lyricIndex ? lyricSize.fontSize + 2 : lyricSize.fontSize,
-                                              weight: index == player.lyricIndex ? .semibold : .regular))
-                                .foregroundColor(index == player.lyricIndex ? Theme.text : Theme.secondaryText)
-                                .multilineTextAlignment(.center)
-                                .frame(maxWidth: .infinity)
+                                .font(.system(size: index == player.lyricIndex
+                                              ? lyricSize.fontSize + 7
+                                              : lyricSize.fontSize + 1,
+                                              weight: index == player.lyricIndex ? .bold : .medium))
+                                .foregroundColor(index == player.lyricIndex
+                                                 ? Theme.text
+                                                 : Theme.secondaryText.opacity(colorScheme == .dark ? 0.52 : 0.62))
+                                .lineSpacing(3)
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                                 .contentShape(Rectangle())
                                 .onTapGesture {
                                     player.seek(to: max(0, line.time - Double(player.lyricOffsetMs) / 1000))
@@ -536,8 +555,12 @@ struct NowPlayingView: View {
                         }
                     }
                     .padding(.horizontal, 28)
-                    .padding(.vertical, 30)
+                    .padding(.vertical, 26)
                 }
+            }
+            .onAppear {
+                guard !player.lyric.isEmpty else { return }
+                proxy.scrollTo(player.lyricIndex, anchor: .center)
             }
             .onChange(of: player.lyricIndex) { index in
                 guard lyricAutoFollow else { return }

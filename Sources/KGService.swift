@@ -98,6 +98,56 @@ enum KGService {
         return songs
     }
 
+    // MARK: - 歌曲评论
+
+    /// 酷狗歌曲评论列表。评论池无需登录即可读取，只做展示，不发送评论。
+    static func comments(for song: Song, page: Int = 1, pageSize: Int = 20) async throws -> CommentPage {
+        guard let mixSongID = song.MixSongID ?? song.Audioid, mixSongID > 0 else {
+            throw KGError.server("当前歌曲缺少评论 ID")
+        }
+        let data = try await KGApi.shared.post(
+            path: "/mcomment/v1/cmtlist",
+            params: [
+                "ver": "6",
+                "mixsongid": "\(mixSongID)",
+                "need_show_image": "1",
+                "p": "\(page)",
+                "pagesize": "\(pageSize)",
+                "show_classify": "0",
+                "show_hotword_list": "0",
+                "extdata": "0",
+                "code": "fc4be23b4e972707f36b8a828a93ba8a"
+            ]
+        )
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw KGError.server("评论返回格式异常")
+        }
+        if let code = Song.intValue(root["err_code"]), code != 0 {
+            let message = (root["msg"] as? String) ?? (root["message"] as? String) ?? "评论加载失败"
+            throw KGError.server(message)
+        }
+        if let status = Song.intValue(root["status"]), status != 1 {
+            let message = (root["msg"] as? String) ?? (root["message"] as? String) ?? "评论加载失败"
+            throw KGError.server(message)
+        }
+
+        let list = (root["list"] as? [[String: Any]]) ?? []
+        let comments = list.enumerated().compactMap { index, item in
+            SongComment(json: item, fallbackID: "\(page)-\(index)")
+        }
+        let total = Song.intValue(root["combine_count"]) ?? Song.intValue(root["count"]) ?? comments.count
+        let maxPage = Song.intValue(root["maxPage"]) ?? 0
+        let hasMore: Bool
+        if comments.isEmpty {
+            hasMore = false
+        } else if maxPage > 0 {
+            hasMore = page < maxPage
+        } else {
+            hasMore = list.count >= pageSize
+        }
+        return CommentPage(comments: comments, total: total, hasMore: hasMore)
+    }
+
     // MARK: - 热门搜索
 
     static func hotSearch() async throws -> [String] {

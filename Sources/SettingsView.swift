@@ -45,82 +45,6 @@ struct SleepWaitForTrackEndToggle: View {
     }
 }
 
-struct GestureSettingsCard: View {
-    @AppStorage(Preferences.coverSwipeKey) private var swipeEnabled = true
-    @AppStorage(Preferences.coverDoubleTapKey) private var doubleTapEnabled = true
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("播放页手势")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(Theme.text)
-
-            Toggle(isOn: $swipeEnabled) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("左右滑动封面切歌")
-                        .font(.system(size: 13))
-                        .foregroundColor(Theme.text)
-                    Text("左滑下一首，右滑上一首")
-                        .font(.system(size: 11))
-                        .foregroundColor(Theme.secondaryText)
-                }
-            }
-            .toggleStyle(SwitchToggleStyle(tint: Theme.accent))
-
-            Divider().background(Theme.separator)
-
-            Toggle(isOn: $doubleTapEnabled) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("双击封面暂停 / 播放")
-                        .font(.system(size: 13))
-                        .foregroundColor(Theme.text)
-                    Text("双击专辑封面切换播放状态")
-                        .font(.system(size: 11))
-                        .foregroundColor(Theme.secondaryText)
-                }
-            }
-            .toggleStyle(SwitchToggleStyle(tint: Theme.accent))
-
-            Text(swipeEnabled && doubleTapEnabled
-                 ? "手势模式已开启：播放页隐藏底部控制按钮，歌词自动上移，只保留顶部设置和播放列表入口"
-                 : "两个开关都打开后，播放页会隐藏底部控制按钮，改用滑动切歌和双击暂停")
-                .font(.system(size: 11))
-                .foregroundColor(swipeEnabled && doubleTapEnabled ? Theme.accent.opacity(0.9) : Theme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .frostedGlass(cornerRadius: 18)
-    }
-}
-
-struct KeepAwakeSettingsCard: View {
-    @AppStorage(Preferences.keepAwakeKey) private var keepAwake = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("播放页")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(Theme.text)
-            Toggle(isOn: $keepAwake) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("保持屏幕常亮")
-                        .font(.system(size: 13))
-                        .foregroundColor(Theme.text)
-                    Text("听着歌看歌词时不自动锁屏，退出播放页后恢复系统设置")
-                        .font(.system(size: 11))
-                        .foregroundColor(Theme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .toggleStyle(SwitchToggleStyle(tint: Theme.accent))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .frostedGlass(cornerRadius: 18)
-    }
-}
-
 struct LyricOffsetSettingsCard: View {
     @EnvironmentObject private var player: PlayerEngine
     @AppStorage(Preferences.lyricFollowKey) private var autoFollow = true
@@ -227,8 +151,6 @@ struct SettingsView: View {
             ScrollView {
                 LazyVStack(spacing: 16) {
                     appearanceCard
-                    GestureSettingsCard()
-                    KeepAwakeSettingsCard()
                     playModeCard
                     speedCard
                     qualityCard
@@ -555,8 +477,6 @@ struct PlayerSettingsView: View {
         NavigationView {
             ScrollView {
                 LazyVStack(spacing: 16) {
-                    GestureSettingsCard()
-                    KeepAwakeSettingsCard()
                     playModeCard
                     sleepCard
                     speedCard
