@@ -231,6 +231,33 @@ struct SongMoreMenu: View {
     }
 }
 
+/// 统一的“整行播放 + 右侧独立菜单”行，避免三个点被整行按钮吞掉。
+struct SongRowWithMenu: View {
+    let song: Song
+    var index: Int? = nil
+    let onTap: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button(action: onTap) {
+                HStack(spacing: 10) {
+                    if let index = index {
+                        Text("\(index)")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Theme.secondaryText)
+                            .frame(width: 22, alignment: .leading)
+                    }
+                    SongRow(song: song, showsMore: false)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            SongMoreMenu(song: song)
+        }
+    }
+}
+
 struct ToastView: View {
     let text: String
 
@@ -252,7 +279,7 @@ struct ToastView: View {
 
 struct SongRow: View {
     let song: Song
-    var showsMore: Bool = true
+    var showsMore: Bool = false
     @EnvironmentObject private var player: PlayerEngine
     @ObservedObject private var library = LibraryStore.shared
 

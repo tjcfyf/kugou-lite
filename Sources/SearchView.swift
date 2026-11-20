@@ -114,12 +114,9 @@ struct SearchView: View {
                 }
 
                 ForEach(model.songs) { song in
-                    Button {
+                    SongRowWithMenu(song: song) {
                         onSelect(song)
-                    } label: {
-                        SongRow(song: song)
                     }
-                    .buttonStyle(.plain)
                     .padding(.horizontal, 16)
                 }
 

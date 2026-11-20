@@ -114,20 +114,11 @@ struct ArtistDetailSheet: View {
             .padding(.horizontal, 24)
         } else {
             ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                Button {
+                SongRowWithMenu(song: song, index: index + 1) {
                     player.play(song, in: songs)
                     dismiss()
-                } label: {
-                    HStack(spacing: 10) {
-                        Text("\(index + 1)")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(Theme.secondaryText)
-                            .frame(width: 22, alignment: .leading)
-                        SongRow(song: song)
-                    }
-                    .padding(.horizontal, 16)
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
             }
 
             if hasMore {

@@ -73,12 +73,9 @@ struct RecommendView: View {
                 if !model.songs.isEmpty {
                     SectionTitle(title: "每日推荐", subtitle: "\(model.songs.count) 首")
                     ForEach(model.songs, id: \.recommendRowID) { song in
-                        Button {
+                        SongRowWithMenu(song: song) {
                             onSelect(song, model.songs)
-                        } label: {
-                            SongRow(song: song)
                         }
-                        .buttonStyle(.plain)
                         .padding(.horizontal, 16)
                     }
                 }
@@ -253,15 +250,12 @@ struct RankDetailSheet: View {
                         Text(message).font(.system(size: 13)).foregroundColor(Theme.secondaryText).padding(.top, 24)
                     }
                     ForEach(songs) { song in
-                        Button {
+                        SongRowWithMenu(song: song) {
                             dismiss()
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
                                 onSelect(song, songs)
                             }
-                        } label: {
-                            SongRow(song: song)
                         }
-                        .buttonStyle(.plain)
                         .padding(.horizontal, 16)
                     }
                     if !loading && !songs.isEmpty && hasMore {

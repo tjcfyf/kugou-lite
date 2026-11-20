@@ -153,12 +153,31 @@ enum KGService {
                 "type": 1,
                 "page": page,
                 "rank_id": rankid
-            ]
+            ],
+            headers: ["kg-tid": "369"]
         )
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
-        let raw = (root["data"] as? [String: Any])?["songlist"] as? [[String: Any]]
-            ?? (root["data"] as? [String: Any])?["info"] as? [[String: Any]]
-            ?? []
+        if let code = Song.intValue(root["error_code"]), code != 0 {
+            throw KGError.server("榜单歌曲读取失败（\(code)）")
+        }
+        var raw: [[String: Any]] = []
+        func append(_ value: Any?) {
+            if let items = value as? [[String: Any]] { raw.append(contentsOf: items) }
+        }
+        if let payload = root["data"] as? [String: Any] {
+            append(payload["songlist"])
+            append(payload["songs"])
+            append(payload["list"])
+            append(payload["info"])
+            if let info = payload["info"] as? [String: Any] {
+                append(info["songlist"])
+                append(info["songs"])
+                append(info["list"])
+            }
+        }
+        append(root["data"])
+        append(root["songlist"])
+        append(root["songs"])
         return raw.compactMap { item in normalizeRankSong(item) }
     }
 
@@ -290,11 +309,21 @@ enum KGService {
 
     private static func normalizeRankSong(_ item: [String: Any]) -> Song? {
         let deprecated = item["deprecated"] as? [String: Any] ?? [:]
-        guard let hash = (deprecated["hash"] as? String) ?? (item["hash"] as? String), !hash.isEmpty else { return nil }
+        let hash = (deprecated["hash"] as? String)
+            ?? (item["hash"] as? String)
+            ?? (item["hash_320"] as? String)
+            ?? (item["hash_128"] as? String)
+            ?? ""
+        guard !hash.isEmpty else { return nil }
         var json: [String: Any] = [
             "FileHash": hash,
             "SongName": (item["songname"] as? String) ?? (item["name"] as? String) ?? "未知歌曲",
-            "SingerName": (item["author_name"] as? String) ?? (item["singername"] as? String) ?? ""
+            "SingerName": (item["author_name"] as? String)
+                ?? (item["singername"] as? String)
+                ?? (item["singer_name"] as? String)
+                ?? ((item["authors"] as? [[String: Any]])?.compactMap {
+                    ($0["author_name"] as? String) ?? ($0["name"] as? String)
+                }.joined(separator: "、") ?? "")
         ]
         json["Duration"] = deprecated["duration"] ?? item["timelen"] ?? item["duration"]
         json["AlbumID"] = deprecated["albumid"] ?? item["albumid"] ?? item["album_id"]
