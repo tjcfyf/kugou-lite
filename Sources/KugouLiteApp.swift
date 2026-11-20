@@ -64,6 +64,7 @@ struct RootView: View {
             ToastOverlay()
         }
         .preferredColorScheme(resolvedScheme)
+        .accentColor(Theme.accent)
         .background(
             SystemSchemeProbe(scheme: $systemScheme)
                 .frame(width: 1, height: 1)

@@ -15,13 +15,22 @@ enum Theme {
 
 /// 全 App 统一的柔和渐变背景，浅色/深色各一套。
 struct AppBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         ZStack {
-            Color(UIColor.systemGroupedBackground)
-            LinearGradient(
-                colors: [Color.white.opacity(0.03), Color.clear, Color.black.opacity(0.03)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+            Theme.background
+            RadialGradient(
+                colors: [Theme.accent.opacity(colorScheme == .dark ? 0.10 : 0.06), Color.clear],
+                center: .topLeading,
+                startRadius: 0,
+                endRadius: 520
+            )
+            RadialGradient(
+                colors: [Theme.accent.opacity(colorScheme == .dark ? 0.05 : 0.03), Color.clear],
+                center: .bottomTrailing,
+                startRadius: 0,
+                endRadius: 480
             )
         }
         .ignoresSafeArea()
@@ -58,7 +67,7 @@ extension View {
         modifier(FrostedChipSurface(cornerRadius: cornerRadius))
     }
 
-    /// 横向滚动的卡片：使用系统次级背景色，不再为每张卡创建系统 blur。
+    /// 横向滚动的卡片：使用主题色块，不再为每张卡创建系统 blur。
     func frostedPanel(cornerRadius: CGFloat = 16) -> some View {
         modifier(FrostedPanelSurface(cornerRadius: cornerRadius))
     }
@@ -71,7 +80,7 @@ struct FrostedPanelSurface: ViewModifier {
         content
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color(UIColor.secondarySystemBackground))
+                    .fill(Theme.chip)
             )
     }
 }
@@ -83,7 +92,7 @@ struct FrostedChipSurface: ViewModifier {
         content
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color(UIColor.secondarySystemBackground))
+                    .fill(Theme.chip)
             )
     }
 }
@@ -92,7 +101,7 @@ struct FrostedChipSurface: ViewModifier {
 struct GlassRowBackground: View {
     var body: some View {
         RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(Color(UIColor.secondarySystemBackground).opacity(0.62))
+            .fill(Theme.chip)
             .padding(.vertical, 3)
             .padding(.horizontal, 10)
     }
