@@ -767,8 +767,9 @@ struct LibrarySongsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showClearConfirm = false
     @State private var sort: LibrarySongSort = .recent
+    @State private var searchText = ""
 
-    private var songs: [Song] {
+    private var allSongs: [Song] {
         let base = kind == .favorites ? library.favorites : library.recent
         switch sort {
         case .recent:
@@ -786,11 +787,22 @@ struct LibrarySongsView: View {
         }
     }
 
+    private var songs: [Song] {
+        let keyword = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !keyword.isEmpty else { return allSongs }
+        return allSongs.filter {
+            $0.SongName.localizedCaseInsensitiveContains(keyword)
+                || $0.SingerName.localizedCaseInsensitiveContains(keyword)
+        }
+    }
+
     var body: some View {
         NavigationView {
             List {
                 if songs.isEmpty {
-                    Text(kind == .favorites ? "还没有收藏，长按歌曲就能收藏" : "还没有播放记录")
+                    Text(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                         ? (kind == .favorites ? "还没有收藏，长按歌曲就能收藏" : "还没有播放记录")
+                         : "没有匹配的歌曲")
                         .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
                         .listRowBackground(Theme.card)
@@ -818,6 +830,7 @@ struct LibrarySongsView: View {
             .background(AppBackground())
             .navigationTitle(kind.title)
             .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索\(kind.title)")
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
@@ -861,9 +874,55 @@ struct QueueView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var editMode: EditMode = .inactive
 
+    private var totalSeconds: Int {
+        player.queueSongs.reduce(0) { $0 + ($1.Duration ?? 0) }
+    }
+
+    private var remainingSeconds: Int {
+        var result = 0
+        for (index, song) in player.queueSongs.enumerated() {
+            let duration = song.Duration ?? 0
+            if index < player.currentIndex { continue }
+            if index == player.currentIndex {
+                result += max(0, duration - Int(player.currentTime))
+            } else {
+                result += duration
+            }
+        }
+        return result
+    }
+
+    private func durationText(_ seconds: Int) -> String {
+        if seconds >= 3600 {
+            return String(format: "%d:%02d:%02d", seconds / 3600, (seconds % 3600) / 60, seconds % 60)
+        }
+        return String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+
     var body: some View {
         NavigationView {
             List {
+                if !player.queueSongs.isEmpty {
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Text("共 \(player.queueSongs.count) 首")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(Theme.text)
+                            Spacer()
+                            Text("正在播放第 \(player.currentIndex + 1) 首")
+                                .font(.system(size: 10))
+                                .foregroundColor(Theme.accent)
+                        }
+                        if totalSeconds > 0 {
+                            Text("总时长 \(durationText(totalSeconds)) · 剩余 \(durationText(remainingSeconds))")
+                                .font(.system(size: 10))
+                                .foregroundColor(Theme.secondaryText)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    .listRowBackground(Theme.card)
+                }
+
                 ForEach(Array(player.queueSongs.enumerated()), id: \.element.id) { index, song in
                     Button {
                         player.jump(to: index)

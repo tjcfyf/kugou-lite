@@ -153,6 +153,7 @@ enum Preferences {
     private static let playbackRateKey = "kg.playback.rate"
     static let coverSwipeKey = "kg.gesture.cover.swipe"
     static let coverDoubleTapKey = "kg.gesture.cover.doubletap"
+    static let keepAwakeKey = "kg.player.keepawake"
     static let themeModeKey = "kg.theme.mode"
 
     static var quality: AudioQuality {
@@ -202,6 +203,12 @@ enum Preferences {
         var list = searchHistory
         list.removeAll { $0 == trimmed }
         list.insert(trimmed, at: 0)
+        searchHistory = list
+    }
+
+    static func removeSearch(_ keyword: String) {
+        var list = searchHistory
+        list.removeAll { $0 == keyword }
         searchHistory = list
     }
 

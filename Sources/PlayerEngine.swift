@@ -16,6 +16,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     @Published var errorMessage: String?
     @Published var toast: String?
     @Published private(set) var sleepDeadline: Date?
+    @Published private(set) var sleepAfterCurrent = false
     @Published private(set) var currentQuality: String = ""
     @Published private(set) var playMode: PlayMode = Preferences.playMode
     @Published private(set) var playbackRate: Float = Preferences.playbackRate
@@ -135,7 +136,13 @@ final class PlayerEngine: NSObject, ObservableObject {
     }
 
     func setSleepTimer(minutes: Int?) {
+        if minutes != nil { sleepAfterCurrent = false }
         sleepDeadline = minutes.flatMap { Date().addingTimeInterval(Double($0) * 60) }
+    }
+
+    func setSleepAfterCurrent(_ enabled: Bool) {
+        sleepAfterCurrent = enabled
+        if enabled { sleepDeadline = nil }
     }
 
     func removeFromQueue(at target: Int) {
@@ -347,6 +354,14 @@ final class PlayerEngine: NSObject, ObservableObject {
     }
 
     @objc private func handleEnded() {
+        if sleepAfterCurrent {
+            sleepAfterCurrent = false
+            player.pause()
+            isPlaying = false
+            if let hash = current?.FileHash { PlaybackMemory.clear(hash) }
+            showToast("已播完当前歌曲，已暂停")
+            return
+        }
         if playMode == .single {
             seek(to: 0)
             player.play()

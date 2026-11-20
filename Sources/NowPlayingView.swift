@@ -11,6 +11,7 @@ struct NowPlayingView: View {
     @GestureState private var coverDragOffset: CGFloat = 0
     @AppStorage(Preferences.coverSwipeKey) private var coverSwipeEnabled = true
     @AppStorage(Preferences.coverDoubleTapKey) private var coverDoubleTapEnabled = true
+    @AppStorage(Preferences.keepAwakeKey) private var keepAwake = false
 
     private var gestureMode: Bool { coverSwipeEnabled && coverDoubleTapEnabled }
 
@@ -205,6 +206,15 @@ struct NowPlayingView: View {
             }
         }
         .animation(.easeOut(duration: 0.22), value: player.toast)
+        .onAppear {
+            UIApplication.shared.isIdleTimerDisabled = keepAwake
+        }
+        .onDisappear {
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
+        .onChange(of: keepAwake) { enabled in
+            UIApplication.shared.isIdleTimerDisabled = enabled
+        }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
             case .queue:

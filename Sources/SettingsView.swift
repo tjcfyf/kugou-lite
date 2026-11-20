@@ -73,6 +73,34 @@ struct GestureSettingsCard: View {
     }
 }
 
+struct KeepAwakeSettingsCard: View {
+    @AppStorage(Preferences.keepAwakeKey) private var keepAwake = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("播放页")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Theme.text)
+            Toggle(isOn: $keepAwake) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("保持屏幕常亮")
+                        .font(.system(size: 13))
+                        .foregroundColor(Theme.text)
+                    Text("听着歌看歌词时不自动锁屏，退出播放页后恢复系统设置")
+                        .font(.system(size: 11))
+                        .foregroundColor(Theme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .toggleStyle(SwitchToggleStyle(tint: Theme.accent))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Theme.card)
+        .cornerRadius(14)
+    }
+}
+
 struct SettingsView: View {
     @EnvironmentObject private var player: PlayerEngine
     @Environment(\.dismiss) private var dismiss
@@ -89,6 +117,7 @@ struct SettingsView: View {
                 VStack(spacing: 16) {
                     appearanceCard
                     GestureSettingsCard()
+                    KeepAwakeSettingsCard()
                     playModeCard
                     speedCard
                     qualityCard
@@ -254,9 +283,15 @@ struct SettingsView: View {
     private var sleepCard: some View {
         card(title: "睡眠定时") {
             HStack {
-                SleepCountdownText(deadline: player.sleepDeadline)
+                if player.sleepAfterCurrent {
+                    Text("播完本首")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(Theme.accent)
+                } else {
+                    SleepCountdownText(deadline: player.sleepDeadline)
+                }
                 Spacer()
-                Text(player.sleepDeadline == nil ? "到点自动暂停" : "每秒刷新")
+                Text(player.sleepAfterCurrent ? "不再自动切歌" : (player.sleepDeadline == nil ? "到点自动暂停" : "每秒刷新"))
                     .font(.system(size: 11))
                     .foregroundColor(Theme.secondaryText)
             }
@@ -276,6 +311,26 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                 }
             }
+            Toggle(isOn: Binding(
+                get: { player.sleepAfterCurrent },
+                set: { player.setSleepAfterCurrent($0) }
+            )) {
+                Text("播完当前歌曲后暂停")
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.text)
+            }
+            .toggleStyle(SwitchToggleStyle(tint: Theme.accent))
+
+            Toggle(isOn: Binding(
+                get: { player.sleepAfterCurrent },
+                set: { player.setSleepAfterCurrent($0) }
+            )) {
+                Text("播完当前歌曲后暂停")
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.text)
+            }
+            .toggleStyle(SwitchToggleStyle(tint: Theme.accent))
+
             HStack(spacing: 10) {
                 Stepper(value: $customMinutes, in: 1...180) {
                     Text("自定义 \(customMinutes) 分钟")
@@ -374,6 +429,7 @@ struct PlayerSettingsView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     GestureSettingsCard()
+                    KeepAwakeSettingsCard()
                     playModeCard
                     sleepCard
                     speedCard
@@ -397,9 +453,15 @@ struct PlayerSettingsView: View {
     private var sleepCard: some View {
         card(title: "睡眠定时") {
             HStack {
-                SleepCountdownText(deadline: player.sleepDeadline)
+                if player.sleepAfterCurrent {
+                    Text("播完本首")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(Theme.accent)
+                } else {
+                    SleepCountdownText(deadline: player.sleepDeadline)
+                }
                 Spacer()
-                Text(player.sleepDeadline == nil ? "到点自动暂停" : "实时倒计时")
+                Text(player.sleepAfterCurrent ? "不再自动切歌" : (player.sleepDeadline == nil ? "到点自动暂停" : "实时倒计时"))
                     .font(.system(size: 11))
                     .foregroundColor(Theme.secondaryText)
             }

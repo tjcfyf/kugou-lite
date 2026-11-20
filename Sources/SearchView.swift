@@ -85,6 +85,7 @@ struct SearchView: View {
     let onSelect: (Song) -> Void
     let onOpenPlayer: () -> Void
     @State private var hotKeywords: [String] = []
+    @State private var historyWords: [String] = Preferences.searchHistory
 
     var body: some View {
         ScrollView {
@@ -137,7 +138,13 @@ struct SearchView: View {
             }
         }
         .task {
+            historyWords = Preferences.searchHistory
             if hotKeywords.isEmpty { hotKeywords = (try? await KGService.hotSearch()) ?? [] }
+        }
+        .onChange(of: model.query) { value in
+            if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                historyWords = Preferences.searchHistory
+            }
         }
     }
 }
@@ -150,9 +157,10 @@ extension SearchView {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(Theme.text)
                 Spacer()
-                if !Preferences.searchHistory.isEmpty {
+                if !historyWords.isEmpty {
                     Button {
                         Preferences.searchHistory = []
+                        historyWords = []
                         model.query = ""
                     } label: {
                         Image(systemName: "trash")
@@ -163,28 +171,41 @@ extension SearchView {
                 }
             }
 
-            if Preferences.searchHistory.isEmpty {
+            if historyWords.isEmpty {
                 Text("搜歌手、歌名或专辑，点一首就能听")
                     .font(.system(size: 12))
                     .foregroundColor(Theme.secondaryText)
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 8)], alignment: .leading, spacing: 8) {
-                    ForEach(Preferences.searchHistory, id: \.self) { word in
-                        Button {
-                            model.query = word
-                            model.submit()
-                        } label: {
-                            Text(word)
-                                .font(.system(size: 12))
-                                .foregroundColor(Theme.text.opacity(0.85))
-                                .lineLimit(1)
+                    ForEach(historyWords, id: \.self) { word in
+                        HStack(spacing: 5) {
+                            Button {
+                                model.query = word
+                                model.submit()
+                            } label: {
+                                Text(word)
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Theme.text.opacity(0.85))
+                                    .lineLimit(1)
+                            }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                Preferences.removeSearch(word)
+                                historyWords = Preferences.searchHistory
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 8, weight: .semibold))
+                                    .foregroundColor(Theme.secondaryText)
+                                    .frame(width: 14, height: 14)
+                            }
+                            .buttonStyle(.plain)
+                        }
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Theme.card)
-                                .cornerRadius(10)
-                        }
-                        .buttonStyle(.plain)
+                        .background(Theme.card)
+                        .cornerRadius(10)
                     }
                 }
             }
