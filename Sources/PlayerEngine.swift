@@ -84,10 +84,6 @@ final class PlayerEngine: NSObject, ObservableObject {
 
     func previous() {
         guard !queue.isEmpty else { return }
-        if currentTime > 4 {
-            seek(to: 0)
-            return
-        }
         index = (index - 1 + queue.count) % queue.count
         load(queue[index], resume: false)
     }
