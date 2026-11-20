@@ -150,12 +150,13 @@ enum KGService {
             path: "/v1/album_audio/lite",
             params: [:],
             body: [
-                "album_id": albumID,
+                "album_id": "\(albumID)",
                 "is_buy": "",
-                "page": page,
-                "pagesize": pageSize
+                "page": "\(page)",
+                "pagesize": "\(pageSize)"
             ],
-            router: "openapi.kugou.com"
+            router: "openapi.kugou.com",
+            headers: ["kg-tid": "255"]
         )
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
         if let code = Song.intValue(root["error_code"]), code != 0 {

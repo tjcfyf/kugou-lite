@@ -59,6 +59,7 @@ final class KGApi {
               body: [String: Any]? = nil,
               contentType: String? = nil,
               router: String? = nil,
+              headers: [String: String] = [:],
               lite: Bool = false) async throws -> Data {
         var all = merged(params, lite: lite)
         let bodyString: String
@@ -79,6 +80,9 @@ final class KGApi {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         } else if let contentType = contentType {
             request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        }
+        for (key, value) in headers {
+            request.setValue(value, forHTTPHeaderField: key)
         }
         return try await send(request)
     }
