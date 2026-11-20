@@ -608,6 +608,7 @@ struct ProfileView: View {
     @State private var showLogin = false
     @State private var showSettings = false
     @State private var showDiagnostics = false
+    @State private var profile: KugouProfile?
     @State private var toast = ""
     @State private var sleepText = ""
     @State private var customMinutes = 45
@@ -643,20 +644,42 @@ struct ProfileView: View {
         .overlay(alignment: .top) {
             if !toast.isEmpty { ToastView(text: toast) }
         }
+        .task { await loadProfile() }
+        .onChange(of: auth.isLoggedIn) { _ in
+            Task { await loadProfile() }
+        }
+    }
+
+    private func loadProfile() async {
+        guard auth.isLoggedIn else {
+            profile = nil
+            return
+        }
+        profile = await KGUser.profile()
     }
 
     private var accountCard: some View {
-        VStack(spacing: 10) {
-            Image(systemName: auth.isLoggedIn ? "person.crop.circle.fill" : "person.crop.circle")
-                .font(.system(size: 40))
-                .foregroundColor(Theme.accent)
-            Text(auth.isLoggedIn ? "已登录" : "未登录")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(Theme.text)
-            if auth.isLoggedIn {
-                Text("UID \(auth.userid)")
-                    .font(.system(size: 12))
-                    .foregroundColor(Theme.secondaryText)
+        VStack(spacing: 14) {
+            HStack(spacing: 14) {
+                avatarView
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(displayName)
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                        .lineLimit(1)
+                    if auth.isLoggedIn {
+                        Text("UID \(auth.userid)")
+                            .font(.system(size: 11))
+                            .foregroundColor(Theme.secondaryText)
+                    }
+                    if let signature = profile?.signature, !signature.isEmpty {
+                        Text(signature)
+                            .font(.system(size: 11))
+                            .foregroundColor(Theme.secondaryText)
+                            .lineLimit(2)
+                    }
+                }
+                Spacer(minLength: 0)
             }
             Button {
                 showLogin = true
@@ -670,10 +693,41 @@ struct ProfileView: View {
                     .cornerRadius(18)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
         .background(Theme.card)
         .cornerRadius(16)
+    }
+
+    private var displayName: String {
+        if let nickname = profile?.nickname, !nickname.isEmpty { return nickname }
+        return auth.isLoggedIn ? "酷狗用户" : "未登录"
+    }
+
+    private var avatarView: some View {
+        Group {
+            if let raw = profile?.avatarURL, let url = URL(string: raw) {
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    avatarPlaceholder
+                }
+            } else {
+                avatarPlaceholder
+            }
+        }
+        .frame(width: 64, height: 64)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(Theme.separator, lineWidth: 0.6))
+    }
+
+    private var avatarPlaceholder: some View {
+        ZStack {
+            Circle().fill(Theme.chip)
+            Image(systemName: "person.crop.circle.fill")
+                .font(.system(size: 30))
+                .foregroundColor(Theme.accent)
+        }
     }
 
     private var qualityCard: some View {

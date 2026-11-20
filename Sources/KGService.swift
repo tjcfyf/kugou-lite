@@ -300,13 +300,15 @@ enum KGService {
     static func playlists() async throws -> [CloudPlaylist] {
         guard KGApi.shared.token != nil, KGApi.shared.userid != 0 else { return [] }
 
-        // type 2 是官方“全部歌单”，正常情况下自建 + 收藏都会返回。
-        let all = (try? await playlists(type: 2)) ?? []
-        if !all.isEmpty { return all }
+        var lastError: Error?
+        do {
+            let all = try await allPlaylists(type: 2)
+            if !all.isEmpty { return all }
+        } catch { lastError = error }
 
         // 少数账号 type 2 只返回单一类型，按 0/1 再补一次。
-        let created = (try? await playlists(type: 0)) ?? []
-        let collected = (try? await playlists(type: 1)) ?? []
+        let created = (try? await allPlaylists(type: 0)) ?? []
+        let collected = (try? await allPlaylists(type: 1)) ?? []
         var merged: [String: CloudPlaylist] = [:]
         var order: [String] = []
         func add(_ list: [CloudPlaylist]) {
@@ -318,10 +320,25 @@ enum KGService {
         }
         add(created)
         add(collected)
-        return order.compactMap { merged[$0] }
+        if !order.isEmpty { return order.compactMap { merged[$0] } }
+        if let lastError = lastError { throw lastError }
+        return []
     }
 
-    private static func playlists(type: Int) async throws -> [CloudPlaylist] {
+    private static func allPlaylists(type: Int) async throws -> [CloudPlaylist] {
+        var result: [CloudPlaylist] = []
+        var page = 1
+        while page <= 8 {
+            let batch = try await playlists(type: type, page: page)
+            if batch.isEmpty { break }
+            result.append(contentsOf: batch)
+            if batch.count < 30 { break }
+            page += 1
+        }
+        return result
+    }
+
+    private static func playlists(type: Int, page: Int) async throws -> [CloudPlaylist] {
         guard let token = KGApi.shared.token, KGApi.shared.userid != 0 else { return [] }
         let data = try await KGApi.shared.post(
             path: "/v7/get_all_list",
@@ -331,18 +348,26 @@ enum KGService {
                 "token": token,
                 "total_ver": 979,
                 "type": type,
-                "page": 1,
-                "pagesize": 100
+                "page": page,
+                "pagesize": 30
             ],
-            router: "cloudlist.service.kugou.com"
+            router: "cloudlist.service.kugou.com",
+            lite: true
         )
-        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw KGError.server("歌单接口返回格式异常")
+        }
         let container = root["data"] as? [String: Any]
         let raw = container?["info"] as? [[String: Any]]
             ?? container?["list"] as? [[String: Any]]
             ?? container?["lists"] as? [[String: Any]]
             ?? root["info"] as? [[String: Any]]
             ?? []
+        if raw.isEmpty, let status = Song.intValue(root["status"]), status != 1 {
+            let code = Song.intValue(root["error_code"]) ?? 0
+            let message = (root["error"] as? String) ?? (root["error_msg"] as? String) ?? ""
+            throw KGError.server("歌单接口失败（\(status)/\(code)）\(message.isEmpty ? "" : "：\(message)")")
+        }
         return raw.compactMap { item in
             let listid = stringValue(item["listid"])
                 ?? stringValue(item["list_create_listid"])
@@ -393,7 +418,8 @@ enum KGService {
                         "show_cover": 1,
                         "token": token
                     ],
-                    router: "cloudlist.service.kugou.com"
+                    router: "cloudlist.service.kugou.com",
+                    lite: true
                 )
                 if let data = data {
                     let songs = parsePlaylistSongs(data)
@@ -419,7 +445,8 @@ enum KGService {
                 "userid": KGApi.shared.userid,
                 "token": token
             ],
-            router: "pubsongs.kugou.com"
+            router: "pubsongs.kugou.com",
+            lite: true
         )
         return parsePlaylistSongs(data)
     }

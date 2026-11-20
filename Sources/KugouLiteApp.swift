@@ -35,16 +35,16 @@ struct RootView: View {
 
     var body: some View {
         TabView(selection: $tab) {
-            searchTab
-                .tabItem { Label("搜索", systemImage: "magnifyingglass") }
+            profileTab
+                .tabItem { Label("我的", systemImage: "person.crop.circle") }
                 .tag(0)
 
             recommendTab
                 .tabItem { Label("发现", systemImage: "sparkles") }
                 .tag(1)
 
-            profileTab
-                .tabItem { Label("我的", systemImage: "person.crop.circle") }
+            searchTab
+                .tabItem { Label("搜索", systemImage: "magnifyingglass") }
                 .tag(2)
         }
         .accentColor(Theme.accent)

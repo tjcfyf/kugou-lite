@@ -1,5 +1,11 @@
 import Foundation
 
+struct KugouProfile: Equatable {
+    let nickname: String
+    let avatarURL: String?
+    let signature: String?
+}
+
 enum KGUser {
     /// 查询概念版会员状态，用来确认 token 是否生效、会员有没有到账。
     private static func describe(type: String, end: String) -> String {
@@ -74,6 +80,65 @@ enum KGUser {
         if let date = formatter.date(from: raw) { return date }
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.date(from: raw)
+    }
+
+    /// 当前登录用户的昵称、头像、签名。先用概念版 appid，失败再试标准版。
+    static func profile() async -> KugouProfile? {
+        guard let token = KGApi.shared.token, !token.isEmpty, KGApi.shared.userid != 0 else {
+            return nil
+        }
+        if let profile = await fetchProfile(lite: true, token: token) { return profile }
+        return await fetchProfile(lite: false, token: token)
+    }
+
+    private static func fetchProfile(lite: Bool, token: String) async -> KugouProfile? {
+        let appid = lite ? 3116 : 1005
+        let clientver = lite ? 11440 : 20489
+        let clienttime = Int(Date().timeIntervalSince1970 * 1000)
+        guard let plain = try? JSONSerialization.data(withJSONObject: [
+            "clienttime": clienttime,
+            "token": token
+        ]) else { return nil }
+        guard let p = KGRSA.encryptPKCS1(plain, key: lite ? .lite : .standard) else { return nil }
+        let salt = lite ? KGSign.liteSalt : KGSign.androidSalt
+        let key = KGSign.md5("\(appid)\(salt)\(clientver)\(clienttime)")
+        let body: [String: Any] = [
+            "p": p,
+            "appid": appid,
+            "mid": KGApi.shared.mid,
+            "clientver": clientver,
+            "source": 0,
+            "clienttime": clienttime,
+            "uuid": "-",
+            "userid": KGApi.shared.userid,
+            "key": key
+        ]
+        guard let data = try? await KGApi.shared.post(
+            path: "/v1/get_my_userinfo",
+            host: "http://relation.user.kugou.com",
+            params: [:],
+            body: body,
+            contentType: "application/json",
+            headers: ["Host": "relation.user.kugou.com"],
+            lite: lite
+        ), let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              Song.intValue(root["status"]) == 1,
+              let payload = root["data"] as? [String: Any] else {
+            return nil
+        }
+        let nickname = (payload["nickname"] as? String)
+            ?? (payload["user_name"] as? String)
+            ?? (payload["username"] as? String)
+            ?? ""
+        var avatar = (payload["pic"] as? String)
+            ?? (payload["avatar"] as? String)
+            ?? (payload["photo"] as? String)
+        if let value = avatar, value.hasPrefix("http://") {
+            avatar = "https://" + String(value.dropFirst("http://".count))
+        }
+        let signature = (payload["signature"] as? String) ?? (payload["memo"] as? String)
+        guard !nickname.isEmpty || avatar != nil else { return nil }
+        return KugouProfile(nickname: nickname, avatarURL: avatar, signature: signature)
     }
 
     /// 会员接口的原文，面板里用来判断是不是解析问题。
