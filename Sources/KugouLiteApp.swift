@@ -41,6 +41,11 @@ struct RootView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
+            // 常驻主题背景：两个 tab 交叉淡入时不会露出底层黑色。
+            AppBackground()
+                .allowsHitTesting(false)
+                .zIndex(-1)
+
             ZStack {
                 discoverTab
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

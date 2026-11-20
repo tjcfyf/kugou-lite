@@ -389,6 +389,19 @@ struct FloatingTabBar: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 32, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(colorScheme == .dark ? 0.085 : 0.24),
+                            Color.white.opacity(colorScheme == .dark ? 0.035 : 0.10)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
                 .stroke(Theme.border, lineWidth: 0.5)
         )
         .shadow(

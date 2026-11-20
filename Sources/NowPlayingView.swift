@@ -419,14 +419,14 @@ struct NowPlayingView: View {
                     Capsule()
                         .fill(
                             LinearGradient(
-                                colors: [Theme.accent.opacity(0.42), Theme.accent.opacity(0.72)],
+                                colors: [albumTheme.accentColor.opacity(0.42), albumTheme.accentColor.opacity(0.72)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         )
                         .frame(width: width * ratio, height: 2.5)
                     Circle()
-                        .fill(Theme.accent.opacity(0.62))
+                        .fill(albumTheme.accentColor.opacity(0.62))
                         .frame(width: 9, height: 9)
                         .overlay(Circle().stroke(Theme.background.opacity(0.34), lineWidth: 0.6))
                         .offset(x: width * ratio - 4.5)
@@ -437,7 +437,7 @@ struct NowPlayingView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Theme.accent.opacity(0.78))
+                            .background(albumTheme.accentColor.opacity(0.78))
                             .cornerRadius(8)
                             .position(x: min(max(width * ratio, 30), max(width - 30, 30)), y: -12)
                     }

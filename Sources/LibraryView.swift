@@ -537,22 +537,22 @@ struct CollectionHero: View {
                     )
                     .clipped()
 
-            }
-            .frame(width: width, height: height)
-            .clipped()
-            .compositingGroup()
-            .mask(
+                // 只在标题区域下面压一层很薄的底色保证文字可读，图片仍然铺到歌曲列表上沿。
                 LinearGradient(
                     stops: [
-                        .init(color: .black, location: 0),
-                        .init(color: .black, location: 0.36),
-                        .init(color: .black.opacity(0.78), location: 0.62),
-                        .init(color: .clear, location: 1)
+                        .init(color: .clear, location: 0.46),
+                        .init(color: Theme.background.opacity(0.10), location: 0.62),
+                        .init(color: Theme.background.opacity(0.42), location: 0.80),
+                        .init(color: Theme.background.opacity(0.72), location: 0.94),
+                        .init(color: Theme.background, location: 1)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
                 )
-            )
+            }
+            .frame(width: width, height: height)
+            .clipped()
+            .compositingGroup()
         }
         .frame(height: height)
     }
@@ -574,15 +574,18 @@ struct RankDetailSheet: View {
         rank.cover.flatMap(URL.init(string:))
     }
 
-    private var heroHeight: CGFloat {
-        min(max(UIScreen.main.bounds.height * 0.33, 240), 320)
+    private var headerHeight: CGFloat {
+        min(max(UIScreen.main.bounds.height * 0.49, 370), 440)
     }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                CollectionHero(coverURL: coverURL, height: heroHeight)
-                info
+                ZStack(alignment: .bottom) {
+                    CollectionHero(coverURL: coverURL, height: headerHeight)
+                    info
+                }
+                .frame(height: headerHeight)
 
                 Rectangle()
                     .fill(Theme.separator.opacity(0.62))
@@ -823,15 +826,18 @@ struct PlaylistDetailSheet: View {
         playlist.cover.flatMap(URL.init(string:))
     }
 
-    private var heroHeight: CGFloat {
-        min(max(UIScreen.main.bounds.height * 0.33, 240), 320)
+    private var headerHeight: CGFloat {
+        min(max(UIScreen.main.bounds.height * 0.49, 370), 440)
     }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                CollectionHero(coverURL: coverURL, height: heroHeight)
-                info
+                ZStack(alignment: .bottom) {
+                    CollectionHero(coverURL: coverURL, height: headerHeight)
+                    info
+                }
+                .frame(height: headerHeight)
 
                 Rectangle()
                     .fill(Theme.separator.opacity(0.62))
