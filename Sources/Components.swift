@@ -382,7 +382,7 @@ struct FloatingTabBar: View {
                     Circle()
                         .fill(Theme.accent.opacity(colorScheme == .dark ? 0.16 : 0.10))
                         .matchedGeometryEffect(id: "selected-tab", in: tabSelection)
-                        .frame(width: 54, height: 54)
+                        .frame(width: 42, height: 42)
                 }
 
                 Image(systemName: icon)
@@ -410,23 +410,12 @@ private struct FloatingAlbumButton: View {
             }
             onOpenPlayer()
         } label: {
-            ZStack {
-                BottomArtwork()
-
-                if player.current != nil, player.duration > 0 {
-                    Circle()
-                        .trim(from: 0, to: min(max(player.currentTime / player.duration, 0), 1))
-                        .stroke(Theme.accent, lineWidth: 2)
-                        .rotationEffect(.degrees(-90))
-                        .frame(width: 47, height: 47)
-                        .animation(.linear(duration: 0.24), value: player.currentTime)
-                }
-            }
-            .frame(width: 60, height: 60)
-            .scaleEffect(player.isPlaying ? 1.0 : 0.985)
-            .contentShape(Circle())
-            .animation(.easeInOut(duration: 0.22), value: player.isPlaying)
-            .animation(.easeInOut(duration: 0.24), value: player.current?.id)
+            BottomArtwork()
+                .frame(width: 64, height: 64)
+                .scaleEffect(player.isPlaying ? 1.0 : 0.985)
+                .contentShape(Circle())
+                .animation(.easeInOut(duration: 0.22), value: player.isPlaying)
+                .animation(.easeInOut(duration: 0.24), value: player.current?.id)
         }
         .buttonStyle(GlassPressButtonStyle())
         .accessibilityLabel("当前播放")
@@ -442,9 +431,9 @@ private struct BottomArtwork: View {
     var body: some View {
         Group {
             if let song = player.current, let url = song.coverURL {
-                CoverImage(url: url, size: 44, radius: 22)
+                CoverImage(url: url, size: 54, radius: 27)
             } else {
-                RotatingAlbumPlaceholder(size: 44)
+                RotatingAlbumPlaceholder(size: 54)
             }
         }
         .transition(.opacity)
