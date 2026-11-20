@@ -120,13 +120,14 @@ struct GlassRowBackground: View {
     }
 }
 
-/// 克制的按压反馈：轻微缩小 + 变淡，不做弹簧回弹。
+/// 全局按压反馈：轻微缩小 + 变淡，用短弹簧回弹，避免生硬的线性缩放。
 struct GlassPressButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.985 : 1.0)
-            .opacity(configuration.isPressed ? 0.90 : 1.0)
-            .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.972 : 1.0)
+            .opacity(configuration.isPressed ? 0.88 : 1.0)
+            .animation(.interactiveSpring(response: 0.24, dampingFraction: 0.82),
+                       value: configuration.isPressed)
     }
 }
 
@@ -427,7 +428,11 @@ struct FloatingTabBar: View {
             ZStack {
                 if tab == tag {
                     Circle()
-                        .fill(Color.white.opacity(colorScheme == .dark ? 0.09 : 0.32))
+                        .fill(Theme.accent.opacity(colorScheme == .dark ? 0.18 : 0.11))
+                        .overlay(
+                            Circle().stroke(Theme.accent.opacity(colorScheme == .dark ? 0.20 : 0.14),
+                                            lineWidth: 0.8)
+                        )
                         .matchedGeometryEffect(id: "selected-tab", in: tabSelection)
                         .frame(width: 45, height: 45)
                 }

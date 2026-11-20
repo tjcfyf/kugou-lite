@@ -34,6 +34,7 @@ final class AlbumThemeStore: ObservableObject {
         Color(uiColor: accentUIColor)
     }
 
+    /// 背景用专辑主色，按钮/图标/进度等改用互补色，保证和背景有明确的色相与明度差。
     var accentUIColor: UIColor {
         guard let palette = palette else {
             return UIColor(named: "Accent") ?? UIColor(red: 0, green: 0.478, blue: 1, alpha: 1)
@@ -47,18 +48,18 @@ final class AlbumThemeStore: ObservableObject {
             var alpha: CGFloat = 0
             guard base.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha),
                   saturation > 0.10 else {
-                return UIColor(named: "Accent") ?? UIColor(red: 0, green: 0.478, blue: 1, alpha: 1)
+                // 中性封面就退回黑/白对比，不再硬塞蓝色。
+                return traits.userInterfaceStyle == .dark
+                    ? UIColor(white: 0.96, alpha: 1)
+                    : UIColor(white: 0.08, alpha: 1)
             }
 
-            if traits.userInterfaceStyle == .dark {
-                return UIColor(hue: hue,
-                               saturation: min(saturation * 1.04, 1),
-                               brightness: min(brightness + 0.16, 1),
-                               alpha: 1)
-            }
-            return UIColor(hue: hue,
-                           saturation: min(saturation * 0.96, 1),
-                           brightness: max(brightness - 0.18, 0.12),
+            let complementHue = hue >= 0.5 ? hue - 0.5 : hue + 0.5
+            let complementSaturation = min(max(saturation * 0.82, 0.52), 0.88)
+            let complementBrightness: CGFloat = traits.userInterfaceStyle == .dark ? 0.58 : 0.50
+            return UIColor(hue: complementHue,
+                           saturation: complementSaturation,
+                           brightness: complementBrightness,
                            alpha: 1)
         }
     }
@@ -115,7 +116,8 @@ final class AlbumThemeStore: ObservableObject {
     }
 
     private func apply(_ image: UIImage, for key: String) {
-        guard let color = ArtworkPalette.dominantColor(from: image) else { return }
+        guard let color = ArtworkPalette.centerColor(from: image)
+                ?? ArtworkPalette.dominantColor(from: image) else { return }
         DispatchQueue.main.async { [weak self] in
             guard let self = self, self.requestedKey == key else { return }
             withAnimation(.easeInOut(duration: 0.55)) {

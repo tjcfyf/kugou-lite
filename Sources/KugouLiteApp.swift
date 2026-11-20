@@ -64,7 +64,7 @@ struct RootView: View {
                     .zIndex(tab == 1 ? 1 : 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(.spring(response: 0.34, dampingFraction: 0.88), value: tab)
+            .animation(.easeInOut(duration: 0.26), value: tab)
 
             FloatingTabBar(tab: $tab, onOpenPlayer: { showPlayer = true })
                 .opacity(isSearching ? 0 : 1)
@@ -83,6 +83,7 @@ struct RootView: View {
         }
         .preferredColorScheme(resolvedScheme)
         .accentColor(albumTheme.accentColor)
+        .animation(.easeInOut(duration: 0.52), value: albumTheme.paletteKey)
         .background(
             SystemSchemeProbe(scheme: $systemScheme)
                 .frame(width: 1, height: 1)
