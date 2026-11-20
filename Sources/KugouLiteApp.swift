@@ -72,12 +72,22 @@ struct RootView: View {
                 .scaleEffect(isSearching ? 0.94 : 1, anchor: .bottom)
                 .allowsHitTesting(!isSearching)
                 .animation(.easeInOut(duration: 0.22), value: isSearching)
+
+            // 播放页直接作为 Root 的覆盖层，不走 UIKit fullScreenCover。
+            // 这样 tab 切换不会触发系统 presentation，也就不会闪一次播放页。
+            if showPlayer {
+                NowPlayingView(onClose: {
+                    withAnimation(.easeInOut(duration: 0.32)) {
+                        showPlayer = false
+                    }
+                })
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(30)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .fullScreenCover(isPresented: $showPlayer) {
-            NowPlayingView()
-                .environmentObject(PlayerEngine.shared)
-        }
+        .animation(.easeInOut(duration: 0.32), value: showPlayer)
         .overlay(alignment: .top) {
             ToastOverlay()
         }

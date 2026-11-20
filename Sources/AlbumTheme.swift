@@ -78,6 +78,36 @@ final class AlbumThemeStore: ObservableObject {
         return (Double(red), Double(green), Double(blue))
     }
 
+    /// 播放页背景：不再用近黑/近白打底，而是用中心色的深/浅变体铺满整页，
+    /// 只保留从亮到暗的渐变，黑底和白底都尽量少。
+    func playerGradientColors(for scheme: ColorScheme) -> (top: Color, mid: Color, bottom: Color) {
+        guard let palette = palette else {
+            return (Theme.background, Theme.background, Theme.background)
+        }
+        let style: UIUserInterfaceStyle = scheme == .dark ? .dark : .light
+        let base = palette.resolvedColor(with: UITraitCollection(userInterfaceStyle: style))
+        if scheme == .dark {
+            return (Color(uiColor: blend(base, with: .black, amount: 0.12)),
+                    Color(uiColor: blend(base, with: .black, amount: 0.40)),
+                    Color(uiColor: blend(base, with: .black, amount: 0.64)))
+        }
+        return (Color(uiColor: blend(base, with: .white, amount: 0.18)),
+                Color(uiColor: blend(base, with: .white, amount: 0.48)),
+                Color(uiColor: blend(base, with: .white, amount: 0.78)))
+    }
+
+    private func blend(_ color: UIColor, with other: UIColor, amount: CGFloat) -> UIColor {
+        var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
+        var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
+        guard color.getRed(&r1, green: &g1, blue: &b1, alpha: &a1),
+              other.getRed(&r2, green: &g2, blue: &b2, alpha: &a2) else { return color }
+        let t = min(max(amount, 0), 1)
+        return UIColor(red: r1 + (r2 - r1) * t,
+                       green: g1 + (g2 - g1) * t,
+                       blue: b1 + (b2 - b1) * t,
+                       alpha: 1)
+    }
+
     func load(_ url: URL?) {
         let key = url?.absoluteString
         guard key != requestedKey else { return }

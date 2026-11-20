@@ -4,6 +4,7 @@ import UIKit
 struct NowPlayingView: View {
     @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var albumTheme: AlbumThemeStore
+    var onClose: (() -> Void)? = nil
     @ObservedObject private var library = LibraryStore.shared
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
@@ -139,13 +140,13 @@ struct NowPlayingView: View {
             ZStack {
                 Theme.background
 
-                if !(showLyrics && lyricPhotoMode), let palette = albumTheme.paletteColor {
+                if !(showLyrics && lyricPhotoMode), albumTheme.paletteColor != nil {
+                    let colors = albumTheme.playerGradientColors(for: colorScheme)
                     LinearGradient(
                         stops: [
-                            .init(color: palette.opacity(colorScheme == .dark ? 0.88 : 0.60), location: 0),
-                            .init(color: palette.opacity(colorScheme == .dark ? 0.46 : 0.30), location: 0.42),
-                            .init(color: palette.opacity(colorScheme == .dark ? 0.18 : 0.10), location: 0.76),
-                            .init(color: Theme.background, location: 1)
+                            .init(color: colors.top, location: 0),
+                            .init(color: colors.mid, location: 0.48),
+                            .init(color: colors.bottom, location: 1)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -192,7 +193,7 @@ struct NowPlayingView: View {
                 let horizontal = abs(value.translation.width)
                 let predicted = value.predictedEndTranslation.height
                 if vertical > 110, vertical > horizontal, predicted > 120 {
-                    dismiss()
+                    closePlayer()
                 } else {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
                         dragOffset = 0
@@ -204,7 +205,7 @@ struct NowPlayingView: View {
     private var topBar: some View {
         HStack(spacing: 12) {
             Button {
-                dismiss()
+                closePlayer()
             } label: {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 17, weight: .semibold))
@@ -232,7 +233,7 @@ struct NowPlayingView: View {
     private var lyricsTopBar: some View {
         HStack(spacing: 10) {
             Button {
-                dismiss()
+                closePlayer()
             } label: {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 16, weight: .semibold))
@@ -752,6 +753,14 @@ struct NowPlayingView: View {
             green: base.1 + (accent.1 - base.1) * p,
             blue: base.2 + (accent.2 - base.2) * p
         )
+    }
+
+    private func closePlayer() {
+        if let onClose = onClose {
+            onClose()
+        } else {
+            dismiss()
+        }
     }
 
     private func addToPlaylist(_ song: Song, _ target: CloudPlaylist) async {
