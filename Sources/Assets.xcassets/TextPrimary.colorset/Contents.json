@@ -7,19 +7,13 @@
         "components": {
           "alpha": "1.000",
           "red": "0x0B",
-          "green": "0x0F",
-          "blue": "0x12"
+          "green": "0x12",
+          "blue": "0x20"
         }
       }
     },
     {
       "idiom": "universal",
-      "appearances": [
-        {
-          "appearance": "luminosity",
-          "value": "dark"
-        }
-      ],
       "color": {
         "color-space": "srgb",
         "components": {
@@ -28,7 +22,13 @@
           "green": "0xFF",
           "blue": "0xFF"
         }
-      }
+      },
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ]
     }
   ],
   "info": {

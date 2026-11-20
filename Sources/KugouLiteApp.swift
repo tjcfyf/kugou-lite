@@ -24,6 +24,7 @@ struct RootView: View {
     @State private var showPlayer = false
     @State private var showSettings = false
     @State private var tab = 0
+    @State private var isSearching = false
     @AppStorage(Preferences.themeModeKey) private var themeRaw = AppTheme.system.rawValue
     @State private var systemScheme: ColorScheme = UITraitCollection.current.userInterfaceStyle == .dark ? .dark : .light
 
@@ -54,6 +55,10 @@ struct RootView: View {
             .animation(.easeInOut(duration: 0.26), value: tab)
 
             FloatingTabBar(tab: $tab, onOpenPlayer: { showPlayer = true })
+                .opacity(isSearching ? 0 : 1)
+                .offset(y: isSearching ? 64 : 0)
+                .allowsHitTesting(!isSearching)
+                .animation(.easeInOut(duration: 0.2), value: isSearching)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sheet(isPresented: $showPlayer) {
@@ -73,6 +78,7 @@ struct RootView: View {
         .onChange(of: tab) { value in
             if value != 0 {
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                isSearching = false
             }
         }
         .onChange(of: themeRaw) { _ in applyInterfaceStyle() }
@@ -101,14 +107,14 @@ struct RootView: View {
     }
 
     private var discoverTab: some View {
-        DiscoverTab(onOpenPlayer: { showPlayer = true })
+        DiscoverTab(isSearching: $isSearching, onOpenPlayer: { showPlayer = true })
     }
 
     private var profileTab: some View {
         NavigationView {
             ProfileView(onOpenPlayer: { showPlayer = true })
                 .navigationTitle("我的")
-                .navigationBarTitleDisplayMode(.inline)
+                .navigationBarTitleDisplayMode(.large)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button {
@@ -131,6 +137,7 @@ struct RootView: View {
 
 
 private struct DiscoverTab: View {
+    @Binding var isSearching: Bool
     let onOpenPlayer: () -> Void
 
     @StateObject private var model = SearchModel()
@@ -141,6 +148,7 @@ private struct DiscoverTab: View {
             RecommendView(
                 model: recommendModel,
                 searchModel: model,
+                isSearching: $isSearching,
                 onSelect: { song, list in
                     PlayerEngine.shared.play(song, in: list)
                     onOpenPlayer()

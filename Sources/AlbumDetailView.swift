@@ -60,8 +60,8 @@ struct AlbumDetailSheet: View {
 
     private var header: some View {
         VStack(spacing: 12) {
-            CoverImage(url: headerCover, size: 150, radius: 22)
-                .shadow(color: .black.opacity(0.28), radius: 20, x: 0, y: 10)
+            CoverImage(url: headerCover, size: 150, radius: 12)
+                .shadow(color: .black.opacity(0.12), radius: 14, x: 0, y: 6)
 
             Text(target.name)
                 .font(.system(size: 22, weight: .bold))
@@ -83,13 +83,6 @@ struct AlbumDetailSheet: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 22)
-        .background(
-            LinearGradient(
-                colors: [Theme.accent.opacity(0.12), Color.clear],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
     }
 
     @ViewBuilder

@@ -118,19 +118,10 @@ struct NowPlayingView: View {
                         if let url = player.current?.coverURL {
                             CoverImage(url: url, size: max(geo.size.width, geo.size.height), radius: 0)
                                 .scaleEffect(1.28)
-                                .blur(radius: 52)
-                                .opacity(colorScheme == .dark ? 0.34 : 0.16)
+                                .blur(radius: 56)
+                                .opacity(colorScheme == .dark ? 0.28 : 0.12)
                         }
-                        Theme.background.opacity(colorScheme == .dark ? 0.58 : 0.82)
-                        LinearGradient(
-                            colors: [
-                                Theme.accent.opacity(colorScheme == .dark ? 0.10 : 0.04),
-                                Color.clear,
-                                Theme.background.opacity(colorScheme == .dark ? 0.92 : 0.96)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottom
-                        )
+                        Theme.background.opacity(colorScheme == .dark ? 0.64 : 0.86)
                     }
                     .frame(width: geo.size.width, height: geo.size.height)
                     .clipped()
@@ -252,9 +243,9 @@ struct NowPlayingView: View {
     }
 
     private var artwork: some View {
-        CoverImage(url: player.current?.coverURL, size: artworkSize, radius: 16)
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.42 : 0.16),
-                    radius: 22, x: 0, y: 12)
+        CoverImage(url: player.current?.coverURL, size: artworkSize, radius: 12)
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.30 : 0.10),
+                    radius: 16, x: 0, y: 8)
             .padding(.horizontal, 36)
             // 封面不再接收切歌/双击手势，让播放页的系统的下拉收出手势覆盖整张封面。
             .allowsHitTesting(false)
@@ -263,7 +254,7 @@ struct NowPlayingView: View {
     private var titleBlock: some View {
         VStack(spacing: 5) {
             Text(player.current?.SongName ?? "未在播放")
-                .font(.system(size: 22, weight: .semibold))
+                .font(.system(size: 22, weight: .bold))
                 .foregroundColor(Theme.text)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
@@ -282,8 +273,8 @@ struct NowPlayingView: View {
                             .font(.system(size: 8, weight: .semibold))
                             .opacity(0.55)
                     }
-                    .font(.system(size: 16))
-                    .foregroundColor(Theme.secondaryText)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Theme.accent)
                 }
                 .buttonStyle(GlassPressButtonStyle())
                 .disabled(song.artist.isEmpty)
@@ -466,7 +457,7 @@ struct NowPlayingView: View {
                 Image(systemName: icon)
                     .font(.system(size: 19, weight: .medium))
                 Text(title)
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.system(size: 10, weight: .medium))
             }
             .foregroundColor(active ? Theme.accent : (disabled ? Theme.tertiaryText : Theme.secondaryText))
             .frame(width: 70, height: 48)

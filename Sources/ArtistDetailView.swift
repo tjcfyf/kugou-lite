@@ -59,8 +59,8 @@ struct ArtistDetailSheet: View {
 
     private var header: some View {
         VStack(spacing: 12) {
-            CoverImage(url: headerCover, size: 118, radius: 59)
-                .shadow(color: .black.opacity(0.25), radius: 18, x: 0, y: 8)
+            CoverImage(url: headerCover, size: 112, radius: 56)
+                .shadow(color: .black.opacity(0.12), radius: 14, x: 0, y: 6)
 
             Text(target.name)
                 .font(.system(size: 22, weight: .bold))
@@ -75,13 +75,6 @@ struct ArtistDetailSheet: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 22)
-        .background(
-            LinearGradient(
-                colors: [Theme.accent.opacity(0.12), Color.clear],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
     }
 
     @ViewBuilder

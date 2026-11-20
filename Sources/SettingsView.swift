@@ -130,7 +130,7 @@ struct LyricOffsetSettingsCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .frostedGlass(cornerRadius: 18)
+        .appSurface(cornerRadius: 12)
     }
 }
 
@@ -189,22 +189,13 @@ struct SettingsView: View {
 
     private var appearanceCard: some View {
         card(title: "外观") {
-            HStack(spacing: 8) {
+            Picker("外观", selection: $themeRaw) {
                 ForEach(AppTheme.allCases) { mode in
-                    Button {
-                        themeRaw = mode.rawValue
-                    } label: {
-                        Text(mode.title)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(themeRaw == mode.rawValue ? .white : Theme.text)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 9)
-                            .background(themeRaw == mode.rawValue ? Theme.accent : Theme.chip)
-                            .cornerRadius(9)
-                    }
-                    .buttonStyle(GlassPressButtonStyle())
+                    Text(mode.title).tag(mode.rawValue)
                 }
             }
+            .pickerStyle(.segmented)
+            .labelsHidden()
         }
     }
 
@@ -445,15 +436,16 @@ struct SettingsView: View {
     }
 
     private func card<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(Theme.text)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(Theme.secondaryText)
+                .padding(.leading, 4)
             content()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .appSurface(cornerRadius: 12)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .frostedGlass(cornerRadius: 18)
     }
 
     private func flashToast() {
@@ -653,15 +645,16 @@ struct PlayerSettingsView: View {
     }
 
     private func card<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(Theme.text)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(Theme.secondaryText)
+                .padding(.leading, 4)
             content()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .appSurface(cornerRadius: 12)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .frostedGlass(cornerRadius: 18)
     }
 }
 

@@ -9,111 +9,95 @@ enum Theme {
     static let text = Color("TextPrimary")
     static let secondaryText = Color("TextSecondary")
     static let tertiaryText = Color("TextTertiary")
-    static let chip = Color("Chip").opacity(0.72)
+    static let chip = Color("Chip")
     static let separator = Color("Separator")
+    static let border = Color("Separator").opacity(0.72)
 }
 
-/// 全 App 统一的柔和渐变背景，浅色/深色各一套。
+/// iOS 原生式平面背景：一层实色，不加渐变、光晕或氛围材质。
 struct AppBackground: View {
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
-        ZStack {
-            Theme.background
-            RadialGradient(
-                colors: [Theme.accent.opacity(colorScheme == .dark ? 0.10 : 0.06), Color.clear],
-                center: .topLeading,
-                startRadius: 0,
-                endRadius: 520
-            )
-            RadialGradient(
-                colors: [Theme.accent.opacity(colorScheme == .dark ? 0.05 : 0.03), Color.clear],
-                center: .bottomTrailing,
-                startRadius: 0,
-                endRadius: 480
-            )
-        }
-        .ignoresSafeArea()
+        Theme.background.ignoresSafeArea()
     }
 }
 
-/// 系统级磨砂玻璃：只使用 regularMaterial，不加自绘高光、彩色阴影或渐变边框。
-struct FrostedGlassSurface: ViewModifier {
-    var cornerRadius: CGFloat = 20
+/// 内容层统一使用实色卡片 + 一条 hairline；只有需要抬升的浮层才给很轻的接触阴影。
+struct AppSurface: ViewModifier {
+    var cornerRadius: CGFloat = 12
     var elevated: Bool = false
+    var fill: Color = Theme.card
 
     func body(content: Content) -> some View {
         content
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.regularMaterial)
+                    .fill(fill)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Theme.border, lineWidth: 0.5)
             )
             .shadow(
-                color: elevated ? Color.black.opacity(0.14) : Color.clear,
-                radius: elevated ? 10 : 0,
+                color: elevated ? Color.black.opacity(0.06) : Color.clear,
+                radius: elevated ? 8 : 0,
                 x: 0,
-                y: elevated ? 5 : 0
+                y: elevated ? 3 : 0
             )
+    }
+}
+
+struct AppChipSurface: ViewModifier {
+    var cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        content.background(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Theme.chip)
+        )
     }
 }
 
 extension View {
-    func frostedGlass(cornerRadius: CGFloat = 20, elevated: Bool = false) -> some View {
-        modifier(FrostedGlassSurface(cornerRadius: cornerRadius, elevated: elevated))
+    func appSurface(cornerRadius: CGFloat = 12, elevated: Bool = false) -> some View {
+        modifier(AppSurface(cornerRadius: cornerRadius, elevated: elevated))
     }
 
-    /// 搜索词、筛选项等小面积胶囊：用半透明色块替代材质模糊，避免一屏几十层 blur。
-    func frostedChip(cornerRadius: CGFloat = 18) -> some View {
-        modifier(FrostedChipSurface(cornerRadius: cornerRadius))
+    func appChip(cornerRadius: CGFloat = 10) -> some View {
+        modifier(AppChipSurface(cornerRadius: cornerRadius))
     }
 
-    /// 横向滚动的卡片：使用主题色块，不再为每张卡创建系统 blur。
-    func frostedPanel(cornerRadius: CGFloat = 16) -> some View {
-        modifier(FrostedPanelSurface(cornerRadius: cornerRadius))
+    func appPanel(cornerRadius: CGFloat = 12) -> some View {
+        modifier(AppSurface(cornerRadius: cornerRadius))
     }
-}
 
-struct FrostedPanelSurface: ViewModifier {
-    var cornerRadius: CGFloat
-
-    func body(content: Content) -> some View {
-        content
+    /// 系统搜索框的实色底：中性填充，不再逐块叠系统 blur。
+    func appSearchField(cornerRadius: CGFloat = 10) -> some View {
+        self
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(Theme.chip)
             )
-    }
-}
-
-struct FrostedChipSurface: ViewModifier {
-    var cornerRadius: CGFloat
-
-    func body(content: Content) -> some View {
-        content
-            .background(
+            .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Theme.chip)
+                    .stroke(Theme.border, lineWidth: 0.5)
             )
     }
 }
 
-/// 列表行的低成本磨砂底；不用逐行系统 blur。
+/// 列表行使用真正的整行卡片底色；圆角和分隔交给系统 List。
 struct GlassRowBackground: View {
     var body: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(Theme.chip)
-            .padding(.vertical, 3)
-            .padding(.horizontal, 10)
+        Rectangle().fill(Theme.card)
     }
 }
 
-/// 玻璃按钮的轻微按压回弹。
+/// 克制的按压反馈：轻微缩小 + 变淡，不做弹簧回弹。
 struct GlassPressButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .opacity(configuration.isPressed ? 0.86 : 1.0)
-            .animation(.spring(response: 0.28, dampingFraction: 0.72), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.985 : 1.0)
+            .opacity(configuration.isPressed ? 0.90 : 1.0)
+            .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
     }
 }
 
@@ -158,17 +142,13 @@ struct CoverImage: View {
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+                .stroke(Theme.border, lineWidth: 0.5)
         )
     }
 
     private var placeholder: some View {
         ZStack {
-            LinearGradient(
-                colors: [Theme.card, Color.white.opacity(0.14)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            Theme.chip
             Image(systemName: "music.note")
                 .font(.system(size: size * 0.32, weight: .medium))
                 .foregroundColor(Theme.tertiaryText)
@@ -339,7 +319,7 @@ struct SongRowWithMenu: View {
     }
 }
 
-/// 悬浮底栏：发现 / 当前歌曲专辑图 / 我的。
+/// 底部导航：系统工具栏形态，整条贴底，只用一层 regularMaterial 区分功能层与内容层。
 struct FloatingTabBar: View {
     @Binding var tab: Int
     let onOpenPlayer: () -> Void
@@ -356,29 +336,36 @@ struct FloatingTabBar: View {
 
             tabButton(title: "我的", icon: "person.crop.circle", tag: 1)
         }
-        .padding(.horizontal, 16)
-        .frame(maxWidth: 340)
-        .frame(height: 66)
-        .frostedGlass(cornerRadius: 30, elevated: true)
-        .animation(.easeInOut(duration: 0.22), value: tab)
-        .padding(.horizontal, 20)
-        .padding(.bottom, 6)
+        .padding(.horizontal, 28)
+        .frame(maxWidth: .infinity)
+        .frame(height: 54)
+        .background {
+            Rectangle()
+                .fill(.regularMaterial)
+                .ignoresSafeArea(edges: .bottom)
+        }
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Theme.separator.opacity(0.72))
+                .frame(height: 0.5)
+        }
+        .animation(.easeInOut(duration: 0.18), value: tab)
     }
 
     private func tabButton(title: String, icon: String, tag: Int) -> some View {
         Button {
-            withAnimation(.easeInOut(duration: 0.22)) {
+            withAnimation(.easeInOut(duration: 0.18)) {
                 tab = tag
             }
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.system(size: 20, weight: tab == tag ? .semibold : .regular))
                 Text(title)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 10, weight: tab == tag ? .semibold : .regular))
             }
             .foregroundColor(tab == tag ? Theme.accent : Theme.secondaryText)
-            .frame(width: 76, height: 54)
+            .frame(width: 88, height: 48)
             .contentShape(Rectangle())
         }
         .buttonStyle(GlassPressButtonStyle())
@@ -449,23 +436,12 @@ struct RotatingAlbumPlaceholder: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(
-                    AngularGradient(
-                        gradient: Gradient(colors: [
-                            Theme.card,
-                            Theme.accent.opacity(0.42),
-                            Theme.card,
-                            Theme.accent.opacity(0.16),
-                            Theme.card
-                        ]),
-                        center: .center
-                    )
-                )
+                .fill(Theme.chip)
             Circle()
-                .stroke(Color.white.opacity(0.22), lineWidth: 0.8)
+                .stroke(Theme.border, lineWidth: 0.5)
             Image(systemName: "music.note")
                 .font(.system(size: size * 0.36, weight: .semibold))
-                .foregroundColor(Theme.text.opacity(0.72))
+                .foregroundColor(Theme.secondaryText)
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
@@ -502,23 +478,25 @@ struct SongRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 14) {
-            CoverImage(url: song.coverURL, size: 54, radius: 14)
+        HStack(spacing: 12) {
+            CoverImage(url: song.coverURL, size: 48, radius: 7)
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
                     Text(song.SongName)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(Theme.text)
                         .lineLimit(1)
                     if song.needsPurchase {
                         Text("VIP")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.system(size: 9, weight: .semibold))
                             .foregroundColor(Theme.accent)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1.5)
-                            .background(Theme.accent.opacity(0.10))
-                            .clipShape(Capsule())
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                    .stroke(Theme.accent.opacity(0.55), lineWidth: 0.5)
+                            )
                     }
                 }
                 Text(song.artist)
@@ -529,7 +507,7 @@ struct SongRow: View {
             Spacer(minLength: 8)
             if isFavorite {
                 Image(systemName: "heart.fill")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(Theme.accent)
             }
             if showsMore {
@@ -539,7 +517,7 @@ struct SongRow: View {
                     .frame(width: 24, height: 30)
             }
         }
-        .padding(.vertical, 9)
+        .padding(.vertical, 8)
         .contentShape(Rectangle())
         .animation(.easeInOut(duration: 0.22), value: isFavorite)
         .contextMenu {

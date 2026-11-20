@@ -96,7 +96,7 @@ struct LoginView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
                     .padding(8)
-                    .frostedGlass(cornerRadius: 18)
+                    .appSurface(cornerRadius: 12)
             }
 
             Button {
@@ -105,11 +105,10 @@ struct LoginView: View {
                 loadQR()
             } label: {
                 Text("退出登录")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundColor(Theme.accent)
-                    .padding(.horizontal, 22)
-                    .padding(.vertical, 10)
-                    .overlay(Capsule().stroke(Theme.accent, lineWidth: 1))
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
             }
             .padding(.top, 8)
         }
@@ -125,9 +124,13 @@ struct LoginView: View {
     private var qrContent: some View {
         VStack(spacing: 16) {
             ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.white)
                     .frame(width: 232, height: 232)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Theme.border, lineWidth: 0.5)
+                    )
 
                 if let image = code?.image {
                     Image(uiImage: image)
@@ -142,8 +145,8 @@ struct LoginView: View {
             }
 
             Text(status)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.white)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(Theme.text)
                 .multilineTextAlignment(.center)
 
             Text("打开酷狗 App → 我的 → 扫一扫\n扫码后手机上确认登录")
@@ -155,11 +158,10 @@ struct LoginView: View {
                 loadQR()
             } label: {
                 Text("刷新二维码")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundColor(Theme.accent)
-                    .padding(.horizontal, 22)
-                    .padding(.vertical, 10)
-                    .overlay(Capsule().stroke(Theme.accent, lineWidth: 1))
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
             }
         }
         .padding(.horizontal, 28)

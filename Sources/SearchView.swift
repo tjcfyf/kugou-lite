@@ -101,7 +101,7 @@ struct SearchView: View {
 
                 if model.isLoading {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
                         .padding(.top, 40)
                 }
 
@@ -122,7 +122,7 @@ struct SearchView: View {
 
                 if model.isLoadingMore {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
                 } else if model.hasMore {
@@ -207,7 +207,7 @@ extension SearchView {
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                        .frostedChip(cornerRadius: 18)
+                        .appChip(cornerRadius: 10)
                     }
                 }
             }
@@ -229,7 +229,7 @@ extension SearchView {
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .frostedChip(cornerRadius: 18)
+                                .appChip(cornerRadius: 10)
                         }
                         .buttonStyle(GlassPressButtonStyle())
                     }
@@ -274,7 +274,7 @@ struct MiniPlayer: View {
                 Group {
                     if player.isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
                     } else {
                         Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 16, weight: .bold))

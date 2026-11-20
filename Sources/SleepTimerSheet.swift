@@ -63,8 +63,7 @@ struct SleepTimerSheet: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 22)
-        .background(Theme.card.opacity(0.72))
-        .cornerRadius(18)
+        .appSurface(cornerRadius: 12)
     }
 
     private var statusText: String {
@@ -108,7 +107,7 @@ struct SleepTimerSheet: View {
                     .foregroundColor(Theme.secondaryText)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(Theme.chip.opacity(0.72))
+                    .background(Theme.chip)
                     .cornerRadius(10)
             }
             .buttonStyle(GlassPressButtonStyle())
@@ -121,7 +120,6 @@ struct SleepTimerSheet: View {
             SleepWaitForTrackEndToggle()
         }
         .padding(14)
-        .background(Theme.card.opacity(0.72))
-        .cornerRadius(18)
+        .appSurface(cornerRadius: 12)
     }
 }
