@@ -258,6 +258,129 @@ struct SongRowWithMenu: View {
     }
 }
 
+/// 悬浮底栏：发现 / 当前歌曲专辑图 / 我的。
+struct FloatingTabBar: View {
+    @Binding var tab: Int
+    let onOpenPlayer: () -> Void
+
+    @EnvironmentObject private var player: PlayerEngine
+
+    var body: some View {
+        HStack(spacing: 0) {
+            tabButton(title: "发现", icon: "sparkles", tag: 0)
+
+            Spacer(minLength: 0)
+
+            albumButton
+
+            Spacer(minLength: 0)
+
+            tabButton(title: "我的", icon: "person.crop.circle", tag: 1)
+        }
+        .padding(.horizontal, 16)
+        .frame(maxWidth: 340)
+        .frame(height: 66)
+        .background(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(.ultraThinMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .stroke(Theme.separator.opacity(0.5), lineWidth: 0.6)
+        )
+        .shadow(color: .black.opacity(0.16), radius: 16, x: 0, y: 8)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 6)
+    }
+
+    private func tabButton(title: String, icon: String, tag: Int) -> some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.18)) {
+                tab = tag
+            }
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .medium))
+                Text(title)
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .foregroundColor(tab == tag ? Theme.accent : Theme.secondaryText)
+            .frame(width: 76, height: 54)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var albumButton: some View {
+        Button {
+            guard player.current != nil else {
+                player.showToast("先选一首歌")
+                return
+            }
+            onOpenPlayer()
+        } label: {
+            ZStack {
+                if let song = player.current, let url = song.coverURL {
+                    CoverImage(url: url, size: 46, radius: 23)
+                } else {
+                    RotatingAlbumPlaceholder(size: 46)
+                }
+
+                if player.current != nil, player.duration > 0 {
+                    Circle()
+                        .trim(from: 0, to: min(max(player.currentTime / player.duration, 0), 1))
+                        .stroke(Theme.accent, lineWidth: 2)
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 51, height: 51)
+                }
+            }
+            .frame(width: 54, height: 54)
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("当前播放")
+    }
+}
+
+/// 没有歌曲封面时的通用圆形封面，缓慢旋转。
+struct RotatingAlbumPlaceholder: View {
+    let size: CGFloat
+    @State private var angle: Double = 0
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    AngularGradient(
+                        gradient: Gradient(colors: [
+                            Theme.card,
+                            Theme.accent.opacity(0.42),
+                            Theme.card,
+                            Theme.accent.opacity(0.16),
+                            Theme.card
+                        ]),
+                        center: .center
+                    )
+                )
+            Circle()
+                .stroke(Color.white.opacity(0.22), lineWidth: 0.8)
+            Image(systemName: "music.note")
+                .font(.system(size: size * 0.36, weight: .semibold))
+                .foregroundColor(Theme.text.opacity(0.72))
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .rotationEffect(.degrees(angle))
+        .onAppear {
+            angle = 0
+            withAnimation(.linear(duration: 7).repeatForever(autoreverses: false)) {
+                angle = 360
+            }
+        }
+    }
+}
+
 struct ToastView: View {
     let text: String
 

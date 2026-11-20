@@ -26,19 +26,151 @@ final class RecommendModel: ObservableObject {
 
 struct RecommendView: View {
     @ObservedObject var model: RecommendModel
+    @ObservedObject var searchModel: SearchModel
     @EnvironmentObject private var player: PlayerEngine
     let onSelect: (Song, [Song]) -> Void
+    let onSelectSearch: (Song) -> Void
     let onOpenPlayer: () -> Void
 
     @ObservedObject private var library = LibraryStore.shared
     @State private var ranks: [RankItem] = []
     @State private var sheetTarget: DiscoverSheet?
+    @State private var searchMode = false
+    @FocusState private var searchFocused: Bool
+    @State private var historyWords: [String] = Preferences.searchHistory
+    @State private var hotKeywords: [String] = []
 
     var body: some View {
+        VStack(spacing: 0) {
+            header
+
+            if searchMode {
+                searchBar
+                searchBody
+            } else {
+                discoverBody
+            }
+        }
+        .background(AppBackground())
+        .task {
+            historyWords = Preferences.searchHistory
+            if hotKeywords.isEmpty {
+                hotKeywords = (try? await KGService.hotSearch()) ?? []
+            }
+            await library.enrichMissingCovers()
+            if ranks.isEmpty { ranks = (try? await KGService.ranks()) ?? [] }
+        }
+        .onChange(of: searchModel.query) { _ in
+            searchModel.schedule()
+        }
+        .sheet(item: $sheetTarget) { target in
+            switch target {
+            case .playlist(let playlist):
+                PlaylistDetailSheet(playlist: playlist) { song, list in
+                    sheetTarget = nil
+                    onSelect(song, list)
+                    onOpenPlayer()
+                }
+            case .rank(let rank):
+                RankDetailSheet(rank: rank) { song, list in
+                    sheetTarget = nil
+                    onSelect(song, list)
+                    onOpenPlayer()
+                }
+            }
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Text("发现")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(Theme.text)
+                if !searchMode {
+                    Text("今天想听点什么 🎧")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(Theme.accent)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Theme.accent.opacity(0.10))
+                        .clipShape(Capsule())
+                }
+                Spacer()
+                Button(action: toggleSearch) {
+                    Image(systemName: searchMode ? "xmark" : "magnifyingglass")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(Theme.text.opacity(0.7))
+                        .frame(width: 34, height: 34)
+                        .background(Theme.chip)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(searchMode ? "关闭搜索" : "搜索")
+            }
+
+            if !searchMode {
+                HStack {
+                    Text("每天一组，按你的口味来")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.secondaryText)
+                    Spacer()
+                    if let first = model.songs.first {
+                        Button {
+                            onSelect(first, model.songs)
+                        } label: {
+                            Label("播放全部", systemImage: "play.fill")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 7)
+                                .background(Theme.accent)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+    }
+
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(Theme.secondaryText)
+            TextField("搜索歌曲、歌手", text: $searchModel.query)
+                .font(.system(size: 14))
+                .foregroundColor(Theme.text)
+                .focused($searchFocused)
+                .submitLabel(.search)
+                .onSubmit { searchModel.submit() }
+            if !searchModel.query.isEmpty {
+                Button {
+                    searchModel.query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(Theme.secondaryText)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Theme.card)
+        .cornerRadius(12)
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+        .padding(.bottom, 6)
+    }
+
+    private var discoverBody: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                header
-
                 if model.isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
@@ -79,96 +211,162 @@ struct RecommendView: View {
                         .padding(.horizontal, 16)
                     }
                 }
-
             }
-            .padding(.bottom, 24)
-        }
-        .background(AppBackground())
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if let song = player.current {
-                MiniPlayer(song: song, onOpen: onOpenPlayer)
-            }
+            .padding(.bottom, 96)
         }
         .refreshable {
             await model.load(force: true)
             await library.enrichMissingCovers()
             ranks = (try? await KGService.ranks()) ?? ranks
         }
-        .onAppear {
-            library.refresh()
-        }
-        .task {
-            await library.enrichMissingCovers()
-            if ranks.isEmpty { ranks = (try? await KGService.ranks()) ?? [] }
-        }
-        .sheet(item: $sheetTarget) { target in
-            switch target {
-            case .playlist(let playlist):
-                PlaylistDetailSheet(playlist: playlist) { song, list in
-                    sheetTarget = nil
-                    onSelect(song, list)
-                    onOpenPlayer()
+    }
+
+    private var searchBody: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if searchModel.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    searchHistory
                 }
-            case .rank(let rank):
-                RankDetailSheet(rank: rank) { song, list in
-                    sheetTarget = nil
-                    onSelect(song, list)
-                    onOpenPlayer()
+
+                if searchModel.isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 32)
+                }
+
+                if let message = searchModel.message {
+                    Text(message)
+                        .font(.system(size: 13))
+                        .foregroundColor(Theme.secondaryText)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 36)
+                }
+
+                ForEach(searchModel.songs) { song in
+                    SongRowWithMenu(song: song) {
+                        searchFocused = false
+                        onSelectSearch(song)
+                    }
+                    .padding(.horizontal, 16)
+                }
+
+                if searchModel.isLoadingMore {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                } else if searchModel.hasMore {
+                    Color.clear
+                        .frame(height: 1)
+                        .onAppear { searchModel.loadMore() }
                 }
             }
+            .padding(.bottom, 96)
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Text("发现")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundColor(Theme.text)
-                Text("今天想听点什么 🎧")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Theme.accent)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Theme.accent.opacity(0.10))
-                    .clipShape(Capsule())
-                Spacer()
-                Button {
-                    Task { await model.load(force: true) }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(Theme.text.opacity(0.7))
-                        .frame(width: 34, height: 34)
-                        .background(Theme.chip)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-            }
+    private var searchHistory: some View {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("每天一组，按你的口味来")
-                    .font(.system(size: 12))
-                    .foregroundColor(Theme.secondaryText)
+                Text("最近搜索")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Theme.text)
                 Spacer()
-                if let first = model.songs.first {
+                if !historyWords.isEmpty {
                     Button {
-                        onSelect(first, model.songs)
+                        Preferences.searchHistory = []
+                        historyWords = []
+                        searchModel.query = ""
                     } label: {
-                        Label("播放全部", systemImage: "play.fill")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(Theme.accent)
-                            .clipShape(Capsule())
+                        Image(systemName: "trash")
+                            .font(.system(size: 12))
+                            .foregroundColor(Theme.secondaryText)
                     }
                     .buttonStyle(.plain)
                 }
             }
+
+            if historyWords.isEmpty {
+                Text("搜歌手、歌名或专辑，点一首就能听")
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.secondaryText)
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 8)], alignment: .leading, spacing: 8) {
+                    ForEach(historyWords, id: \.self) { word in
+                        HStack(spacing: 8) {
+                            Button {
+                                searchModel.submit(word)
+                            } label: {
+                                Text(word)
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Theme.text.opacity(0.85))
+                                    .lineLimit(1)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                Preferences.removeSearch(word)
+                                historyWords = Preferences.searchHistory
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundColor(Theme.secondaryText)
+                                    .frame(width: 24, height: 22)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Theme.card)
+                        .cornerRadius(10)
+                    }
+                }
+            }
+
+            if !hotKeywords.isEmpty {
+                Text("热门搜索")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Theme.text)
+                    .padding(.top, 10)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 8)], alignment: .leading, spacing: 8) {
+                    ForEach(hotKeywords, id: \.self) { word in
+                        Button {
+                            searchModel.submit(word)
+                        } label: {
+                            Text(word)
+                                .font(.system(size: 12))
+                                .foregroundColor(Theme.text.opacity(0.85))
+                                .lineLimit(1)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 7)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Theme.card)
+                                .cornerRadius(10)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 4)
+        .padding(.top, 12)
+    }
+
+    private func toggleSearch() {
+        withAnimation(.easeOut(duration: 0.2)) {
+            searchMode.toggle()
+        }
+        if searchMode {
+            DispatchQueue.main.async { searchFocused = true }
+        } else {
+            searchFocused = false
+            searchModel.query = ""
+            historyWords = Preferences.searchHistory
+        }
     }
 }
 
@@ -724,6 +922,7 @@ struct ProfileView: View {
                     .padding(.top, 8)
             }
             .padding(16)
+            .padding(.bottom, 88)
         }
         .background(AppBackground())
         .sheet(isPresented: $showLogin) {

@@ -36,20 +36,17 @@ struct RootView: View {
     }
 
     var body: some View {
-        TabView(selection: $tab) {
-            profileTab
-                .tabItem { Label("我的", systemImage: "person.crop.circle") }
-                .tag(0)
+        ZStack(alignment: .bottom) {
+            Group {
+                if tab == 0 {
+                    discoverTab
+                } else {
+                    profileTab
+                }
+            }
 
-            recommendTab
-                .tabItem { Label("发现", systemImage: "sparkles") }
-                .tag(1)
-
-            searchTab
-                .tabItem { Label("搜索", systemImage: "magnifyingglass") }
-                .tag(2)
+            FloatingTabBar(tab: $tab, onOpenPlayer: { showPlayer = true })
         }
-        .accentColor(Theme.accent)
         .sheet(isPresented: $showPlayer) {
             NowPlayingView()
                 .environmentObject(player)
@@ -91,56 +88,22 @@ struct RootView: View {
         }
     }
 
-    private var searchTab: some View {
+    private var discoverTab: some View {
         NavigationView {
-            SearchView(
-                model: model,
-                onSelect: { song in
+            RecommendView(
+                model: recommendModel,
+                searchModel: model,
+                onSelect: { song, list in
+                    player.play(song, in: list)
+                    showPlayer = true
+                },
+                onSelectSearch: { song in
                     player.play(song, in: model.songs)
                     showPlayer = true
                 },
                 onOpenPlayer: { showPlayer = true }
             )
-            .navigationTitle("搜索")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showSettings = true
-                    } label: {
-                        Image(systemName: "gearshape")
-                    }
-                    .accessibilityLabel("设置")
-                }
-            }
-            .searchable(
-                text: $model.query,
-                placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "搜索歌曲、歌手"
-            )
-            .onChange(of: model.query) { _ in model.schedule() }
-            .onSubmit(of: .search) { model.submit() }
-        }
-        .navigationViewStyle(.stack)
-        .sheet(isPresented: $showSettings) {
-            SettingsView()
-                .environmentObject(player)
-                .environmentObject(auth)
-        }
-    }
-
-    private var recommendTab: some View {
-        NavigationView {
-            RecommendView(
-                model: recommendModel,
-                onSelect: { song, list in
-                    player.play(song, in: list)
-                    showPlayer = true
-                },
-                onOpenPlayer: { showPlayer = true }
-            )
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .principal) { EmptyView() } }
+            .navigationBarHidden(true)
             .task { await recommendModel.load() }
         }
         .navigationViewStyle(.stack)
@@ -151,8 +114,23 @@ struct RootView: View {
             ProfileView(onOpenPlayer: { showPlayer = true })
                 .navigationTitle("我的")
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Image(systemName: "gearshape")
+                        }
+                        .accessibilityLabel("设置")
+                    }
+                }
         }
         .navigationViewStyle(.stack)
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environmentObject(player)
+                .environmentObject(auth)
+        }
     }
 }
 
