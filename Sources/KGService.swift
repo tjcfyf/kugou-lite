@@ -760,7 +760,7 @@ enum KGService {
             guard let candidates = try? await lyricCandidates(keyword: keyword, hash: hash),
                   !candidates.isEmpty else { continue }
             for candidate in candidates.prefix(3) {
-                if let lines = try? await lyricLines(id: candidate.id, accessKey: candidate.accessKey),
+                if let lines = try? await lyricLines(id: candidate.id, accessKey: candidate.accesskey),
                    !lines.isEmpty {
                     return lines
                 }
