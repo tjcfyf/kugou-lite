@@ -14,6 +14,9 @@ struct AlbumDetailSheet: View {
     @State private var songs: [Song] = []
     @State private var loading = true
     @State private var message: String?
+    @State private var page = 1
+    @State private var hasMore = false
+    @State private var loadingMore = false
 
     private var headerCover: URL? {
         songs.first?.coverURL ?? target.cover
@@ -134,15 +137,47 @@ struct AlbumDetailSheet: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            if hasMore {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: Theme.accent))
+                    Text("正在加载更多…")
+                        .font(.system(size: 11))
+                        .foregroundColor(Theme.secondaryText)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .onAppear {
+                    Task { await loadMore() }
+                }
+            }
         }
+    }
+
+    private func loadMore() async {
+        guard hasMore, !loadingMore else { return }
+        loadingMore = true
+        defer { loadingMore = false }
+        let next = (try? await KGService.albumSongs(albumID: target.id, page: page + 1, pageSize: 30)) ?? []
+        guard !next.isEmpty else {
+            hasMore = false
+            return
+        }
+        let existing = Set(songs.map { $0.FileHash })
+        songs.append(contentsOf: next.filter { !existing.contains($0.FileHash) })
+        page += 1
+        hasMore = next.count >= 30
     }
 
     private func load() async {
         loading = true
         message = nil
         do {
-            let list = try await KGService.albumSongs(albumID: target.id)
+            let list = try await KGService.albumSongs(albumID: target.id, page: 1, pageSize: 30)
             songs = list
+            page = 1
+            hasMore = list.count >= 30
             loading = false
             if list.isEmpty { message = "这张专辑暂时没有可播放的歌曲" }
         } catch {

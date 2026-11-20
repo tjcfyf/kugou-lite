@@ -145,7 +145,7 @@ enum KGService {
 
     // MARK: - 专辑
 
-    static func albumSongs(albumID: Int, page: Int = 1, pageSize: Int = 60) async throws -> [Song] {
+    static func albumSongs(albumID: Int, page: Int = 1, pageSize: Int = 30) async throws -> [Song] {
         let data = try await KGApi.shared.post(
             path: "/v1/album_audio/lite",
             params: [:],
