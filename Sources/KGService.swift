@@ -160,8 +160,8 @@ enum KGService {
         let clientver = KGApi.shared.clientver
         let key = KGSign.md5("\(appid)\(KGSign.androidSalt)\(clientver)\(clienttime)")
         let data = try await KGApi.shared.post(
-            host: "https://openapi.kugou.com",
             path: "/kmr/v1/audio_group/author",
+            host: "https://openapi.kugou.com",
             params: [:],
             body: [
                 "appid": appid,
