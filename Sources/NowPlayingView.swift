@@ -64,6 +64,9 @@ struct NowPlayingView: View {
                     .padding(.horizontal, 24)
                     .padding(.top, 18)
 
+                sleepBar
+                    .padding(.top, 6)
+
                 controls
                     .padding(.top, 10)
 
@@ -77,19 +80,6 @@ struct NowPlayingView: View {
                     Spacer()
                     if player.sleepDeadline != nil {
                         SleepCountdownText(deadline: player.sleepDeadline, fontSize: 11)
-                    }
-                    Menu {
-                        ForEach([0, 15, 30, 60], id: \.self) { minutes in
-                            Button(minutes == 0 ? "关闭睡眠定时" : "\(minutes) 分钟后暂停") {
-                                player.setSleepTimer(minutes: minutes == 0 ? nil : minutes)
-                                player.showToast(minutes == 0 ? "已关闭睡眠定时" : "\(minutes) 分钟后暂停")
-                            }
-                        }
-                    } label: {
-                        Image(systemName: player.sleepDeadline == nil ? "moon" : "moon.fill")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(player.sleepDeadline == nil ? Theme.text.opacity(0.75) : Theme.accent)
-                            .padding(10)
                     }
                     Button {
                         showQueue = true
@@ -167,6 +157,34 @@ struct NowPlayingView: View {
             }
             .font(.system(size: 11, weight: .medium))
             .foregroundColor(Theme.secondaryText)
+        }
+    }
+
+    private var sleepBar: some View {
+        HStack(spacing: 8) {
+        Menu {
+            ForEach([0, 5, 15, 30, 60], id: \.self) { minutes in
+                Button(minutes == 0 ? "关闭睡眠定时" : "\(minutes) 分钟后暂停") {
+                    player.setSleepTimer(minutes: minutes == 0 ? nil : minutes)
+                    player.showToast(minutes == 0 ? "已关闭睡眠定时" : "\(minutes) 分钟后暂停")
+                }
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: player.sleepDeadline == nil ? "moon" : "moon.fill")
+                Text("睡眠")
+                    .font(.system(size: 11))
+                    .foregroundColor(player.sleepDeadline == nil ? Theme.secondaryText : Theme.accent)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Theme.chip)
+            .cornerRadius(12)
+        }
+        .buttonStyle(.plain)
+        if player.sleepDeadline != nil {
+            SleepCountdownText(deadline: player.sleepDeadline, fontSize: 11)
+        }
         }
     }
 

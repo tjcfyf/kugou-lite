@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @main
 struct KugouLiteApp: App {
@@ -23,6 +24,7 @@ struct RootView: View {
     @EnvironmentObject private var auth: AuthStore
     @State private var showPlayer = false
     @State private var tab = 0
+    @AppStorage(Preferences.themeModeKey) private var themeRaw = AppTheme.system.rawValue
 
     var body: some View {
         TabView(selection: $tab) {
@@ -49,6 +51,23 @@ struct RootView: View {
             }
         }
         .animation(.easeOut(duration: 0.22), value: player.toast)
+        .onAppear { applyInterfaceStyle() }
+        .onChange(of: themeRaw) { _ in applyInterfaceStyle() }
+    }
+
+    private func applyInterfaceStyle() {
+        let style: UIUserInterfaceStyle
+        switch AppTheme(rawValue: themeRaw) ?? .system {
+        case .system: style = .unspecified
+        case .dark: style = .dark
+        case .light: style = .light
+        }
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            for window in windowScene.windows {
+                window.overrideUserInterfaceStyle = style
+            }
+        }
     }
 
     private var searchTab: some View {
