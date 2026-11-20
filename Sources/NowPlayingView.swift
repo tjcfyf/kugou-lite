@@ -81,7 +81,9 @@ struct NowPlayingView: View {
                         Image(systemName: "slider.horizontal.3")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(Theme.text.opacity(0.75))
-                            .padding(10)
+                            .frame(width: 34, height: 34)
+                            .background(Theme.chip)
+                            .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
                 }
@@ -139,15 +141,34 @@ struct NowPlayingView: View {
     }
 
     private var progress: some View {
-        VStack(spacing: 2) {
-            Slider(
-                value: Binding(
-                    get: { player.duration > 0 ? min(player.currentTime, player.duration) : 0 },
-                    set: { player.seek(to: $0) }
-                ),
-                in: 0...max(player.duration, 1)
-            )
-            .accentColor(Theme.accent)
+        VStack(spacing: 6) {
+            GeometryReader { geo in
+                let width = max(geo.size.width, 1)
+                let ratio = player.duration > 0 ? min(max(player.currentTime / player.duration, 0), 1) : 0
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Theme.text.opacity(0.12))
+                        .frame(height: 4)
+                    Capsule()
+                        .fill(Theme.accent)
+                        .frame(width: width * ratio, height: 4)
+                    Circle()
+                        .fill(Theme.accent)
+                        .frame(width: 14, height: 14)
+                        .overlay(Circle().stroke(Theme.card.opacity(0.9), lineWidth: 1.5))
+                        .offset(x: width * ratio - 7)
+                }
+                .frame(height: 22)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            let point = min(max(value.location.x / width, 0), 1)
+                            player.seek(to: Double(point) * max(player.duration, 1))
+                        }
+                )
+            }
+            .frame(height: 22)
 
             HStack {
                 Text(format(player.currentTime))
@@ -155,7 +176,7 @@ struct NowPlayingView: View {
                 Text(format(player.duration))
             }
             .font(.system(size: 11, weight: .medium))
-            .foregroundColor(Theme.secondaryText)
+            .foregroundColor(Theme.text.opacity(0.62))
         }
     }
 
