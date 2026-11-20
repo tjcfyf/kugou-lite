@@ -110,6 +110,7 @@ struct CoverImage: View {
     let url: URL?
     var size: CGFloat = 44
     var radius: CGFloat = 8
+    var onLoad: ((URL?, UIImage?) -> Void)? = nil
 
     @State private var image: UIImage?
 
@@ -128,11 +129,13 @@ struct CoverImage: View {
         .task(id: url?.absoluteString) {
             guard let url = url else {
                 withAnimation(.easeInOut(duration: 0.24)) { image = nil }
+                onLoad?(nil, nil)
                 return
             }
             let key = url.absoluteString as NSString
             if let cached = CoverCache.shared.cache.object(forKey: key) {
                 withAnimation(.easeInOut(duration: 0.24)) { image = cached }
+                onLoad?(url, cached)
                 return
             }
             var request = URLRequest(url: url)
@@ -143,6 +146,7 @@ struct CoverImage: View {
                   let decoded = UIImage(data: data) else { return }
             CoverCache.shared.cache.setObject(decoded, forKey: key)
             withAnimation(.easeInOut(duration: 0.26)) { image = decoded }
+            onLoad?(url, decoded)
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
@@ -345,7 +349,7 @@ struct FloatingTabBar: View {
             tabButton(title: "我的", icon: "person.crop.circle", tag: 1)
         }
         .padding(.horizontal, 14)
-        .frame(maxWidth: 320)
+        .frame(maxWidth: 280)
         .frame(height: 64)
         .background(
             RoundedRectangle(cornerRadius: 32, style: .continuous)
@@ -414,11 +418,11 @@ private struct FloatingAlbumButton: View {
                         .trim(from: 0, to: min(max(player.currentTime / player.duration, 0), 1))
                         .stroke(Theme.accent, lineWidth: 2)
                         .rotationEffect(.degrees(-90))
-                        .frame(width: 35, height: 35)
+                        .frame(width: 47, height: 47)
                         .animation(.linear(duration: 0.24), value: player.currentTime)
                 }
             }
-            .frame(width: 56, height: 56)
+            .frame(width: 60, height: 60)
             .scaleEffect(player.isPlaying ? 1.0 : 0.985)
             .contentShape(Circle())
             .animation(.easeInOut(duration: 0.22), value: player.isPlaying)
@@ -438,9 +442,9 @@ private struct BottomArtwork: View {
     var body: some View {
         Group {
             if let song = player.current, let url = song.coverURL {
-                CoverImage(url: url, size: 32, radius: 16)
+                CoverImage(url: url, size: 44, radius: 22)
             } else {
-                RotatingAlbumPlaceholder(size: 32)
+                RotatingAlbumPlaceholder(size: 44)
             }
         }
         .transition(.opacity)

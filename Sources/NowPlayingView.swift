@@ -16,6 +16,8 @@ struct NowPlayingView: View {
     @AppStorage(Preferences.lyricPhotoModeKey) private var lyricPhotoMode = false
     @State private var isScrubbing = false
     @State private var scrubTime: Double = 0
+    @State private var lyricClockTime: Double = 0
+    @State private var lyricClockDate = Date()
 
     private var qualityLabel: String {
         let quality = player.currentQuality
@@ -93,7 +95,6 @@ struct NowPlayingView: View {
 
                 bottomActions
             }
-            .animation(.easeInOut(duration: 0.26), value: player.current?.id)
 
             if let toast = player.toast {
                 VStack {
@@ -333,7 +334,7 @@ struct NowPlayingView: View {
     }
 
     private var artwork: some View {
-        CoverImage(url: player.current?.coverURL, size: artworkSize, radius: 12)
+        CrossfadeArtwork(url: player.current?.coverURL, size: artworkSize)
             .shadow(color: .black.opacity(colorScheme == .dark ? 0.30 : 0.10),
                     radius: 16, x: 0, y: 8)
             .padding(.horizontal, 36)
@@ -350,6 +351,7 @@ struct NowPlayingView: View {
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 28)
             .id(player.current?.id ?? "")
+            .animation(.easeInOut(duration: 0.26), value: player.current?.id)
     }
 
     private var displayedTime: Double {
@@ -572,13 +574,21 @@ struct NowPlayingView: View {
                     LazyVStack(alignment: .leading, spacing: 16) {
                         ForEach(Array(player.lyric.enumerated()), id: \.offset) { index, line in
                             VStack(alignment: .leading, spacing: 5) {
-                                lyricText(line, active: index == player.lyricIndex)
-                                    .font(.system(size: index == player.lyricIndex
-                                                  ? lyricSize.fontSize + 7
-                                                  : lyricSize.fontSize + 1,
-                                                  weight: index == player.lyricIndex ? .bold : .medium))
-                                    .lineSpacing(3)
-                                    .multilineTextAlignment(.leading)
+                                Group {
+                                    if index == player.lyricIndex, !line.words.isEmpty, player.isPlaying {
+                                        TimelineView(.periodic(from: .now, by: 0.05)) { context in
+                                            lyricText(line, active: true, timeOverride: lyricClock(context.date))
+                                        }
+                                    } else {
+                                        lyricText(line, active: index == player.lyricIndex)
+                                    }
+                                }
+                                .font(.system(size: index == player.lyricIndex
+                                              ? lyricSize.fontSize + 7
+                                              : lyricSize.fontSize + 1,
+                                              weight: index == player.lyricIndex ? .bold : .medium))
+                                .lineSpacing(3)
+                                .multilineTextAlignment(.leading)
 
                                 if showTranslation, let translation = line.translation,
                                    !translation.isEmpty {
@@ -610,8 +620,14 @@ struct NowPlayingView: View {
                 }
             }
             .onAppear {
+                lyricClockTime = player.currentTime
+                lyricClockDate = Date()
                 guard !player.lyric.isEmpty else { return }
                 proxy.scrollTo(player.lyricIndex, anchor: .center)
+            }
+            .onChange(of: player.currentTime) { time in
+                lyricClockTime = time
+                lyricClockDate = Date()
             }
             .onChange(of: player.lyricIndex) { index in
                 guard lyricAutoFollow else { return }
@@ -635,7 +651,12 @@ struct NowPlayingView: View {
         )
     }
 
-    private func lyricText(_ line: LyricLine, active: Bool) -> Text {
+    private func lyricClock(_ date: Date) -> Double {
+        let elapsed = player.isPlaying ? max(0, date.timeIntervalSince(lyricClockDate)) : 0
+        return lyricClockTime + elapsed
+    }
+
+    private func lyricText(_ line: LyricLine, active: Bool, timeOverride: Double? = nil) -> Text {
         guard active, !line.words.isEmpty else {
             var plain = AttributedString(line.text)
             plain.foregroundColor = active
@@ -643,14 +664,45 @@ struct NowPlayingView: View {
                 : Theme.secondaryText.opacity(colorScheme == .dark ? 0.52 : 0.62)
             return Text(plain)
         }
-        let time = player.currentTime + Double(player.lyricOffsetMs) / 1000
+
+        let time = (timeOverride ?? player.currentTime) + Double(player.lyricOffsetMs) / 1000
         var result = AttributedString()
+
         for word in line.words {
-            var part = AttributedString(word.text)
-            part.foregroundColor = time >= word.start ? Theme.accent : Theme.text
-            result += part
+            let characters = Array(word.text)
+            guard !characters.isEmpty else { continue }
+
+            let wordProgress: Double
+            if word.duration > 0.001 {
+                wordProgress = min(max((time - word.start) / word.duration, 0), 1)
+            } else {
+                wordProgress = time >= word.start ? 1 : 0
+            }
+
+            for (index, character) in characters.enumerated() {
+                let progress = min(max(wordProgress * Double(characters.count) - Double(index), 0), 1)
+                var part = AttributedString(String(character))
+                part.foregroundColor = karaokeColor(progress)
+                result += part
+            }
         }
+
         return Text(result)
+    }
+
+    private func karaokeColor(_ progress: Double) -> Color {
+        let base: (Double, Double, Double) = colorScheme == .dark
+            ? (1.0, 1.0, 1.0)
+            : (0.043, 0.071, 0.125)
+        let accent: (Double, Double, Double) = colorScheme == .dark
+            ? (0.039, 0.518, 1.0)
+            : (0.0, 0.478, 1.0)
+        let p = min(max(progress, 0), 1)
+        return Color(
+            red: base.0 + (accent.0 - base.0) * p,
+            green: base.1 + (accent.1 - base.1) * p,
+            blue: base.2 + (accent.2 - base.2) * p
+        )
     }
 
     private func addToPlaylist(_ song: Song, _ target: CloudPlaylist) async {
@@ -666,5 +718,96 @@ struct NowPlayingView: View {
         guard seconds.isFinite, seconds > 0 else { return "0:00" }
         let total = Int(seconds)
         return String(format: "%d:%02d", total / 60, total % 60)
+    }
+}
+
+/// 播放页封面：旧图留在底层，新图彻底载入后再淡入，避免切歌时闪占位图。
+private struct CrossfadeArtwork: View {
+    let url: URL?
+    let size: CGFloat
+
+    @State private var frontURL: URL?
+    @State private var currentImage: UIImage?
+    @State private var previousImage: UIImage?
+    @State private var frontLoaded = true
+    @State private var loadToken = UUID()
+
+    init(url: URL?, size: CGFloat) {
+        self.url = url
+        self.size = size
+        _frontURL = State(initialValue: url)
+        _frontLoaded = State(initialValue: true)
+    }
+
+    var body: some View {
+        ZStack {
+            if let previousImage = previousImage {
+                Image(uiImage: previousImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Theme.border, lineWidth: 0.5)
+                    )
+            }
+
+            if let frontURL = frontURL {
+                CoverImage(url: frontURL, size: size, radius: 12) { loadedURL, image in
+                    guard let image = image, loadedURL == frontURL else { return }
+                    currentImage = image
+                    completeLoad()
+                }
+                .id(frontURL.absoluteString)
+                .opacity(frontLoaded ? 1 : 0)
+            }
+        }
+        .frame(width: size, height: size)
+        .onChange(of: url) { newURL in
+            transition(to: newURL)
+        }
+    }
+
+    private func transition(to newURL: URL?) {
+        guard newURL != frontURL else { return }
+
+        previousImage = currentImage
+        currentImage = nil
+        frontURL = newURL
+
+        guard newURL != nil else {
+            previousImage = nil
+            frontLoaded = true
+            return
+        }
+
+        // 第一次加载没有旧图可托底，直接显示占位图，由 CoverImage 自己淡入。
+        if previousImage == nil {
+            frontLoaded = true
+            return
+        }
+
+        frontLoaded = false
+        let token = UUID()
+        loadToken = token
+
+        // 新封面加载失败或太慢时，1.8 秒后退回占位图，旧图不会一直挂着。
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            guard loadToken == token, !frontLoaded else { return }
+            completeLoad()
+        }
+    }
+
+    private func completeLoad() {
+        let token = UUID()
+        loadToken = token
+        withAnimation(.easeInOut(duration: 0.32)) {
+            frontLoaded = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.38) {
+            guard loadToken == token else { return }
+            previousImage = nil
+        }
     }
 }

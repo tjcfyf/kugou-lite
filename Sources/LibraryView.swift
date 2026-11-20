@@ -1586,12 +1586,16 @@ struct QueueView: View {
                     .listRowBackground(Theme.card)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) {
-                            player.removeFromQueue(at: index)
+                            withAnimation(.easeInOut(duration: 0.24)) {
+                                player.removeFromQueue(at: index)
+                            }
                         } label: { Label("移除", systemImage: "trash") }
                     }
                 }
                 .onMove { source, destination in
-                    player.moveQueue(from: source, to: destination)
+                    withAnimation(.easeInOut(duration: 0.24)) {
+                        player.moveQueue(from: source, to: destination)
+                    }
                 }
             }
             .environment(\.editMode, $editMode)
@@ -1620,7 +1624,11 @@ struct QueueView: View {
         }
         .navigationViewStyle(.stack)
         .confirmationDialog("确定清空播放列表？", isPresented: $showClearConfirm, titleVisibility: .visible) {
-            Button("清空并停止播放", role: .destructive) { player.clearQueue() }
+            Button("清空并停止播放", role: .destructive) {
+                withAnimation(.easeInOut(duration: 0.24)) {
+                    player.clearQueue()
+                }
+            }
             Button("取消", role: .cancel) {}
         }
     }
