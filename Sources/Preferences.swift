@@ -156,6 +156,7 @@ enum Preferences {
     static let keepAwakeKey = "kg.player.keepawake"
     static let sleepWaitKey = "kg.sleep.waitforend"
     static let lyricOffsetKey = "kg.lyric.offset"
+    static let lyricFollowKey = "kg.lyric.follow"
 
     static var lyricOffsetMs: Int {
         get { UserDefaults.standard.integer(forKey: lyricOffsetKey) }

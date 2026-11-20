@@ -873,6 +873,7 @@ struct QueueView: View {
     @EnvironmentObject private var player: PlayerEngine
     @Environment(\.dismiss) private var dismiss
     @State private var editMode: EditMode = .inactive
+    @State private var showClearConfirm = false
 
     private var totalSeconds: Int {
         player.queueSongs.reduce(0) { $0 + ($1.Duration ?? 0) }
@@ -979,12 +980,16 @@ struct QueueView: View {
                         Image(systemName: "shuffle")
                     }
                     .disabled(player.queueSongs.count <= player.currentIndex + 1)
-                    Button("清空") { player.clearQueue() }
+                    Button("清空") { showClearConfirm = true }
                         .disabled(player.queueSongs.isEmpty)
                 }
             }
         }
         .navigationViewStyle(.stack)
+        .confirmationDialog("确定清空播放列表？", isPresented: $showClearConfirm, titleVisibility: .visible) {
+            Button("清空并停止播放", role: .destructive) { player.clearQueue() }
+            Button("取消", role: .cancel) {}
+        }
     }
 }
 

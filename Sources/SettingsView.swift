@@ -125,6 +125,7 @@ struct KeepAwakeSettingsCard: View {
 
 struct LyricOffsetSettingsCard: View {
     @EnvironmentObject private var player: PlayerEngine
+    @AppStorage(Preferences.lyricFollowKey) private var autoFollow = true
 
     private var offsetText: String {
         String(format: "%+.1f 秒", Double(player.lyricOffsetMs) / 1000)
@@ -189,6 +190,21 @@ struct LyricOffsetSettingsCard: View {
                 .font(.system(size: 10))
                 .foregroundColor(Theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
+
+            Divider().background(Theme.separator)
+
+            Toggle(isOn: $autoFollow) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("歌词自动跟随")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.text)
+                    Text("关闭后可以手动上下滚动查看歌词，不再自动跳到当前句")
+                        .font(.system(size: 10))
+                        .foregroundColor(Theme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .toggleStyle(SwitchToggleStyle(tint: Theme.accent))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)

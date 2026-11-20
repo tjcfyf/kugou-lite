@@ -257,6 +257,12 @@ struct SongRow: View {
                 Label(isFavorite ? "取消收藏" : "收藏",
                       systemImage: isFavorite ? "heart.fill" : "heart")
             }
+            Button {
+                UIPasteboard.general.string = "\(song.SongName) - \(song.artist)"
+                player.showToast("已复制歌曲信息")
+            } label: {
+                Label("复制歌名和歌手", systemImage: "doc.on.doc")
+            }
         }
     }
 }

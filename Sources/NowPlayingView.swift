@@ -12,6 +12,7 @@ struct NowPlayingView: View {
     @AppStorage(Preferences.coverSwipeKey) private var coverSwipeEnabled = true
     @AppStorage(Preferences.coverDoubleTapKey) private var coverDoubleTapEnabled = true
     @AppStorage(Preferences.keepAwakeKey) private var keepAwake = false
+    @AppStorage(Preferences.lyricFollowKey) private var lyricAutoFollow = true
     @State private var coverPressed = false
     @State private var isScrubbing = false
     @State private var scrubTime: Double = 0
@@ -143,6 +144,7 @@ struct NowPlayingView: View {
                     if !player.currentQuality.isEmpty || player.playbackRate != 1.0 {
                         HStack(spacing: 6) {
                             if !player.currentQuality.isEmpty {
+                                Button { activeSheet = .settings } label: {
                                 Text("音质 \(player.currentQuality)")
                                     .font(.system(size: 10, weight: .semibold))
                                     .foregroundColor(Theme.accent)
@@ -152,8 +154,11 @@ struct NowPlayingView: View {
                                         RoundedRectangle(cornerRadius: 4)
                                             .stroke(Theme.accent.opacity(0.7), lineWidth: 0.6)
                                     )
+                                }
+                                .buttonStyle(.plain)
                             }
                             if player.playbackRate != 1.0 {
+                                Button { activeSheet = .settings } label: {
                                 Text(PlaybackSpeed.allCases.first(where: { abs($0.rawValue - player.playbackRate) < 0.01 })?.title ?? "\(player.playbackRate)x")
                                     .font(.system(size: 10, weight: .semibold))
                                     .foregroundColor(Theme.secondaryText)
@@ -163,6 +168,8 @@ struct NowPlayingView: View {
                                         RoundedRectangle(cornerRadius: 4)
                                             .stroke(Theme.separator, lineWidth: 0.6)
                                     )
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -464,8 +471,15 @@ struct NowPlayingView: View {
                 }
             }
             .onChange(of: player.lyricIndex) { index in
+                guard lyricAutoFollow else { return }
                 withAnimation(.easeOut(duration: 0.22)) {
                     proxy.scrollTo(index, anchor: .center)
+                }
+            }
+            .onChange(of: lyricAutoFollow) { enabled in
+                guard enabled else { return }
+                withAnimation(.easeOut(duration: 0.22)) {
+                    proxy.scrollTo(player.lyricIndex, anchor: .center)
                 }
             }
         }

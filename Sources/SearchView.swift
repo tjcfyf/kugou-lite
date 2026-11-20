@@ -252,6 +252,11 @@ struct MiniPlayer: View {
 
     @EnvironmentObject private var player: PlayerEngine
 
+    private var progressRatio: Double {
+        guard player.duration > 0 else { return 0 }
+        return min(max(player.currentTime / player.duration, 0), 1)
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             Button(action: onOpen) {
@@ -310,6 +315,19 @@ struct MiniPlayer: View {
                 Theme.card.opacity(0.35)
             }
         )
+        .overlay(alignment: .bottom) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Theme.text.opacity(0.08))
+                    Capsule().fill(Theme.accent.opacity(0.9))
+                        .frame(width: geo.size.width * progressRatio)
+                }
+                .frame(width: geo.size.width, height: 2)
+            }
+            .frame(height: 2)
+            .padding(.horizontal, 18)
+            .padding(.bottom, 4)
+        }
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
