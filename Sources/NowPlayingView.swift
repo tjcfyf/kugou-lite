@@ -93,6 +93,7 @@ struct NowPlayingView: View {
 
                 bottomActions
             }
+            .animation(.easeInOut(duration: 0.26), value: player.current?.id)
 
             if let toast = player.toast {
                 VStack {
@@ -348,6 +349,7 @@ struct NowPlayingView: View {
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 28)
+            .id(player.current?.id ?? "")
     }
 
     private var displayedTime: Double {

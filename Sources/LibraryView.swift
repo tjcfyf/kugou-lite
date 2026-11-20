@@ -193,6 +193,7 @@ struct RecommendView: View {
                                     RankCard(rank: rank)
                                 }
                                 .buttonStyle(GlassPressButtonStyle())
+                                .transition(.opacity.combined(with: .scale(scale: 0.96)))
                             }
                         }
                         .padding(.horizontal, 16)

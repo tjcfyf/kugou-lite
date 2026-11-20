@@ -381,19 +381,15 @@ struct FloatingTabBar: View {
                         .frame(width: 54, height: 54)
                 }
 
-                VStack(spacing: 2) {
-                    Image(systemName: icon)
-                        .font(.system(size: 26, weight: tab == tag ? .semibold : .regular))
-                        .scaleEffect(tab == tag ? 1.06 : 1)
-                    Text(title)
-                        .font(.system(size: 10, weight: tab == tag ? .semibold : .regular))
-                }
-                .foregroundColor(tab == tag ? Theme.accent : Theme.secondaryText)
+                Image(systemName: icon)
+                    .font(.system(size: 32, weight: tab == tag ? .semibold : .regular))
+                    .foregroundColor(tab == tag ? Theme.accent : Theme.secondaryText)
             }
-            .frame(width: 68, height: 56)
+            .frame(width: 56, height: 56)
             .contentShape(Rectangle())
         }
         .buttonStyle(GlassPressButtonStyle())
+        .accessibilityLabel(title)
     }
 
 }
@@ -418,10 +414,11 @@ private struct FloatingAlbumButton: View {
                         .trim(from: 0, to: min(max(player.currentTime / player.duration, 0), 1))
                         .stroke(Theme.accent, lineWidth: 2)
                         .rotationEffect(.degrees(-90))
-                        .frame(width: 55, height: 55)
+                        .frame(width: 35, height: 35)
+                        .animation(.linear(duration: 0.24), value: player.currentTime)
                 }
             }
-            .frame(width: 58, height: 58)
+            .frame(width: 56, height: 56)
             .scaleEffect(player.isPlaying ? 1.0 : 0.985)
             .contentShape(Circle())
             .animation(.easeInOut(duration: 0.22), value: player.isPlaying)
@@ -432,7 +429,7 @@ private struct FloatingAlbumButton: View {
     }
 }
 
-/// 只让 46pt 的封面自己刷新旋转，不带着整条玻璃底栏每帧重绘。
+/// 只让底栏中心封面自己刷新旋转，不带着整条玻璃底栏每帧重绘。
 private struct BottomArtwork: View {
     @EnvironmentObject private var player: PlayerEngine
     @State private var angle: Double = 0
@@ -441,9 +438,9 @@ private struct BottomArtwork: View {
     var body: some View {
         Group {
             if let song = player.current, let url = song.coverURL {
-                CoverImage(url: url, size: 52, radius: 26)
+                CoverImage(url: url, size: 32, radius: 16)
             } else {
-                RotatingAlbumPlaceholder(size: 52)
+                RotatingAlbumPlaceholder(size: 32)
             }
         }
         .transition(.opacity)
