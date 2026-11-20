@@ -399,10 +399,12 @@ struct FloatingTabBar: View {
                         endPoint: .bottomTrailing
                     )
                 )
+                .allowsHitTesting(false)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 32, style: .continuous)
                 .stroke(Theme.border, lineWidth: 0.5)
+                .allowsHitTesting(false)
         )
         .shadow(
             color: Color.black.opacity(colorScheme == .dark ? 0.28 : 0.10),
