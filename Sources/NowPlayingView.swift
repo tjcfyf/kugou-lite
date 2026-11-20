@@ -18,12 +18,14 @@ struct NowPlayingView: View {
         case queue
         case settings
         case album(AlbumTarget)
+        case artist(ArtistTarget)
 
         var id: String {
             switch self {
             case .queue: return "queue"
             case .settings: return "settings"
             case .album(let target): return "album-\(target.id)"
+            case .artist(let target): return "artist-\(target.id)"
             }
         }
     }
@@ -82,10 +84,23 @@ struct NowPlayingView: View {
                     }
 
                     HStack(spacing: 6) {
-                        Text(player.current?.artist ?? "")
-                            .font(.system(size: 13))
-                            .foregroundColor(Theme.secondaryText)
-                            .lineLimit(1)
+                        if let song = player.current {
+                            Button {
+                                activeSheet = .artist(ArtistTarget(name: song.artist,
+                                                                  authorID: song.AuthorID,
+                                                                  cover: song.coverURL))
+                            } label: {
+                                HStack(spacing: 3) {
+                                    Text(song.artist)
+                                        .lineLimit(1)
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 8, weight: .semibold))
+                                }
+                                .font(.system(size: 13))
+                                .foregroundColor(Theme.secondaryText)
+                            }
+                            .buttonStyle(.plain)
+                        }
                         if !player.currentQuality.isEmpty {
                             Text("音质 \(player.currentQuality)")
                                 .font(.system(size: 10, weight: .semibold))
@@ -198,6 +213,8 @@ struct NowPlayingView: View {
                 PlayerSettingsView().environmentObject(player)
             case .album(let target):
                 AlbumDetailSheet(target: target).environmentObject(player)
+            case .artist(let target):
+                ArtistDetailSheet(target: target).environmentObject(player)
             }
         }
 

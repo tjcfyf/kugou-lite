@@ -12,6 +12,7 @@ struct Song: Identifiable, Equatable {
     let PayType: Int?
     let MixSongID: Int?
     let Audioid: Int?
+    let AuthorID: Int?
 
     init?(json: [String: Any]) {
         guard let hash = json["FileHash"] as? String, !hash.isEmpty,
@@ -27,6 +28,8 @@ struct Song: Identifiable, Equatable {
         PayType = Song.intValue(json["PayType"])
         MixSongID = Song.intValue(json["MixSongID"])
         Audioid = Song.intValue(json["Audioid"])
+        AuthorID = Song.intValue(json["AuthorID"])
+            ?? (json["SingerId"] as? [Any])?.first.flatMap { Song.intValue($0) }
     }
 
     static func intValue(_ raw: Any?) -> Int? {

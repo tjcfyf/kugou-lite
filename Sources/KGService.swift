@@ -74,6 +74,7 @@ enum KGService {
             if let image = findImage(in: item) { json["Image"] = image }
             if let duration = item["time_length"] ?? item["duration"] ?? item["timelength"] { json["Duration"] = duration }
             if let albumName = item["album_name"] as? String { json["AlbumName"] = albumName }
+            if let author = item["author_id"] { json["AuthorID"] = author }
             return Song(json: json)
         }
         return songs
@@ -143,6 +144,72 @@ enum KGService {
         return raw.compactMap { item in normalizeRankSong(item) }
     }
 
+    // MARK: - 歌手
+
+    static func artistID(named name: String) async throws -> Int? {
+        let results = try await search(name, pageSize: 30)
+        let exact = results.first {
+            $0.SingerName == name || $0.SingerName.contains(name) || name.contains($0.SingerName)
+        }
+        return (exact ?? results.first)?.AuthorID
+    }
+
+    static func artistSongs(authorID: Int, page: Int = 1, pageSize: Int = 30) async throws -> [Song] {
+        let clienttime = Int(Date().timeIntervalSince1970)
+        let appid = KGApi.shared.appid
+        let clientver = KGApi.shared.clientver
+        let key = KGSign.md5("\(appid)\(KGSign.androidSalt)\(clientver)\(clienttime)")
+        let data = try await KGApi.shared.post(
+            host: "https://openapi.kugou.com",
+            path: "/kmr/v1/audio_group/author",
+            params: [:],
+            body: [
+                "appid": appid,
+                "clientver": clientver,
+                "mid": KGApi.shared.mid,
+                "clienttime": clienttime,
+                "key": key,
+                "author_id": "\(authorID)",
+                "pagesize": "\(pageSize)",
+                "page": "\(page)",
+                "sort": 2,
+                "area_code": "all"
+            ],
+            router: "openapi.kugou.com",
+            headers: ["kg-tid": "220"]
+        )
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
+        if let code = Song.intValue(root["error_code"]), code != 0 {
+            throw KGError.server("歌手作品读取失败（\(code)）")
+        }
+        let raw = root["data"] as? [[String: Any]] ?? []
+        return raw.compactMap { normalizeArtistSong($0) }
+    }
+
+    private static func normalizeArtistSong(_ item: [String: Any]) -> Song? {
+        let hash = (item["hash"] as? String)
+            ?? (item["hash_320"] as? String)
+            ?? (item["hash_high"] as? String)
+            ?? (item["hash_128"] as? String)
+        guard let fileHash = hash, !fileHash.isEmpty else { return nil }
+        guard let songName = item["audio_name"] as? String, !songName.isEmpty else { return nil }
+
+        var json: [String: Any] = [
+            "FileHash": fileHash,
+            "SongName": songName,
+            "SingerName": (item["author_name"] as? String) ?? ""
+        ]
+        json["AlbumID"] = item["album_id"]
+        json["AlbumName"] = item["album_name"]
+        json["Duration"] = item["timelength"]
+        json["MixSongID"] = item["album_audio_id"]
+        json["Audioid"] = item["audio_id"]
+        json["PayType"] = item["pay_type"]
+        json["Privilege"] = item["privilege"]
+        json["Image"] = findImage(in: item)
+        return Song(json: json)
+    }
+
     // MARK: - 专辑
 
     static func albumSongs(albumID: Int, page: Int = 1, pageSize: Int = 30) async throws -> [Song] {
@@ -192,6 +259,7 @@ enum KGService {
         json["Duration"] = audio["duration"] ?? item["duration"]
         json["MixSongID"] = base["album_audio_id"] ?? item["album_audio_id"]
         json["Audioid"] = base["audio_id"] ?? item["audio_id"]
+        json["AuthorID"] = (item["authors"] as? [[String: Any]])?.first?["author_id"]
         json["PayType"] = deprecated["pay_type"] ?? item["pay_type"]
         json["Privilege"] = deprecated["privilege"] ?? item["privilege"]
         if let cover = album["cover"] as? String {
@@ -214,6 +282,7 @@ enum KGService {
         json["AlbumID"] = deprecated["albumid"] ?? item["albumid"] ?? item["album_id"]
         json["MixSongID"] = item["album_audio_id"] ?? deprecated["mixsongid"] ?? item["mixsongid"]
         json["Audioid"] = item["audio_id"] ?? item["audioid"] ?? deprecated["audioid"]
+        json["AuthorID"] = item["author_id"] ?? (item["authors"] as? [[String: Any]])?.first?["author_id"]
         let albumInfo = item["album_info"] as? [String: Any] ?? item["albuminfo"] as? [String: Any]
         json["AlbumName"] = item["album_name"] ?? albumInfo?["album_name"] ?? albumInfo?["name"]
         json["Privilege"] = item["privilege"] ?? deprecated["privilege"]
