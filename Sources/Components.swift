@@ -411,7 +411,7 @@ private struct FloatingAlbumButton: View {
             onOpenPlayer()
         } label: {
             BottomArtwork()
-                .frame(width: 64, height: 64)
+                .frame(width: 56, height: 56)
                 .scaleEffect(player.isPlaying ? 1.0 : 0.985)
                 .contentShape(Circle())
                 .animation(.easeInOut(duration: 0.22), value: player.isPlaying)
@@ -431,9 +431,9 @@ private struct BottomArtwork: View {
     var body: some View {
         Group {
             if let song = player.current, let url = song.coverURL {
-                CoverImage(url: url, size: 54, radius: 27)
+                CoverImage(url: url, size: 42, radius: 21)
             } else {
-                RotatingAlbumPlaceholder(size: 54)
+                RotatingAlbumPlaceholder(size: 42)
             }
         }
         .transition(.opacity)

@@ -630,6 +630,15 @@ struct PlaylistCard: View {
     }
 }
 
+private struct PlaylistCardButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.955 : 1)
+            .opacity(configuration.isPressed ? 0.92 : 1)
+            .animation(.spring(response: 0.28, dampingFraction: 0.82), value: configuration.isPressed)
+    }
+}
+
 struct PlaylistDetailSheet: View {
     let playlist: CloudPlaylist
     let onSelect: (Song, [Song]) -> Void
@@ -646,93 +655,109 @@ struct PlaylistDetailSheet: View {
     @State private var showTargetPicker = false
     @State private var adding = false
     @State private var toast = ""
+    @State private var headerVisible = false
+    @State private var rowsVisible = false
 
     private var selectedSongs: [Song] {
         songs.filter { selectedHashes.contains($0.id) }
+    }
+
+    private var coverURL: URL? {
+        playlist.cover.flatMap(URL.init(string:))
     }
 
     var body: some View {
         NavigationView {
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    header
+
                     if loading {
-                        ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText)).padding(.top, 30)
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
+                            .padding(.top, 26)
                     } else if !message.isEmpty && songs.isEmpty {
-                        Text(message).font(.system(size: 13)).foregroundColor(Theme.secondaryText).padding(.top, 24)
-                    } else if !songs.isEmpty {
-                        HStack(alignment: .center, spacing: 8) {
-                            Text(playlist.isCollected ? "收藏歌单 · \(playlist.count) 首" : "歌单 · \(playlist.count) 首")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(Theme.secondaryText)
-                            Spacer()
-                            Button(isSelecting ? "取消" : "批量加入") {
-                                withAnimation(.easeOut(duration: 0.18)) {
-                                    isSelecting.toggle()
-                                    selectedHashes.removeAll()
-                                }
-                            }
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(Theme.accent)
-                            .buttonStyle(GlassPressButtonStyle())
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 14)
-                        .padding(.bottom, 4)
-                    }
-
-                    ForEach(songs) { song in
-                        HStack(spacing: 8) {
-                            if isSelecting {
-                                Button {
-                                    toggle(song)
-                                } label: {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: selectedHashes.contains(song.id) ? "checkmark.circle.fill" : "circle")
-                                            .font(.system(size: 18, weight: .medium))
-                                            .foregroundColor(selectedHashes.contains(song.id) ? Theme.accent : Theme.secondaryText)
-                                            .frame(width: 22)
-                                        SongRow(song: song, showsMore: false)
-                                    }
-                                }
-                                .buttonStyle(GlassPressButtonStyle())
-                            } else {
-                                Button {
-                                    dismiss()
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
-                                        onSelect(song, songs)
-                                    }
-                                } label: {
-                                    SongRow(song: song, showsMore: false)
-                                }
-                                .buttonStyle(GlassPressButtonStyle())
-                                SongMoreMenu(song: song)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                    }
-
-                    if !loading && !songs.isEmpty && hasMore {
-                        Button {
-                            Task { await loadMore() }
-                        } label: {
-                            HStack(spacing: 6) {
-                                if loadingMore { ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.text)) }
-                                Text(loadingMore ? "加载中…" : "加载更多")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(Theme.secondaryText)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                        }
-                        .buttonStyle(GlassPressButtonStyle())
-                        .disabled(loadingMore)
-                        .id("playlist-more-\(songs.count)")
-                    } else if !loading && !message.isEmpty && !songs.isEmpty {
                         Text(message)
-                            .font(.system(size: 11))
+                            .font(.system(size: 13))
                             .foregroundColor(Theme.secondaryText)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
+                            .padding(.top, 24)
+                    } else if !songs.isEmpty {
+                        Rectangle()
+                            .fill(Theme.separator.opacity(0.62))
+                            .frame(height: 0.5)
+                            .padding(.horizontal, 16)
+
+                        ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                            VStack(spacing: 0) {
+                                HStack(spacing: 8) {
+                                    if isSelecting {
+                                        Button {
+                                            toggle(song)
+                                        } label: {
+                                            HStack(spacing: 8) {
+                                                Image(systemName: selectedHashes.contains(song.id) ? "checkmark.circle.fill" : "circle")
+                                                    .font(.system(size: 18, weight: .medium))
+                                                    .foregroundColor(selectedHashes.contains(song.id) ? Theme.accent : Theme.secondaryText)
+                                                    .frame(width: 22)
+                                                SongRow(song: song, showsMore: false)
+                                            }
+                                        }
+                                        .buttonStyle(GlassPressButtonStyle())
+                                    } else {
+                                        Button {
+                                            dismiss()
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+                                                onSelect(song, songs)
+                                            }
+                                        } label: {
+                                            SongRow(song: song, showsMore: false)
+                                        }
+                                        .buttonStyle(GlassPressButtonStyle())
+                                        SongMoreMenu(song: song)
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+
+                                if index < songs.count - 1 {
+                                    Rectangle()
+                                        .fill(Theme.separator.opacity(0.55))
+                                        .frame(height: 0.5)
+                                        .padding(.leading, 64)
+                                        .padding(.trailing, 16)
+                                }
+                            }
+                            .opacity(rowsVisible ? 1 : 0)
+                            .offset(y: rowsVisible ? 0 : 10)
+                            .animation(
+                                .easeOut(duration: 0.26)
+                                    .delay(min(Double(index) * 0.025, 0.18)),
+                                value: rowsVisible
+                            )
+                        }
+
+                        if !loading && !songs.isEmpty && hasMore {
+                            Button {
+                                Task { await loadMore() }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    if loadingMore { ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.text)) }
+                                    Text(loadingMore ? "加载中…" : "加载更多")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(Theme.secondaryText)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                            }
+                            .buttonStyle(GlassPressButtonStyle())
+                            .disabled(loadingMore)
+                            .id("playlist-more-\(songs.count)")
+                        } else if !loading && !message.isEmpty && !songs.isEmpty {
+                            Text(message)
+                                .font(.system(size: 11))
+                                .foregroundColor(Theme.secondaryText)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                        }
                     }
                 }
                 .padding(.bottom, isSelecting ? 12 : 24)
@@ -743,19 +768,11 @@ struct PlaylistDetailSheet: View {
                 }
             }
             .background(AppBackground())
-            .navigationTitle(playlist.name)
+            .navigationTitle(playlist.isCollected ? "收藏歌单" : "歌单")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) { Button("关闭") { dismiss() } }
-                ToolbarItem(placement: .navigationBarLeading) {
-                    if !songs.isEmpty {
-                        Button {
-                            dismiss()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
-                                onSelect(songs[0], songs)
-                            }
-                        } label: { Label("播放全部", systemImage: "play.fill") }
-                    }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("关闭") { dismiss() }
                 }
             }
             .overlay(alignment: .top) {
@@ -763,11 +780,96 @@ struct PlaylistDetailSheet: View {
             }
         }
         .task { await loadMore() }
+        .onAppear {
+            if !headerVisible {
+                withAnimation(.spring(response: 0.44, dampingFraction: 0.86)) {
+                    headerVisible = true
+                }
+            }
+            if !songs.isEmpty { rowsVisible = true }
+        }
+        .onChange(of: songs.count) { count in
+            guard count > 0, !rowsVisible else { return }
+            withAnimation(.easeOut(duration: 0.28)) {
+                rowsVisible = true
+            }
+        }
         .sheet(isPresented: $showTargetPicker) {
             PlaylistTargetPicker { target in
                 Task { await addSelected(to: target) }
             }
         }
+    }
+
+    private var header: some View {
+        VStack(spacing: 14) {
+            CoverImage(url: coverURL, size: 150, radius: 18)
+                .shadow(color: .black.opacity(0.10), radius: 14, x: 0, y: 7)
+
+            Text(playlist.name)
+                .font(.system(size: 23, weight: .bold))
+                .foregroundColor(Theme.text)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .padding(.horizontal, 24)
+
+            HStack(spacing: 6) {
+                Text(playlist.isCollected ? "收藏歌单" : "歌单")
+                Text("·")
+                Text("\(playlist.count) 首")
+            }
+            .font(.system(size: 11, weight: .medium))
+            .foregroundColor(Theme.secondaryText)
+
+            HStack(spacing: 10) {
+                Button {
+                    guard let first = songs.first else { return }
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+                        onSelect(first, songs)
+                    }
+                } label: {
+                    HStack(spacing: 7) {
+                        Image(systemName: "play.fill")
+                        Text("播放全部")
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(Theme.accent)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(GlassPressButtonStyle())
+                .disabled(songs.isEmpty)
+                .opacity(songs.isEmpty ? 0.48 : 1)
+
+                Button {
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        isSelecting.toggle()
+                        selectedHashes.removeAll()
+                    }
+                } label: {
+                    Text(isSelecting ? "取消批量" : "批量加入")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(isSelecting ? Theme.accent : Theme.text)
+                        .frame(width: 104)
+                        .frame(height: 44)
+                        .background(Theme.chip)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(GlassPressButtonStyle())
+                .disabled(songs.isEmpty)
+                .opacity(songs.isEmpty ? 0.48 : 1)
+            }
+            .padding(.horizontal, 24)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 8)
+        .padding(.bottom, 18)
+        .opacity(headerVisible ? 1 : 0)
+        .scaleEffect(headerVisible ? 1 : 0.94)
+        .offset(y: headerVisible ? 0 : 14)
     }
 
     private var batchBar: some View {
@@ -1136,7 +1238,7 @@ struct ProfileView: View {
                             } label: {
                                 PlaylistCard(playlist: playlist)
                             }
-                            .buttonStyle(GlassPressButtonStyle())
+                            .buttonStyle(PlaylistCardButtonStyle())
                         }
                     }
                 }

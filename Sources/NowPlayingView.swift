@@ -88,8 +88,11 @@ struct NowPlayingView: View {
                         .transition(.opacity)
                 }
 
-                controls
-                    .padding(.top, showLyrics ? 8 : 18)
+                if !showLyrics {
+                    controls
+                        .padding(.top, 18)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
 
                 Spacer(minLength: 8)
 
@@ -261,6 +264,14 @@ struct NowPlayingView: View {
                 } label: {
                     Label("歌词来源", systemImage: "text.quote")
                 }
+
+                Divider()
+            }
+
+            Button {
+                activeSheet = .queue
+            } label: {
+                Label("播放列表", systemImage: "list.bullet")
             }
 
             if showLyrics {
@@ -495,39 +506,33 @@ struct NowPlayingView: View {
     }
 
     private var bottomActions: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 24) {
             bottomAction(title: "歌词", icon: "music.note", active: showLyrics) {
                 withAnimation(.easeInOut(duration: 0.32)) { showLyrics.toggle() }
             }
-            Spacer()
             bottomAction(title: "评论", icon: "text.bubble", disabled: player.current == nil) {
                 guard let song = player.current else { return }
                 activeSheet = .comments(song)
             }
-            Spacer()
-            bottomAction(title: "播放列表", icon: "list.bullet") {
-                activeSheet = .queue
-            }
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 40)
-        .padding(.top, 8)
-        .padding(.bottom, 16)
+        .padding(.leading, 30)
+        .padding(.trailing, 20)
+        .padding(.top, 2)
+        .padding(.bottom, 8)
     }
 
     private func bottomAction(title: String, icon: String, active: Bool = false,
                               disabled: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 19, weight: .medium))
-                Text(title)
-                    .font(.system(size: 10, weight: .medium))
-            }
-            .foregroundColor(active ? Theme.accent : (disabled ? Theme.tertiaryText : Theme.secondaryText))
-            .frame(width: 70, height: 48)
-            .contentShape(Rectangle())
+            Image(systemName: icon)
+                .font(.system(size: 24, weight: .medium))
+                .foregroundColor(active ? Theme.accent : (disabled ? Theme.tertiaryText : Theme.secondaryText))
+                .frame(width: 46, height: 46)
+                .contentShape(Rectangle())
         }
         .buttonStyle(GlassPressButtonStyle())
+        .accessibilityLabel(title)
         .disabled(disabled)
     }
 
