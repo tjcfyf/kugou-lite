@@ -84,22 +84,16 @@ struct RecommendView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
-                Text("发现")
-                    .font(.system(size: 28, weight: .bold))
+                Text(searchMode ? "搜索" : "今天想听点什么 🎧")
+                    .font(.system(size: 30, weight: .bold))
                     .foregroundColor(Theme.text)
-                if !searchMode {
-                    Text("今天想听点什么 🎧")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(Theme.accent)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Capsule().fill(Theme.accent.opacity(0.10)))
-                        .overlay(Capsule().stroke(Theme.accent.opacity(0.24), lineWidth: 0.6))
-                        .clipShape(Capsule())
-                }
-                Spacer()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+
+                Spacer(minLength: 8)
+
                 Button(action: toggleSearch) {
                     Image(systemName: searchMode ? "xmark" : "magnifyingglass")
                         .font(.system(size: 15, weight: .semibold))
@@ -113,36 +107,9 @@ struct RecommendView: View {
             }
 
             if !searchMode {
-                HStack {
-                    Text("每天一组，按你的口味来")
-                        .font(.system(size: 12))
-                        .foregroundColor(Theme.secondaryText)
-                    Spacer()
-                    if let first = model.songs.first {
-                        Button {
-                            onSelect(first, model.songs)
-                        } label: {
-                            Label("播放全部", systemImage: "play.fill")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 7)
-                                .background(
-                                    Capsule().fill(
-                                        LinearGradient(
-                                            colors: [Theme.accent.opacity(0.92), Theme.accent],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                )
-                                .overlay(Capsule().stroke(Color.white.opacity(0.32), lineWidth: 0.7))
-                                .shadow(color: Theme.accent.opacity(0.32), radius: 10, x: 0, y: 5)
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(GlassPressButtonStyle())
-                    }
-                }
+                Text("每天一组，按你的口味来")
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.secondaryText)
             }
         }
         .padding(.horizontal, 16)
@@ -215,7 +182,7 @@ struct RecommendView: View {
                 }
 
                 if !model.songs.isEmpty {
-                    SectionTitle(title: "每日推荐", subtitle: "\(model.songs.count) 首")
+                    dailyHeader
                     ForEach(model.songs, id: \.recommendRowID) { song in
                         SongRowWithMenu(song: song) {
                             onSelect(song, model.songs)
@@ -231,6 +198,37 @@ struct RecommendView: View {
             await library.enrichMissingCovers()
             ranks = (try? await KGService.ranks()) ?? ranks
         }
+    }
+
+    private var dailyHeader: some View {
+        HStack(spacing: 8) {
+            Text("每日推荐")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(Theme.text)
+
+            Text("\(model.songs.count) 首")
+                .font(.system(size: 11))
+                .foregroundColor(Theme.secondaryText)
+
+            Spacer(minLength: 8)
+
+            if let first = model.songs.first {
+                Button {
+                    onSelect(first, model.songs)
+                } label: {
+                    Label("播放全部", systemImage: "play.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Theme.accent))
+                }
+                .buttonStyle(GlassPressButtonStyle())
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 18)
+        .padding(.bottom, 6)
     }
 
     private var searchBody: some View {

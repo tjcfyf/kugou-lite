@@ -10,7 +10,6 @@ struct NowPlayingView: View {
     @State private var lyricSize: LyricTextSize = Preferences.lyricSize
     @State private var showRemaining = true
     @State private var showLyrics = false
-    @GestureState private var coverDragOffset: CGFloat = 0
     @AppStorage(Preferences.lyricFollowKey) private var lyricAutoFollow = true
     @State private var isScrubbing = false
     @State private var scrubTime: Double = 0
@@ -256,26 +255,9 @@ struct NowPlayingView: View {
         CoverImage(url: player.current?.coverURL, size: artworkSize, radius: 16)
             .shadow(color: .black.opacity(colorScheme == .dark ? 0.42 : 0.16),
                     radius: 22, x: 0, y: 12)
-            .offset(x: coverDragOffset)
-            .animation(.interactiveSpring(response: 0.34, dampingFraction: 0.82), value: coverDragOffset)
-            .gesture(
-                DragGesture(minimumDistance: 12)
-                    .updating($coverDragOffset) { value, state, _ in
-                        if abs(value.translation.width) > abs(value.translation.height) {
-                            state = value.translation.width
-                        }
-                    }
-                    .onEnded { value in
-                        let dx = value.translation.width
-                        guard abs(dx) > 55, abs(dx) > abs(value.translation.height) else { return }
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        if dx < 0 { player.next() } else { player.previous() }
-                    }
-            )
-            .onTapGesture(count: 2) {
-                player.toggle()
-            }
             .padding(.horizontal, 36)
+            // 封面不再接收切歌/双击手势，让播放页的系统的下拉收出手势覆盖整张封面。
+            .allowsHitTesting(false)
     }
 
     private var titleBlock: some View {
