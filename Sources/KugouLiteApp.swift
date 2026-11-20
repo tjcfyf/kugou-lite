@@ -44,19 +44,23 @@ struct RootView: View {
                     profileTab
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             FloatingTabBar(tab: $tab, onOpenPlayer: { showPlayer = true })
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sheet(isPresented: $showPlayer) {
             NowPlayingView()
                 .environmentObject(player)
         }
         .overlay(alignment: .top) {
-            if let toast = player.toast {
-                ToastView(text: toast)
+            Group {
+                if let toast = player.toast {
+                    ToastView(text: toast)
+                }
             }
+            .animation(.easeOut(duration: 0.22), value: player.toast)
         }
-        .animation(.easeOut(duration: 0.22), value: player.toast)
         .preferredColorScheme(resolvedScheme)
         .background(
             SystemSchemeProbe(scheme: $systemScheme)

@@ -295,9 +295,7 @@ struct FloatingTabBar: View {
 
     private func tabButton(title: String, icon: String, tag: Int) -> some View {
         Button {
-            withAnimation(.easeOut(duration: 0.18)) {
-                tab = tag
-            }
+            tab = tag
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: icon)
@@ -346,7 +344,7 @@ struct FloatingTabBar: View {
 /// 没有歌曲封面时的通用圆形封面，缓慢旋转。
 struct RotatingAlbumPlaceholder: View {
     let size: CGFloat
-    @State private var angle: Double = 0
+    @State private var spinning = false
 
     var body: some View {
         ZStack {
@@ -371,12 +369,10 @@ struct RotatingAlbumPlaceholder: View {
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
-        .rotationEffect(.degrees(angle))
+        .rotationEffect(.degrees(spinning ? 360 : 0))
+        .animation(.linear(duration: 7).repeatForever(autoreverses: false), value: spinning)
         .onAppear {
-            angle = 0
-            withAnimation(.linear(duration: 7).repeatForever(autoreverses: false)) {
-                angle = 360
-            }
+            spinning = true
         }
     }
 }
