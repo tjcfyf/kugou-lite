@@ -324,6 +324,7 @@ struct FloatingTabBar: View {
     @Binding var tab: Int
     let onOpenPlayer: () -> Void
     @Environment(\.colorScheme) private var colorScheme
+    @Namespace private var tabSelection
 
     var body: some View {
         HStack(spacing: 0) {
@@ -337,15 +338,15 @@ struct FloatingTabBar: View {
 
             tabButton(title: "我的", icon: "person.crop.circle", tag: 1)
         }
-        .padding(.horizontal, 10)
-        .frame(maxWidth: 300)
-        .frame(height: 56)
+        .padding(.horizontal, 12)
+        .frame(maxWidth: 320)
+        .frame(height: 60)
         .background(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
                 .fill(.ultraThinMaterial)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
                 .stroke(Theme.border, lineWidth: 0.5)
         )
         .shadow(
@@ -356,23 +357,34 @@ struct FloatingTabBar: View {
         )
         .padding(.horizontal, 18)
         .padding(.bottom, 8)
-        .animation(.easeInOut(duration: 0.18), value: tab)
+        .animation(.interpolatingSpring(stiffness: 240, damping: 26), value: tab)
     }
 
     private func tabButton(title: String, icon: String, tag: Int) -> some View {
         Button {
-            withAnimation(.easeInOut(duration: 0.18)) {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            withAnimation(.interpolatingSpring(stiffness: 240, damping: 26)) {
                 tab = tag
             }
         } label: {
-            VStack(spacing: 2) {
-                Image(systemName: icon)
-                    .font(.system(size: 24, weight: tab == tag ? .semibold : .regular))
-                Text(title)
-                    .font(.system(size: 10, weight: tab == tag ? .semibold : .regular))
+            ZStack {
+                if tab == tag {
+                    Capsule()
+                        .fill(Theme.accent.opacity(colorScheme == .dark ? 0.16 : 0.10))
+                        .matchedGeometryEffect(id: "selected-tab", in: tabSelection)
+                        .frame(width: 58, height: 46)
+                }
+
+                VStack(spacing: 2) {
+                    Image(systemName: icon)
+                        .font(.system(size: 25, weight: tab == tag ? .semibold : .regular))
+                        .scaleEffect(tab == tag ? 1.06 : 1)
+                    Text(title)
+                        .font(.system(size: 10, weight: tab == tag ? .semibold : .regular))
+                }
+                .foregroundColor(tab == tag ? Theme.accent : Theme.secondaryText)
             }
-            .foregroundColor(tab == tag ? Theme.accent : Theme.secondaryText)
-            .frame(width: 62, height: 50)
+            .frame(width: 66, height: 52)
             .contentShape(Rectangle())
         }
         .buttonStyle(GlassPressButtonStyle())
@@ -400,11 +412,13 @@ private struct FloatingAlbumButton: View {
                         .trim(from: 0, to: min(max(player.currentTime / player.duration, 0), 1))
                         .stroke(Theme.accent, lineWidth: 2)
                         .rotationEffect(.degrees(-90))
-                        .frame(width: 49, height: 49)
+                        .frame(width: 53, height: 53)
                 }
             }
-            .frame(width: 52, height: 52)
+            .frame(width: 56, height: 56)
+            .scaleEffect(player.isPlaying ? 1.0 : 0.985)
             .contentShape(Circle())
+            .animation(.easeInOut(duration: 0.22), value: player.isPlaying)
             .animation(.easeInOut(duration: 0.24), value: player.current?.id)
         }
         .buttonStyle(GlassPressButtonStyle())
@@ -421,9 +435,9 @@ private struct BottomArtwork: View {
     var body: some View {
         Group {
             if let song = player.current, let url = song.coverURL {
-                CoverImage(url: url, size: 46, radius: 23)
+                CoverImage(url: url, size: 50, radius: 25)
             } else {
-                RotatingAlbumPlaceholder(size: 46)
+                RotatingAlbumPlaceholder(size: 50)
             }
         }
         .transition(.opacity)

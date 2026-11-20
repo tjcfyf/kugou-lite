@@ -60,21 +60,30 @@ struct NowPlayingView: View {
 
                 if showLyrics {
                     lyricsTopBar
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     lyricView
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .move(edge: .bottom)),
+                            removal: .opacity
+                        ))
                 } else {
                     topBar
+                        .transition(.opacity)
 
                     Spacer(minLength: 14)
 
                     artwork
+                        .transition(.opacity.combined(with: .scale(scale: 0.94)))
 
                     Spacer(minLength: 16)
 
                     titleBlock
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
                     progress
                         .padding(.horizontal, 24)
                         .padding(.top, 16)
+                        .transition(.opacity)
                 }
 
                 controls
@@ -93,7 +102,7 @@ struct NowPlayingView: View {
                 .zIndex(11)
             }
         }
-        .animation(.easeInOut(duration: 0.24), value: showLyrics)
+        .animation(.easeInOut(duration: 0.32), value: showLyrics)
         .animation(.easeOut(duration: 0.22), value: player.toast)
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
@@ -139,6 +148,7 @@ struct NowPlayingView: View {
                 }
             )
             .ignoresSafeArea()
+            .animation(.easeInOut(duration: 0.35), value: lyricPhotoMode)
     }
 
     private var grabber: some View {
@@ -420,6 +430,7 @@ struct NowPlayingView: View {
                     )
             }
         }
+        .animation(isScrubbing ? nil : .linear(duration: 0.25), value: displayedTime)
     }
 
     private var controls: some View {
@@ -469,7 +480,7 @@ struct NowPlayingView: View {
     private var bottomActions: some View {
         HStack(spacing: 0) {
             bottomAction(title: "歌词", icon: "music.note", active: showLyrics) {
-                withAnimation(.easeInOut(duration: 0.24)) { showLyrics.toggle() }
+                withAnimation(.easeInOut(duration: 0.32)) { showLyrics.toggle() }
             }
             Spacer()
             bottomAction(title: "评论", icon: "text.bubble", disabled: player.current == nil) {
@@ -580,6 +591,7 @@ struct NowPlayingView: View {
                     }
                     .padding(.horizontal, 28)
                     .padding(.vertical, 26)
+                    .animation(.easeInOut(duration: 0.22), value: player.lyricIndex)
                 }
             }
             .onAppear {

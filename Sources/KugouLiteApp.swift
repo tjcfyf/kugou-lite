@@ -42,23 +42,28 @@ struct RootView: View {
                 discoverTab
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .opacity(tab == 0 ? 1 : 0)
+                    .offset(y: tab == 0 ? 0 : 8)
+                    .scaleEffect(tab == 0 ? 1 : 0.992, anchor: .top)
                     .allowsHitTesting(tab == 0)
                     .zIndex(tab == 0 ? 1 : 0)
 
                 profileTab
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .opacity(tab == 1 ? 1 : 0)
+                    .offset(y: tab == 1 ? 0 : 8)
+                    .scaleEffect(tab == 1 ? 1 : 0.992, anchor: .top)
                     .allowsHitTesting(tab == 1)
                     .zIndex(tab == 1 ? 1 : 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(.easeInOut(duration: 0.26), value: tab)
+            .animation(.easeInOut(duration: 0.28), value: tab)
 
             FloatingTabBar(tab: $tab, onOpenPlayer: { showPlayer = true })
                 .opacity(isSearching ? 0 : 1)
                 .offset(y: isSearching ? 64 : 0)
+                .scaleEffect(isSearching ? 0.94 : 1, anchor: .bottom)
                 .allowsHitTesting(!isSearching)
-                .animation(.easeInOut(duration: 0.2), value: isSearching)
+                .animation(.easeInOut(duration: 0.22), value: isSearching)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sheet(isPresented: $showPlayer) {
