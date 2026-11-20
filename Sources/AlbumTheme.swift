@@ -4,6 +4,7 @@ import Combine
 
 /// 当前播放封面的全局主题色。播放页、底栏和所有页面背景都跟随它，
 /// 但颜色只用于渐变和强调，不改变正文的黑白层级。
+@MainActor
 final class AlbumThemeStore: ObservableObject {
     static let shared = AlbumThemeStore()
 
