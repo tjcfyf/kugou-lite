@@ -154,6 +154,7 @@ enum Preferences {
     static let coverSwipeKey = "kg.gesture.cover.swipe"
     static let coverDoubleTapKey = "kg.gesture.cover.doubletap"
     static let keepAwakeKey = "kg.player.keepawake"
+    static let sleepWaitKey = "kg.sleep.waitforend"
     static let themeModeKey = "kg.theme.mode"
 
     static var quality: AudioQuality {

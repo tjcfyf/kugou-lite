@@ -31,12 +31,14 @@ final class SearchModel: ObservableObject {
         }
     }
 
-    func submit() {
-        let keyword = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !keyword.isEmpty else { return }
+    func submit(_ keyword: String? = nil) {
+        let raw = keyword ?? query
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
         searchTask?.cancel()
-        lastKeyword = keyword
-        searchTask = Task { [weak self] in await self?.run(keyword) }
+        lastKeyword = trimmed
+        if query != trimmed { query = trimmed }
+        searchTask = Task { [weak self] in await self?.run(trimmed) }
     }
 
     private func run(_ keyword: String) async {
@@ -176,17 +178,17 @@ extension SearchView {
                     .font(.system(size: 12))
                     .foregroundColor(Theme.secondaryText)
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 8)], alignment: .leading, spacing: 8) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 8)], alignment: .leading, spacing: 8) {
                     ForEach(historyWords, id: \.self) { word in
-                        HStack(spacing: 5) {
+                        HStack(spacing: 8) {
                             Button {
-                                model.query = word
-                                model.submit()
+                                model.submit(word)
                             } label: {
                                 Text(word)
                                     .font(.system(size: 12))
                                     .foregroundColor(Theme.text.opacity(0.85))
                                     .lineLimit(1)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .buttonStyle(.plain)
 
@@ -195,9 +197,10 @@ extension SearchView {
                                 historyWords = Preferences.searchHistory
                             } label: {
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 8, weight: .semibold))
+                                    .font(.system(size: 9, weight: .semibold))
                                     .foregroundColor(Theme.secondaryText)
-                                    .frame(width: 14, height: 14)
+                                    .frame(width: 24, height: 22)
+                                    .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                         }
@@ -215,11 +218,10 @@ extension SearchView {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(Theme.text)
                     .padding(.top, 10)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 8)], alignment: .leading, spacing: 8) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 8)], alignment: .leading, spacing: 8) {
                     ForEach(hotKeywords, id: \.self) { word in
                         Button {
-                            model.query = word
-                            model.submit()
+                            model.submit(word)
                         } label: {
                             Text(word)
                                 .font(.system(size: 12))

@@ -23,6 +23,28 @@ struct SleepCountdownText: View {
     }
 }
 
+struct SleepWaitForTrackEndToggle: View {
+    @EnvironmentObject private var player: PlayerEngine
+
+    var body: some View {
+        Toggle(isOn: Binding(
+            get: { player.sleepWaitForTrackEnd },
+            set: { player.setSleepWaitForTrackEnd($0) }
+        )) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("定时到点后，等本首播完再暂停")
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.text)
+                Text(player.sleepWaitForTrackEnd ? "到点不会立刻切停，播完当前歌曲再暂停" : "关闭时到点立即暂停")
+                    .font(.system(size: 10))
+                    .foregroundColor(Theme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .toggleStyle(SwitchToggleStyle(tint: Theme.accent))
+    }
+}
+
 struct GestureSettingsCard: View {
     @AppStorage(Preferences.coverSwipeKey) private var swipeEnabled = true
     @AppStorage(Preferences.coverDoubleTapKey) private var doubleTapEnabled = true
@@ -291,7 +313,7 @@ struct SettingsView: View {
                     SleepCountdownText(deadline: player.sleepDeadline)
                 }
                 Spacer()
-                Text(player.sleepAfterCurrent ? "不再自动切歌" : (player.sleepDeadline == nil ? "到点自动暂停" : "每秒刷新"))
+                Text(player.sleepAfterCurrent ? "本首播完即暂停" : (player.sleepDeadline == nil ? "未设定时" : (player.sleepWaitForTrackEnd ? "到点后等本首播完" : "到点自动暂停")))
                     .font(.system(size: 11))
                     .foregroundColor(Theme.secondaryText)
             }
@@ -311,25 +333,7 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                 }
             }
-            Toggle(isOn: Binding(
-                get: { player.sleepAfterCurrent },
-                set: { player.setSleepAfterCurrent($0) }
-            )) {
-                Text("播完当前歌曲后暂停")
-                    .font(.system(size: 12))
-                    .foregroundColor(Theme.text)
-            }
-            .toggleStyle(SwitchToggleStyle(tint: Theme.accent))
-
-            Toggle(isOn: Binding(
-                get: { player.sleepAfterCurrent },
-                set: { player.setSleepAfterCurrent($0) }
-            )) {
-                Text("播完当前歌曲后暂停")
-                    .font(.system(size: 12))
-                    .foregroundColor(Theme.text)
-            }
-            .toggleStyle(SwitchToggleStyle(tint: Theme.accent))
+            SleepWaitForTrackEndToggle()
 
             HStack(spacing: 10) {
                 Stepper(value: $customMinutes, in: 1...180) {
@@ -461,7 +465,7 @@ struct PlayerSettingsView: View {
                     SleepCountdownText(deadline: player.sleepDeadline)
                 }
                 Spacer()
-                Text(player.sleepAfterCurrent ? "不再自动切歌" : (player.sleepDeadline == nil ? "到点自动暂停" : "实时倒计时"))
+                Text(player.sleepAfterCurrent ? "本首播完即暂停" : (player.sleepDeadline == nil ? "未设定时" : (player.sleepWaitForTrackEnd ? "到点后等本首播完" : "到点自动暂停")))
                     .font(.system(size: 11))
                     .foregroundColor(Theme.secondaryText)
             }
@@ -481,6 +485,7 @@ struct PlayerSettingsView: View {
                     .buttonStyle(.plain)
                 }
             }
+            SleepWaitForTrackEndToggle()
             HStack(spacing: 10) {
                 Stepper(value: $customMinutes, in: 1...180) {
                     Text("自定义 \(customMinutes) 分钟")

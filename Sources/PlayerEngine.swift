@@ -17,6 +17,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     @Published var toast: String?
     @Published private(set) var sleepDeadline: Date?
     @Published private(set) var sleepAfterCurrent = false
+    @Published private(set) var sleepWaitForTrackEnd = UserDefaults.standard.bool(forKey: Preferences.sleepWaitKey)
     @Published private(set) var currentQuality: String = ""
     @Published private(set) var playMode: PlayMode = Preferences.playMode
     @Published private(set) var playbackRate: Float = Preferences.playbackRate
@@ -136,13 +137,13 @@ final class PlayerEngine: NSObject, ObservableObject {
     }
 
     func setSleepTimer(minutes: Int?) {
-        if minutes != nil { sleepAfterCurrent = false }
+        sleepAfterCurrent = false
         sleepDeadline = minutes.flatMap { Date().addingTimeInterval(Double($0) * 60) }
     }
 
-    func setSleepAfterCurrent(_ enabled: Bool) {
-        sleepAfterCurrent = enabled
-        if enabled { sleepDeadline = nil }
+    func setSleepWaitForTrackEnd(_ enabled: Bool) {
+        sleepWaitForTrackEnd = enabled
+        UserDefaults.standard.set(enabled, forKey: Preferences.sleepWaitKey)
     }
 
     func removeFromQueue(at target: Int) {
@@ -333,9 +334,14 @@ final class PlayerEngine: NSObject, ObservableObject {
         }
         if let deadline = sleepDeadline, Date() >= deadline {
             sleepDeadline = nil
-            player.pause()
-            isPlaying = false
-            showToast("睡眠定时已到，已暂停")
+            if sleepWaitForTrackEnd {
+                sleepAfterCurrent = true
+                showToast("睡眠定时已到，等本首播完再暂停")
+            } else {
+                player.pause()
+                isPlaying = false
+                showToast("睡眠定时已到，已暂停")
+            }
         }
         updateLyricIndex(seconds)
         if Int(seconds) % 5 == 0 {
@@ -354,6 +360,16 @@ final class PlayerEngine: NSObject, ObservableObject {
     }
 
     @objc private func handleEnded() {
+        if let deadline = sleepDeadline, Date() >= deadline {
+            sleepDeadline = nil
+            if !sleepWaitForTrackEnd {
+                player.pause()
+                isPlaying = false
+                showToast("睡眠定时已到，已暂停")
+                return
+            }
+            sleepAfterCurrent = true
+        }
         if sleepAfterCurrent {
             sleepAfterCurrent = false
             player.pause()
