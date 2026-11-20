@@ -88,7 +88,9 @@ enum KGUser {
             return nil
         }
         if let profile = await fetchProfile(lite: true, token: token) { return profile }
-        return await fetchProfile(lite: false, token: token)
+        if let profile = await fetchProfile(lite: false, token: token) { return profile }
+        // 资料接口的 RSA 参数偶尔被风控，退一步从云歌单列表里取当前账号的昵称/头像。
+        return await KGService.profileFromPlaylists()
     }
 
     private static func fetchProfile(lite: Bool, token: String) async -> KugouProfile? {

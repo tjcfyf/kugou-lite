@@ -327,11 +327,15 @@ enum KGService {
 
     private static func allPlaylists(type: Int) async throws -> [CloudPlaylist] {
         var result: [CloudPlaylist] = []
+        var seen = Set<String>()
         var page = 1
         while page <= 8 {
             let batch = try await playlists(type: type, page: page)
             if batch.isEmpty { break }
-            result.append(contentsOf: batch)
+            for playlist in batch {
+                let key = playlist.listid ?? playlist.id
+                if seen.insert(key).inserted { result.append(playlist) }
+            }
             if batch.count < 30 { break }
             page += 1
         }
@@ -358,43 +362,136 @@ enum KGService {
             throw KGError.server("歌单接口返回格式异常")
         }
         let container = root["data"] as? [String: Any]
-        let raw = container?["info"] as? [[String: Any]]
-            ?? container?["list"] as? [[String: Any]]
-            ?? container?["lists"] as? [[String: Any]]
-            ?? root["info"] as? [[String: Any]]
-            ?? []
+        var raw: [(item: [String: Any], hint: Int)] = []
+        if let info = container?["info"] as? [String: Any] {
+            let groups: [(String, Int)] = [("self", 0), ("collect", 1), ("love", 1), ("list", type)]
+            for (key, hint) in groups {
+                if let list = info[key] as? [[String: Any]] {
+                    raw.append(contentsOf: list.map { (item: $0, hint: hint) })
+                }
+            }
+        }
+        if let info = container?["info"] as? [[String: Any]] {
+            raw.append(contentsOf: info.map { (item: $0, hint: type) })
+        }
+        for key in ["list", "lists"] {
+            if let list = container?[key] as? [[String: Any]] {
+                raw.append(contentsOf: list.map { (item: $0, hint: type) })
+            }
+        }
+        if let info = root["info"] as? [[String: Any]] {
+            raw.append(contentsOf: info.map { (item: $0, hint: type) })
+        }
         if raw.isEmpty, let status = Song.intValue(root["status"]), status != 1 {
             let code = Song.intValue(root["error_code"]) ?? 0
             let message = (root["error"] as? String) ?? (root["error_msg"] as? String) ?? ""
             throw KGError.server("歌单接口失败（\(status)/\(code)）\(message.isEmpty ? "" : "：\(message)")")
         }
-        return raw.compactMap { item in
-            let listid = stringValue(item["listid"])
-                ?? stringValue(item["list_create_listid"])
+        return raw.compactMap { pair in
+            let item = pair.item
+            let listid = stringValue(item["list_create_listid"])
+                ?? stringValue(item["listid"])
+                ?? stringValue(item["list_id"])
             let gid = stringValue(item["global_collection_id"])
                 ?? stringValue(item["list_create_gid"])
+                ?? stringValue(item["specialid"])
                 ?? stringValue(item["gid"])
             guard let id = gid ?? listid, !id.isEmpty else { return nil }
             let name = stringValue(item["name"])
                 ?? stringValue(item["list_name"])
+                ?? stringValue(item["listname"])
                 ?? stringValue(item["specialname"])
+                ?? stringValue(item["title"])
                 ?? "未命名歌单"
             let count = Song.intValue(item["count"])
+                ?? Song.intValue(item["m_count"])
                 ?? Song.intValue(item["song_count"])
-                ?? Song.intValue(item["percount"])
+                ?? Song.intValue(item["total"])
+                ?? Song.intValue(item["list_count"])
                 ?? 0
             let cover = findImage(in: item)
-            let creator = stringValue(item["list_create_userid"]) ?? stringValue(item["userid"])
-            let reportedType = Song.intValue(item["type"]) ?? type
+            let creator = stringValue(item["list_create_userid"])
+                ?? stringValue(item["userid"])
+                ?? stringValue(item["user_id"])
+                ?? stringValue(item["owner_id"])
+            let reportedType = Song.intValue(item["type"]) ?? pair.hint
             var resolvedType = reportedType
             if resolvedType != 1, let creatorID = creator, creatorID != String(KGApi.shared.userid) {
-                // type=2 的汇总列表里没有可靠的 type 字段，收藏歌单的创建者不是自己。
+                // 收藏歌单的创建者不是自己；type=2 汇总里也靠这个区分。
                 resolvedType = 1
             }
             if resolvedType == 2 { resolvedType = 0 }
             return CloudPlaylist(id: id, name: name, count: count, cover: cover,
                                  listid: listid, type: resolvedType, creatorID: creator)
         }
+    }
+
+    /// 从云歌单列表里提取当前账号昵称/头像，给资料接口做兜底。
+    static func profileFromPlaylists() async -> KugouProfile? {
+        guard let token = KGApi.shared.token, KGApi.shared.userid != 0 else { return nil }
+        guard let data = try? await KGApi.shared.post(
+            path: "/v7/get_all_list",
+            params: ["plat": "1", "userid": String(KGApi.shared.userid), "token": token],
+            body: [
+                "userid": KGApi.shared.userid,
+                "token": token,
+                "total_ver": 979,
+                "type": 2,
+                "page": 1,
+                "pagesize": 30
+            ],
+            router: "cloudlist.service.kugou.com",
+            lite: true
+        ), let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        let container = root["data"] as? [String: Any]
+        var items: [[String: Any]] = []
+        if let info = container?["info"] as? [String: Any] {
+            for key in ["self", "collect", "love", "list"] {
+                items.append(contentsOf: info[key] as? [[String: Any]] ?? [])
+            }
+        }
+        if let info = container?["info"] as? [[String: Any]] {
+            items.append(contentsOf: info)
+        }
+        for key in ["list", "lists"] {
+            items.append(contentsOf: container?[key] as? [[String: Any]] ?? [])
+        }
+        if let direct = container, let nickname = stringValue(direct["nickname"]) {
+            let avatar = stringValue(direct["pic"]) ?? stringValue(direct["avatar"])
+            return KugouProfile(nickname: nickname, avatarURL: normalizedAvatar(avatar), signature: nil)
+        }
+
+        let ownID = String(KGApi.shared.userid)
+        let selected = items.first { item in
+            let creator = stringValue(item["list_create_userid"])
+                ?? stringValue(item["userid"])
+                ?? stringValue(item["user_id"])
+                ?? stringValue(item["owner_id"])
+            return creator == ownID
+        } ?? (items.count == 1 ? items[0] : nil)
+        guard let item = selected else { return nil }
+        let nickname = stringValue(item["nickname"])
+            ?? stringValue(item["username"])
+            ?? stringValue(item["user_name"])
+            ?? stringValue(item["list_create_username"])
+            ?? ""
+        let avatarRaw = stringValue(item["create_user_pic"])
+            ?? stringValue(item["user_pic"])
+            ?? stringValue(item["avatar"])
+            ?? stringValue(item["headimg"])
+        guard !nickname.isEmpty || avatarRaw != nil else { return nil }
+        return KugouProfile(nickname: nickname, avatarURL: normalizedAvatar(avatarRaw), signature: nil)
+    }
+
+    private static func normalizedAvatar(_ raw: String?) -> String? {
+        guard var value = raw, !value.isEmpty else { return nil }
+        value = value.replacingOccurrences(of: "{size}", with: "120")
+        if value.hasPrefix("http://") {
+            value = "https://" + String(value.dropFirst("http://".count))
+        }
+        return value.hasPrefix("http") ? value : nil
     }
 
     static func playlistSongs(playlist: CloudPlaylist, page: Int = 1, pageSize: Int = 30) async throws -> [Song] {
@@ -460,6 +557,7 @@ enum KGService {
             ?? container?["file_list"] as? [[String: Any]]
             ?? root["songs"] as? [[String: Any]]
             ?? root["info"] as? [[String: Any]]
+            ?? root["data"] as? [[String: Any]]
             ?? []
         return raw.compactMap { normalizePlaylistSong($0) }
     }
