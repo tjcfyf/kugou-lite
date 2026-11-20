@@ -17,6 +17,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     @Published var toast: String?
     @Published private(set) var sleepDeadline: Date?
     @Published private(set) var currentQuality: String = ""
+    @Published private(set) var playMode: PlayMode = Preferences.playMode
 
     private let player = AVPlayer()
     private var timeObserver: Any?
@@ -28,6 +29,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     private var loadTask: Task<Void, Never>?
     private var lyricTask: Task<Void, Never>?
     private var urlCache: [String: URL] = [:]
+    private var recentAutoIndices: [Int] = []
     private var toastTask: Task<Void, Never>?
 
     override init() {
@@ -77,8 +79,25 @@ final class PlayerEngine: NSObject, ObservableObject {
     }
 
     func next() {
+        advance(automatic: false)
+    }
+
+    func cyclePlayMode() {
+        playMode = playMode.next
+        Preferences.playMode = playMode
+        showToast("播放模式：\(playMode.title)")
+    }
+
+    private func advance(automatic: Bool) {
         guard !queue.isEmpty else { return }
-        index = (index + 1) % queue.count
+        if automatic, playMode == .shuffle, queue.count > 1 {
+            let candidates = queue.indices.filter { $0 != index && !recentAutoIndices.contains($0) }
+            index = (candidates.isEmpty ? queue.indices.filter { $0 != index } : candidates).randomElement() ?? index
+            recentAutoIndices.append(index)
+            if recentAutoIndices.count > 6 { recentAutoIndices.removeFirst() }
+        } else {
+            index = (index + 1) % queue.count
+        }
         load(queue[index], resume: false)
     }
 
@@ -267,8 +286,24 @@ final class PlayerEngine: NSObject, ObservableObject {
     }
 
     @objc private func handleEnded() {
+        if playMode == .single {
+            seek(to: 0)
+            player.play()
+            isPlaying = true
+            return
+        }
         if let hash = current?.FileHash { PlaybackMemory.clear(hash) }
-        next()
+        advance(automatic: true)
+    }
+
+    func moveQueue(from source: IndexSet, to destination: Int) {
+        guard let playing = current else { return }
+        var updated = queue
+        updated.move(fromOffsets: source, toOffset: destination)
+        queue = updated
+        if let newIndex = queue.firstIndex(where: { $0.FileHash == playing.FileHash }) {
+            index = newIndex
+        }
     }
 
     // MARK: - Helpers

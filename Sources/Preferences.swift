@@ -38,15 +38,53 @@ enum AudioQuality: String, CaseIterable, Identifiable {
     }
 }
 
+enum PlayMode: String, CaseIterable, Identifiable {
+    case loop
+    case single
+    case shuffle
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .loop: return "列表循环"
+        case .single: return "单曲循环"
+        case .shuffle: return "随机播放"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .loop: return "repeat"
+        case .single: return "repeat.1"
+        case .shuffle: return "shuffle"
+        }
+    }
+
+    var next: PlayMode {
+        switch self {
+        case .loop: return .single
+        case .single: return .shuffle
+        case .shuffle: return .loop
+        }
+    }
+}
+
 enum Preferences {
     private static let qualityKey = "kg.quality"
     private static let historyKey = "kg.search.history"
     private static let recentKey = "kg.recent.songs"
     private static let favoriteKey = "kg.favorite.songs"
+    private static let playModeKey = "kg.play.mode"
 
     static var quality: AudioQuality {
         get { AudioQuality(rawValue: UserDefaults.standard.string(forKey: qualityKey) ?? "") ?? .standard }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: qualityKey) }
+    }
+
+    static var playMode: PlayMode {
+        get { PlayMode(rawValue: UserDefaults.standard.string(forKey: playModeKey) ?? "") ?? .loop }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: playModeKey) }
     }
 
     static var searchHistory: [String] {

@@ -669,6 +669,7 @@ struct ProfileView: View {
 struct QueueView: View {
     @EnvironmentObject private var player: PlayerEngine
     @Environment(\.dismiss) private var dismiss
+    @State private var editMode: EditMode = .inactive
 
     var body: some View {
         NavigationView {
@@ -706,7 +707,11 @@ struct QueueView: View {
                         } label: { Label("移除", systemImage: "trash") }
                     }
                 }
+                .onMove { source, destination in
+                    player.moveQueue(from: source, to: destination)
+                }
             }
+            .environment(\.editMode, $editMode)
             .listStyle(.plain)
             .background(Theme.background.ignoresSafeArea())
             .navigationTitle("播放列表")
@@ -715,7 +720,10 @@ struct QueueView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("关闭") { dismiss() }
                 }
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItemGroup(placement: .navigationBarLeading) {
+                    Button(editMode == .active ? "完成" : "排序") {
+                        withAnimation { editMode = editMode == .active ? .inactive : .active }
+                    }
                     Button("清空") { player.clearQueue() }
                         .disabled(player.queueSongs.isEmpty)
                 }

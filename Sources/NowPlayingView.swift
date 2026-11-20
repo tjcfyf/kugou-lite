@@ -173,7 +173,13 @@ struct NowPlayingView: View {
     }
 
     private var controls: some View {
-        HStack(spacing: 44) {
+        HStack(spacing: 30) {
+            Button { player.cyclePlayMode() } label: {
+                Image(systemName: player.playMode.icon)
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundColor(player.playMode == .loop ? .white.opacity(0.55) : Theme.accent)
+            }
+
             Button { player.previous() } label: {
                 Image(systemName: "backward.fill")
                     .font(.system(size: 24))
