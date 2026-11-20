@@ -66,7 +66,7 @@ struct RootView: View {
                 .animation(.easeInOut(duration: 0.22), value: isSearching)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .sheet(isPresented: $showPlayer) {
+        .fullScreenCover(isPresented: $showPlayer) {
             NowPlayingView()
                 .environmentObject(PlayerEngine.shared)
         }

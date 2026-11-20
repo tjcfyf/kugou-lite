@@ -121,9 +121,9 @@ enum AppTheme: String, CaseIterable, Identifiable {
 }
 
 enum LyricTextSize: Int, CaseIterable, Identifiable {
-    case small = 0
-    case normal = 1
-    case large = 2
+    case small = 1
+    case normal = 2
+    case large = 3
 
     var id: Int { rawValue }
     var title: String {
@@ -135,12 +135,18 @@ enum LyricTextSize: Int, CaseIterable, Identifiable {
     }
     var fontSize: CGFloat {
         switch self {
-        case .small: return 13
-        case .normal: return 15
-        case .large: return 18
+        case .small: return 15
+        case .normal: return 18
+        case .large: return 22
         }
     }
-    var next: LyricTextSize { LyricTextSize(rawValue: (rawValue + 1) % 3) ?? .normal }
+    var next: LyricTextSize {
+        switch self {
+        case .small: return .normal
+        case .normal: return .large
+        case .large: return .small
+        }
+    }
 }
 
 enum Preferences {

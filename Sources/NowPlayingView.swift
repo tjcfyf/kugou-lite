@@ -18,6 +18,8 @@ struct NowPlayingView: View {
     @State private var scrubTime: Double = 0
     @State private var lyricClockTime: Double = 0
     @State private var lyricClockDate = Date()
+    @State private var paletteColor: Color?
+    @State private var paletteURL: String?
 
     private var qualityLabel: String {
         let quality = player.currentQuality
@@ -58,8 +60,6 @@ struct NowPlayingView: View {
             background
 
             VStack(spacing: 0) {
-                grabber
-
                 if showLyrics {
                     lyricsTopBar
                         .transition(.opacity.combined(with: .move(edge: .top)))
@@ -132,36 +132,54 @@ struct NowPlayingView: View {
     }
 
     private var background: some View {
-        Theme.background
-            .overlay(
-                GeometryReader { geo in
-                    ZStack {
-                        if let url = player.current?.coverURL {
-                            CoverImage(url: url, size: max(geo.size.width, geo.size.height), radius: 0)
-                                .scaleEffect(showLyrics && lyricPhotoMode ? 1.02 : 1.28)
-                                .blur(radius: showLyrics && lyricPhotoMode ? 0 : 56)
-                                .opacity(showLyrics && lyricPhotoMode
-                                         ? (colorScheme == .dark ? 0.88 : 0.82)
-                                         : (colorScheme == .dark ? 0.28 : 0.12))
-                        }
-                        Theme.background.opacity(showLyrics && lyricPhotoMode
-                                                 ? (colorScheme == .dark ? 0.38 : 0.56)
-                                                 : (colorScheme == .dark ? 0.64 : 0.86))
+        GeometryReader { geo in
+            ZStack {
+                Theme.background
+
+                if let url = player.current?.coverURL {
+                    CoverImage(url: url, size: max(geo.size.width, geo.size.height), radius: 0) { loadedURL, image in
+                        guard let loadedURL = loadedURL,
+                              let image = image,
+                              loadedURL == player.current?.coverURL else { return }
+                        updatePalette(image, for: loadedURL)
                     }
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .clipped()
+                    .scaleEffect(showLyrics && lyricPhotoMode ? 1.02 : 1)
+                    .blur(radius: showLyrics && lyricPhotoMode ? 0 : 80)
+                    .opacity(showLyrics && lyricPhotoMode
+                             ? (colorScheme == .dark ? 0.88 : 0.82)
+                             : 0)
                 }
-            )
-            .ignoresSafeArea()
-            .animation(.easeInOut(duration: 0.35), value: lyricPhotoMode)
+
+                if !(showLyrics && lyricPhotoMode), let palette = paletteColor {
+                    LinearGradient(
+                        stops: [
+                            .init(color: palette.opacity(colorScheme == .dark ? 0.60 : 0.34), location: 0),
+                            .init(color: palette.opacity(colorScheme == .dark ? 0.24 : 0.13), location: 0.52),
+                            .init(color: Theme.background, location: 1)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
+
+                if showLyrics && lyricPhotoMode {
+                    Theme.background.opacity(colorScheme == .dark ? 0.38 : 0.56)
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .clipped()
+        }
+        .ignoresSafeArea()
+        .animation(.easeInOut(duration: 0.35), value: lyricPhotoMode)
     }
 
-    private var grabber: some View {
-        Capsule()
-            .fill(Theme.text.opacity(0.16))
-            .frame(width: 36, height: 5)
-            .padding(.top, 10)
-            .padding(.bottom, 6)
+    private func updatePalette(_ image: UIImage, for url: URL) {
+        guard paletteURL != url.absoluteString else { return }
+        guard let color = ArtworkPalette.dominantColor(from: image) else { return }
+        paletteURL = url.absoluteString
+        withAnimation(.easeInOut(duration: 0.46)) {
+            paletteColor = Color(uiColor: color)
+        }
     }
 
     private var topBar: some View {
@@ -506,18 +524,17 @@ struct NowPlayingView: View {
     }
 
     private var bottomActions: some View {
-        HStack(spacing: 24) {
+        HStack(spacing: 0) {
             bottomAction(title: "歌词", icon: "music.note", active: showLyrics) {
                 withAnimation(.easeInOut(duration: 0.32)) { showLyrics.toggle() }
             }
+            Spacer(minLength: 0)
             bottomAction(title: "评论", icon: "text.bubble", disabled: player.current == nil) {
                 guard let song = player.current else { return }
                 activeSheet = .comments(song)
             }
-            Spacer(minLength: 0)
         }
-        .padding(.leading, 30)
-        .padding(.trailing, 20)
+        .padding(.horizontal, 42)
         .padding(.top, 2)
         .padding(.bottom, 8)
     }
@@ -576,7 +593,7 @@ struct NowPlayingView: View {
                     }
                     .padding(.top, 24)
                 } else {
-                    LazyVStack(alignment: .leading, spacing: 16) {
+                    LazyVStack(alignment: .leading, spacing: 22) {
                         ForEach(Array(player.lyric.enumerated()), id: \.offset) { index, line in
                             VStack(alignment: .leading, spacing: 5) {
                                 Group {
@@ -592,7 +609,7 @@ struct NowPlayingView: View {
                                               ? lyricSize.fontSize + 7
                                               : lyricSize.fontSize + 1,
                                               weight: index == player.lyricIndex ? .bold : .medium))
-                                .lineSpacing(3)
+                                .lineSpacing(4)
                                 .multilineTextAlignment(.leading)
 
                                 if showTranslation, let translation = line.translation,
@@ -612,6 +629,9 @@ struct NowPlayingView: View {
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .blur(radius: player.lyricIndex >= 0 && index > player.lyricIndex ? 1.5 : 0)
+                            .opacity(player.lyricIndex >= 0 && index > player.lyricIndex ? 0.55 : 1)
+                            .animation(.easeInOut(duration: 0.28), value: player.lyricIndex)
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 player.seek(to: max(0, line.time - Double(player.lyricOffsetMs) / 1000))

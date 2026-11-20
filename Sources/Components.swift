@@ -110,6 +110,7 @@ struct CoverImage: View {
     let url: URL?
     var size: CGFloat = 44
     var radius: CGFloat = 8
+    var showsBorder: Bool = true
     var onLoad: ((URL?, UIImage?) -> Void)? = nil
 
     @State private var image: UIImage?
@@ -150,10 +151,12 @@ struct CoverImage: View {
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .stroke(Theme.border, lineWidth: 0.5)
-        )
+        .overlay {
+            if showsBorder {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(Theme.border, lineWidth: 0.5)
+            }
+        }
     }
 
     private var placeholder: some View {
@@ -338,7 +341,7 @@ struct FloatingTabBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            tabButton(title: "发现", icon: "sparkles", tag: 0)
+            tabButton(title: "发现", icon: "sparkles", tag: 0, iconSize: 29)
 
             Spacer(minLength: 0)
 
@@ -370,7 +373,7 @@ struct FloatingTabBar: View {
         .animation(.interpolatingSpring(stiffness: 240, damping: 26), value: tab)
     }
 
-    private func tabButton(title: String, icon: String, tag: Int) -> some View {
+    private func tabButton(title: String, icon: String, tag: Int, iconSize: CGFloat = 32) -> some View {
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             withAnimation(.interpolatingSpring(stiffness: 240, damping: 26)) {
@@ -382,11 +385,11 @@ struct FloatingTabBar: View {
                     Circle()
                         .fill(Color.white.opacity(colorScheme == .dark ? 0.09 : 0.32))
                         .matchedGeometryEffect(id: "selected-tab", in: tabSelection)
-                        .frame(width: 48, height: 48)
+                        .frame(width: 45, height: 45)
                 }
 
                 Image(systemName: icon)
-                    .font(.system(size: 32, weight: tab == tag ? .semibold : .regular))
+                    .font(.system(size: iconSize, weight: tab == tag ? .semibold : .regular))
                     .foregroundColor(tab == tag ? Theme.accent : Theme.secondaryText)
             }
             .frame(width: 56, height: 56)
