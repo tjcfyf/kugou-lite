@@ -113,30 +113,6 @@ struct SearchView: View {
                         .padding(.top, 48)
                 }
 
-                if !model.songs.isEmpty && !model.isLoading {
-                    HStack {
-                        Text("共 \(model.songs.count) 首结果")
-                            .font(.system(size: 12))
-                            .foregroundColor(Theme.secondaryText)
-                        Spacer()
-                        Button {
-                            onSelect(model.songs[0])
-                        } label: {
-                            Label("播放全部", systemImage: "play.fill")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Theme.accent)
-                                .cornerRadius(8)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                    .padding(.bottom, 2)
-                }
-
                 ForEach(model.songs) { song in
                     Button {
                         onSelect(song)

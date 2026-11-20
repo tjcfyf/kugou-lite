@@ -35,6 +35,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     private var urlCache: [String: URL] = [:]
     private var recentAutoIndices: [Int] = []
     private var toastTask: Task<Void, Never>?
+    private var artworkTask: Task<Void, Never>?
 
     override init() {
         super.init()
@@ -57,6 +58,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     deinit {
         if let observer = timeObserver { player.removeTimeObserver(observer) }
         NotificationCenter.default.removeObserver(self)
+        artworkTask?.cancel()
     }
 
     // MARK: - Control
@@ -493,10 +495,22 @@ final class PlayerEngine: NSObject, ObservableObject {
             MPMediaItemPropertyPlaybackDuration: duration,
             MPNowPlayingInfoPropertyDefaultPlaybackRate: playbackRate,
         ]
-        if let url = song.coverURL {
-            info[MPMediaItemPropertyArtwork] = makeArtwork(url)
-        }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+
+        // 封面必须异步取：断网时 Data(contentsOf:) 会卡住主线程，整页无响应。
+        artworkTask?.cancel()
+        guard let url = song.coverURL else { return }
+        artworkTask = Task { [weak self] in
+            guard let self = self else { return }
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 8
+            let result = try? await URLSession.shared.data(for: request)
+            guard !Task.isCancelled, self.current?.FileHash == song.FileHash,
+                  let data = result?.0, let image = UIImage(data: data) else { return }
+            var latest = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+            latest[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = latest
+        }
     }
 
     private func refreshNowPlayingPlayback() {
@@ -507,8 +521,4 @@ final class PlayerEngine: NSObject, ObservableObject {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
 
-    private func makeArtwork(_ url: URL) -> MPMediaItemArtwork? {
-        guard let data = try? Data(contentsOf: url), let image = UIImage(data: data) else { return nil }
-        return MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-    }
 }
