@@ -18,6 +18,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     @Published private(set) var sleepDeadline: Date?
     @Published private(set) var currentQuality: String = ""
     @Published private(set) var playMode: PlayMode = Preferences.playMode
+    @Published private(set) var playbackRate: Float = Preferences.playbackRate
 
     private let player = AVPlayer()
     private var timeObserver: Any?
@@ -73,6 +74,7 @@ final class PlayerEngine: NSObject, ObservableObject {
             isPlaying = false
         } else {
             player.play()
+            player.rate = playbackRate
             isPlaying = true
         }
         refreshNowPlayingPlayback()
@@ -90,6 +92,19 @@ final class PlayerEngine: NSObject, ObservableObject {
         playMode = mode
         Preferences.playMode = mode
         showToast("播放模式：\(mode.title)")
+    }
+
+    func setPlaybackRate(_ rate: Float) {
+        let clamped = min(max(rate, 0.5), 2.0)
+        playbackRate = clamped
+        Preferences.playbackRate = clamped
+        if isPlaying {
+            player.rate = clamped
+            refreshNowPlayingPlayback()
+        }
+        let title = PlaybackSpeed.allCases.first(where: { abs($0.rawValue - clamped) < 0.01 })?.title
+            ?? String(format: "%.2gx", clamped)
+        showToast("播放速度：\(title)")
     }
 
     private func advance(automatic: Bool) {
@@ -203,6 +218,7 @@ final class PlayerEngine: NSObject, ObservableObject {
         guard player.currentItem != nil else { return }
         let clamped = max(0, min(seconds, max(duration, 0.1)))
         player.seek(to: CMTime(seconds: clamped, preferredTimescale: 600))
+        if isPlaying { player.rate = playbackRate }
         currentTime = clamped
         updateLyricIndex(clamped)
         refreshNowPlayingPlayback()
@@ -242,6 +258,7 @@ final class PlayerEngine: NSObject, ObservableObject {
                 if Task.isCancelled { return }
                 let item = AVPlayerItem(url: url)
                 item.preferredForwardBufferDuration = 3
+                item.audioTimePitchAlgorithm = .spectral
                 self.player.replaceCurrentItem(with: item)
                 self.currentQuality = KGService.quality(for: song.FileHash) ?? ""
                 let saved = resume ? PlaybackMemory.position(for: song.FileHash) : 0
@@ -252,6 +269,7 @@ final class PlayerEngine: NSObject, ObservableObject {
                     self.currentTime = saved
                 }
                 self.player.play()
+                self.player.rate = self.playbackRate
                 self.isLoading = false
                 LibraryStore.shared.addRecent(song)
                 let seconds = item.duration.seconds
@@ -332,6 +350,7 @@ final class PlayerEngine: NSObject, ObservableObject {
         if playMode == .single {
             seek(to: 0)
             player.play()
+            player.rate = playbackRate
             isPlaying = true
             return
         }
@@ -385,7 +404,12 @@ final class PlayerEngine: NSObject, ObservableObject {
     private func registerRemoteCommands() {
         let center = MPRemoteCommandCenter.shared()
         center.playCommand.addTarget { [weak self] _ in
-            self?.player.play(); self?.isPlaying = true; self?.refreshNowPlayingPlayback(); return .success
+            guard let self = self else { return .commandFailed }
+            self.player.play()
+            self.player.rate = self.playbackRate
+            self.isPlaying = true
+            self.refreshNowPlayingPlayback()
+            return .success
         }
         center.pauseCommand.addTarget { [weak self] _ in
             self?.player.pause(); self?.isPlaying = false; self?.refreshNowPlayingPlayback(); return .success
@@ -408,6 +432,7 @@ final class PlayerEngine: NSObject, ObservableObject {
             MPMediaItemPropertyTitle: song.SongName,
             MPMediaItemPropertyArtist: song.artist,
             MPMediaItemPropertyPlaybackDuration: duration,
+            MPNowPlayingInfoPropertyDefaultPlaybackRate: playbackRate,
         ]
         if let url = song.coverURL {
             info[MPMediaItemPropertyArtwork] = makeArtwork(url)
@@ -418,7 +443,8 @@ final class PlayerEngine: NSObject, ObservableObject {
     private func refreshNowPlayingPlayback() {
         var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
         info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
-        info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1 : 0
+        info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? playbackRate : 0
+        info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = playbackRate
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
 

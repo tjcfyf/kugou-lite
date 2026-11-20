@@ -39,6 +39,7 @@ struct SettingsView: View {
                 VStack(spacing: 16) {
                     appearanceCard
                     playModeCard
+                    speedCard
                     qualityCard
                     lyricCard
                     sleepCard
@@ -109,6 +110,30 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                 }
             }
+        }
+    }
+
+    private var speedCard: some View {
+        card(title: "播放速度") {
+            HStack(spacing: 8) {
+                ForEach(PlaybackSpeed.allCases) { item in
+                    Button {
+                        player.setPlaybackRate(item.rawValue)
+                    } label: {
+                        Text(item.title)
+                            .font(.system(size: 12, weight: player.playbackRate == item.rawValue ? .semibold : .medium))
+                            .foregroundColor(player.playbackRate == item.rawValue ? .white : Theme.text)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 9)
+                            .background(player.playbackRate == item.rawValue ? Theme.accent : Theme.chip)
+                            .cornerRadius(9)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Text("切换后立即生效，人声不会变调")
+                .font(.system(size: 11))
+                .foregroundColor(Theme.secondaryText)
         }
     }
 
@@ -298,6 +323,7 @@ struct PlayerSettingsView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     sleepCard
+                    speedCard
                     lyricCard
                     qualityCard
                 }
@@ -358,6 +384,27 @@ struct PlayerSettingsView: View {
                         .cornerRadius(9)
                 }
                 .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var speedCard: some View {
+        card(title: "播放速度") {
+            HStack(spacing: 8) {
+                ForEach(PlaybackSpeed.allCases) { item in
+                    Button {
+                        player.setPlaybackRate(item.rawValue)
+                    } label: {
+                        Text(item.title)
+                            .font(.system(size: 12, weight: player.playbackRate == item.rawValue ? .semibold : .medium))
+                            .foregroundColor(player.playbackRate == item.rawValue ? .white : Theme.text)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(player.playbackRate == item.rawValue ? Theme.accent : Theme.chip)
+                            .cornerRadius(9)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
     }

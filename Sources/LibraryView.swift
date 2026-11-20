@@ -745,15 +745,45 @@ struct ProfileView: View {
 }
 
 
+private enum LibrarySongSort: String, CaseIterable, Identifiable {
+    case recent
+    case title
+    case artist
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .recent: return "默认顺序"
+        case .title: return "按歌名"
+        case .artist: return "按歌手"
+        }
+    }
+}
+
 struct LibrarySongsView: View {
     let kind: LibraryKind
     @ObservedObject private var library = LibraryStore.shared
     @EnvironmentObject private var player: PlayerEngine
     @Environment(\.dismiss) private var dismiss
     @State private var showClearConfirm = false
+    @State private var sort: LibrarySongSort = .recent
 
     private var songs: [Song] {
-        kind == .favorites ? library.favorites : library.recent
+        let base = kind == .favorites ? library.favorites : library.recent
+        switch sort {
+        case .recent:
+            return base
+        case .title:
+            return base.sorted { $0.SongName.localizedStandardCompare($1.SongName) == .orderedAscending }
+        case .artist:
+            return base.sorted {
+                let artistOrder = $0.artist.localizedStandardCompare($1.artist)
+                if artistOrder == .orderedSame {
+                    return $0.SongName.localizedStandardCompare($1.SongName) == .orderedAscending
+                }
+                return artistOrder == .orderedAscending
+            }
+        }
     }
 
     var body: some View {
@@ -798,6 +828,18 @@ struct LibrarySongsView: View {
                     .disabled(songs.isEmpty)
                 }
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Menu {
+                        ForEach(LibrarySongSort.allCases) { option in
+                            Button {
+                                sort = option
+                            } label: {
+                                Text((sort == option ? "✓ " : "") + option.title)
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                    }
+                    .disabled(songs.isEmpty)
                     Button("清空") { showClearConfirm = true }
                         .disabled(songs.isEmpty)
                     Button("关闭") { dismiss() }

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct NowPlayingView: View {
     @EnvironmentObject private var player: PlayerEngine
@@ -7,6 +8,8 @@ struct NowPlayingView: View {
     @State private var showPlayerSettings = false
     @ObservedObject private var library = LibraryStore.shared
     @State private var lyricSize: LyricTextSize = Preferences.lyricSize
+    @State private var showRemaining = false
+    @GestureState private var coverDragOffset: CGFloat = 0
 
     var body: some View {
         ZStack {
@@ -17,6 +20,25 @@ struct NowPlayingView: View {
 
                 CoverImage(url: player.current?.coverURL, size: 262, radius: 24)
                     .shadow(color: .black.opacity(0.4), radius: 24, x: 0, y: 12)
+                    .offset(x: coverDragOffset)
+                    .animation(.interactiveSpring(response: 0.34, dampingFraction: 0.82), value: coverDragOffset)
+                    .gesture(
+                        DragGesture(minimumDistance: 12)
+                            .updating($coverDragOffset) { value, state, _ in
+                                if abs(value.translation.width) > abs(value.translation.height) {
+                                    state = value.translation.width
+                                }
+                            }
+                            .onEnded { value in
+                                let dx = value.translation.width
+                                guard abs(dx) > 55, abs(dx) > abs(value.translation.height) else { return }
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                if dx < 0 { player.next() } else { player.previous() }
+                            }
+                    )
+                    .onTapGesture(count: 2) {
+                        player.toggle()
+                    }
                     .padding(.top, 8)
 
                 VStack(spacing: 4) {
@@ -53,6 +75,17 @@ struct NowPlayingView: View {
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 4)
                                         .stroke(Theme.accent.opacity(0.7), lineWidth: 0.6)
+                                )
+                        }
+                        if player.playbackRate != 1.0 {
+                            Text(PlaybackSpeed.allCases.first(where: { abs($0.rawValue - player.playbackRate) < 0.01 })?.title ?? "\(player.playbackRate)x")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(Theme.secondaryText)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .stroke(Theme.separator, lineWidth: 0.6)
                                 )
                         }
                     }
@@ -142,6 +175,7 @@ struct NowPlayingView: View {
         Capsule()
             .fill(Theme.separator)
             .frame(width: 38, height: 5)
+            .padding(.top, 10)
             .padding(.bottom, 8)
     }
 
@@ -178,7 +212,17 @@ struct NowPlayingView: View {
             HStack {
                 Text(format(player.currentTime))
                 Spacer()
-                Text(format(player.duration))
+                Button {
+                    showRemaining.toggle()
+                } label: {
+                    Text(showRemaining
+                         ? "-\(format(max(player.duration - player.currentTime, 0)))"
+                         : format(player.duration))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(Theme.text.opacity(0.62))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
             .font(.system(size: 11, weight: .medium))
             .foregroundColor(Theme.text.opacity(0.62))

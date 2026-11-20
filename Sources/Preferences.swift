@@ -76,6 +76,26 @@ enum PlayMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum PlaybackSpeed: Float, CaseIterable, Identifiable {
+    case x075 = 0.75
+    case x100 = 1.0
+    case x125 = 1.25
+    case x150 = 1.5
+    case x200 = 2.0
+
+    var id: Float { rawValue }
+
+    var title: String {
+        switch self {
+        case .x075: return "0.75x"
+        case .x100: return "1.0x"
+        case .x125: return "1.25x"
+        case .x150: return "1.5x"
+        case .x200: return "2.0x"
+        }
+    }
+}
+
 enum AppTheme: String, CaseIterable, Identifiable {
     case system
     case dark
@@ -130,6 +150,7 @@ enum Preferences {
     private static let favoriteKey = "kg.favorite.songs"
     private static let playModeKey = "kg.play.mode"
     private static let lyricSizeKey = "kg.lyric.size"
+    private static let playbackRateKey = "kg.playback.rate"
     static let themeModeKey = "kg.theme.mode"
 
     static var quality: AudioQuality {
@@ -154,6 +175,18 @@ enum Preferences {
     static var playMode: PlayMode {
         get { PlayMode(rawValue: UserDefaults.standard.string(forKey: playModeKey) ?? "") ?? .loop }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: playModeKey) }
+    }
+
+    static var playbackRate: Float {
+        get {
+            let value = UserDefaults.standard.double(forKey: playbackRateKey)
+            guard value > 0, value >= 0.5, value <= 2.0 else { return 1.0 }
+            return Float(value)
+        }
+        set {
+            let clamped = min(max(newValue, 0.5), 2.0)
+            UserDefaults.standard.set(Double(clamped), forKey: playbackRateKey)
+        }
     }
 
     static var searchHistory: [String] {
