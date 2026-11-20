@@ -135,9 +135,9 @@ enum LyricTextSize: Int, CaseIterable, Identifiable {
     }
     var fontSize: CGFloat {
         switch self {
-        case .small: return 15
-        case .normal: return 18
-        case .large: return 22
+        case .small: return 17
+        case .normal: return 20
+        case .large: return 23
         }
     }
     var next: LyricTextSize {

@@ -505,6 +505,59 @@ struct RankCard: View {
     }
 }
 
+/// 歌单/排行榜共用的全幅头图：上方清晰封面，向下逐渐变成模糊封面，
+/// 最后过渡到当前主题的底色（深色为黑、浅色为白），不再叠黑色蒙层。
+struct CollectionHero: View {
+    let coverURL: URL?
+    let height: CGFloat
+
+    var body: some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+
+            ZStack {
+                CoverImage(url: coverURL, size: max(width, height), radius: 0, showsBorder: false)
+                    .frame(width: width, height: height)
+                    .scaleEffect(1.12)
+                    .blur(radius: 24)
+                    .clipped()
+
+                CoverImage(url: coverURL, size: max(width, height), radius: 0, showsBorder: false)
+                    .frame(width: width, height: height)
+                    .mask(
+                        LinearGradient(
+                            stops: [
+                                .init(color: .black, location: 0),
+                                .init(color: .black, location: 0.38),
+                                .init(color: .clear, location: 0.84)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .clipped()
+
+            }
+            .frame(width: width, height: height)
+            .clipped()
+            .compositingGroup()
+            .mask(
+                LinearGradient(
+                    stops: [
+                        .init(color: .black, location: 0),
+                        .init(color: .black, location: 0.36),
+                        .init(color: .black.opacity(0.78), location: 0.62),
+                        .init(color: .clear, location: 1)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+        }
+        .frame(height: height)
+    }
+}
+
 struct RankDetailSheet: View {
     let rank: RankItem
     let onSelect: (Song, [Song]) -> Void
@@ -521,81 +574,107 @@ struct RankDetailSheet: View {
         rank.cover.flatMap(URL.init(string:))
     }
 
+    private var heroHeight: CGFloat {
+        min(max(UIScreen.main.bounds.height * 0.33, 240), 320)
+    }
+
     var body: some View {
-        NavigationView {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    header
+        ScrollView {
+            VStack(spacing: 0) {
+                CollectionHero(coverURL: coverURL, height: heroHeight)
+                info
 
-                    Rectangle()
-                        .fill(Theme.separator.opacity(0.62))
-                        .frame(height: 0.5)
-                        .padding(.horizontal, 16)
+                Rectangle()
+                    .fill(Theme.separator.opacity(0.62))
+                    .frame(height: 0.5)
+                    .padding(.horizontal, 16)
 
-                    if loading {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
-                            .padding(.top, 28)
-                    } else if !message.isEmpty && songs.isEmpty {
-                        Text(message)
-                            .font(.system(size: 13))
-                            .foregroundColor(Theme.secondaryText)
-                            .padding(.top, 24)
-                    } else {
-                        ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                            VStack(spacing: 0) {
-                                SongRowWithMenu(song: song, index: index + 1) {
+                if loading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
+                        .padding(.top, 26)
+                } else if !message.isEmpty && songs.isEmpty {
+                    Text(message)
+                        .font(.system(size: 13))
+                        .foregroundColor(Theme.secondaryText)
+                        .padding(.top, 24)
+                } else if !songs.isEmpty {
+                    ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                        VStack(spacing: 0) {
+                            HStack(spacing: 8) {
+                                Button {
                                     dismiss()
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
                                         onSelect(song, songs)
                                     }
+                                } label: {
+                                    SongRow(song: song, showsMore: false)
                                 }
-                                .padding(.horizontal, 16)
+                                .buttonStyle(GlassPressButtonStyle())
+                                SongMoreMenu(song: song)
+                            }
+                            .padding(.horizontal, 16)
 
-                                if index < songs.count - 1 {
-                                    Rectangle()
-                                        .fill(Theme.separator.opacity(0.55))
-                                        .frame(height: 0.5)
-                                        .padding(.leading, 64)
-                                        .padding(.trailing, 16)
-                                }
+                            if index < songs.count - 1 {
+                                Rectangle()
+                                    .fill(Theme.separator.opacity(0.55))
+                                    .frame(height: 0.5)
+                                    .padding(.leading, 64)
+                                    .padding(.trailing, 16)
                             }
                         }
                     }
 
-                    if !loading && !songs.isEmpty && hasMore {
+                    if hasMore {
                         Button {
                             Task { await loadMore() }
                         } label: {
-                            Text(loadingMore ? "加载中…" : "加载更多")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(Theme.secondaryText)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
+                            HStack(spacing: 6) {
+                                if loadingMore {
+                                    ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.text))
+                                }
+                                Text(loadingMore ? "加载中…" : "加载更多")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Theme.secondaryText)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
                         }
                         .buttonStyle(GlassPressButtonStyle())
                         .disabled(loadingMore)
+                    } else if !message.isEmpty {
+                        Text(message)
+                            .font(.system(size: 11))
+                            .foregroundColor(Theme.secondaryText)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
                     }
                 }
-                .padding(.bottom, 24)
             }
-            .background(AppBackground())
-            .navigationTitle("排行榜")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("关闭") { dismiss() }
-                }
+            .padding(.bottom, 24)
+        }
+        .background(AppBackground())
+        .overlay(alignment: .topTrailing) {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 36, height: 36)
+                    .background(Color.black.opacity(0.28))
+                    .clipShape(Circle())
             }
+            .buttonStyle(GlassPressButtonStyle())
+            .padding(.top, 12)
+            .padding(.trailing, 16)
+            .accessibilityLabel("关闭排行榜")
         }
         .task { await loadMore() }
     }
 
-    private var header: some View {
+    private var info: some View {
         VStack(spacing: 12) {
-            CoverImage(url: coverURL, size: 138, radius: 16)
-                .shadow(color: .black.opacity(0.10), radius: 14, x: 0, y: 7)
-
             Text(rank.name)
                 .font(.system(size: 23, weight: .bold))
                 .foregroundColor(Theme.text)
@@ -637,13 +716,13 @@ struct RankDetailSheet: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
-                .background(Theme.accent)
+                .background(Theme.accentGradient)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(GlassPressButtonStyle())
             .disabled(songs.isEmpty)
             .opacity(songs.isEmpty ? 0.48 : 1)
-            .padding(.horizontal, 60)
+            .padding(.horizontal, 24)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 16)
@@ -653,19 +732,27 @@ struct RankDetailSheet: View {
     private func loadMore() async {
         guard !loadingMore else { return }
         loadingMore = true
+        if page == 1 { message = "" }
         do {
             let newSongs = try await KGService.rankSongs(rankid: rank.id, page: page, pageSize: 30)
-            let existing = Set(songs.map { $0.FileHash })
-            songs.append(contentsOf: newSongs.filter { !existing.contains($0.FileHash) })
+            if page == 1 {
+                songs = newSongs
+            } else {
+                let existing = Set(songs.map { $0.FileHash })
+                songs.append(contentsOf: newSongs.filter { !existing.contains($0.FileHash) })
+            }
             hasMore = newSongs.count >= 30
             page += 1
             loading = false
+            loadingMore = false
             if songs.isEmpty { message = "榜单暂时没有内容" }
         } catch {
             loading = false
-            message = (error as? LocalizedError)?.errorDescription ?? "榜单加载失败"
+            loadingMore = false
+            if songs.isEmpty {
+                message = (error as? LocalizedError)?.errorDescription ?? "榜单加载失败"
+            }
         }
-        loadingMore = false
     }
 }
 
@@ -743,7 +830,7 @@ struct PlaylistDetailSheet: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                hero
+                CollectionHero(coverURL: coverURL, height: heroHeight)
                 info
 
                 Rectangle()
@@ -859,28 +946,6 @@ struct PlaylistDetailSheet: View {
         }
     }
 
-    private var hero: some View {
-        let width = UIScreen.main.bounds.width
-        let height = heroHeight
-        return ZStack(alignment: .bottom) {
-            CoverImage(url: coverURL, size: max(width, height), radius: 0, showsBorder: false)
-                .frame(width: width, height: height)
-                .clipped()
-
-            LinearGradient(
-                stops: [
-                    .init(color: Color.black.opacity(0.36), location: 0),
-                    .init(color: Color.black.opacity(0.08), location: 0.44),
-                    .init(color: Theme.background.opacity(0.82), location: 0.76),
-                    .init(color: Theme.background, location: 1)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        }
-        .frame(width: width, height: height)
-    }
-
     private var info: some View {
         VStack(spacing: 12) {
             Text(playlist.name)
@@ -914,7 +979,7 @@ struct PlaylistDetailSheet: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
-                    .background(Theme.accent)
+                    .background(Theme.accentGradient)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(GlassPressButtonStyle())
@@ -1506,7 +1571,7 @@ struct ProfileView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
-                        .background(Theme.accent)
+                        .background(Theme.accentGradient)
                         .cornerRadius(9)
                 }
                 .buttonStyle(GlassPressButtonStyle())

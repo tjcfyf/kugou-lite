@@ -95,7 +95,7 @@ struct CommentsView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 9)
-                        .background(Theme.accent)
+                        .background(Theme.accentGradient)
                         .cornerRadius(10)
                 }
                 .buttonStyle(GlassPressButtonStyle())

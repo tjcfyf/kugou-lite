@@ -26,7 +26,7 @@ struct LyricSourceSheet: View {
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 8)
-                                    .background(Theme.accent)
+                                    .background(Theme.accentGradient)
                                     .cornerRadius(9)
                             }
                             .buttonStyle(GlassPressButtonStyle())

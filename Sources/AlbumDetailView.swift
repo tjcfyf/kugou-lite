@@ -106,7 +106,7 @@ struct AlbumDetailSheet: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(Theme.accent)
+                        .background(Theme.accentGradient)
                         .clipShape(Capsule())
                 }
                 .buttonStyle(GlassPressButtonStyle())

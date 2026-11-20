@@ -9,18 +9,21 @@ struct KugouLiteApp: App {
     }
     @StateObject private var player = PlayerEngine.shared
     @StateObject private var auth = AuthStore.shared
+    @StateObject private var albumTheme = AlbumThemeStore.shared
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(player)
                 .environmentObject(auth)
+                .environmentObject(albumTheme)
         }
     }
 }
 
 struct RootView: View {
     @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var albumTheme: AlbumThemeStore
     @State private var showPlayer = false
     @State private var showSettings = false
     @State private var tab = 0
@@ -74,7 +77,7 @@ struct RootView: View {
             ToastOverlay()
         }
         .preferredColorScheme(resolvedScheme)
-        .accentColor(Theme.accent)
+        .accentColor(albumTheme.accentColor)
         .background(
             SystemSchemeProbe(scheme: $systemScheme)
                 .frame(width: 1, height: 1)

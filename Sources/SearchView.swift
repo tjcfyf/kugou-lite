@@ -282,7 +282,7 @@ struct MiniPlayer: View {
                     }
                 }
                 .frame(width: 38, height: 38)
-                .background(Theme.accent)
+                .background(Theme.accentGradient)
                 .clipShape(Circle())
             }
             .buttonStyle(GlassPressButtonStyle())

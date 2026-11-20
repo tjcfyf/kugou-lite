@@ -3,6 +3,7 @@ import UIKit
 
 struct NowPlayingView: View {
     @EnvironmentObject private var player: PlayerEngine
+    @EnvironmentObject private var albumTheme: AlbumThemeStore
     @ObservedObject private var library = LibraryStore.shared
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
@@ -18,8 +19,7 @@ struct NowPlayingView: View {
     @State private var scrubTime: Double = 0
     @State private var lyricClockTime: Double = 0
     @State private var lyricClockDate = Date()
-    @State private var paletteColor: Color?
-    @State private var paletteURL: String?
+    @State private var dragOffset: CGFloat = 0
 
     private var qualityLabel: String {
         let quality = player.currentQuality
@@ -107,6 +107,9 @@ struct NowPlayingView: View {
                 .zIndex(11)
             }
         }
+        .offset(y: dragOffset)
+        .background(Theme.background.ignoresSafeArea())
+        .simultaneousGesture(dismissGesture)
         .animation(.easeInOut(duration: 0.32), value: showLyrics)
         .animation(.easeOut(duration: 0.22), value: player.toast)
         .sheet(item: $activeSheet) { sheet in
@@ -136,30 +139,25 @@ struct NowPlayingView: View {
             ZStack {
                 Theme.background
 
-                if let url = player.current?.coverURL {
-                    CoverImage(url: url, size: max(geo.size.width, geo.size.height), radius: 0) { loadedURL, image in
-                        guard let loadedURL = loadedURL,
-                              let image = image,
-                              loadedURL == player.current?.coverURL else { return }
-                        updatePalette(image, for: loadedURL)
-                    }
-                    .scaleEffect(showLyrics && lyricPhotoMode ? 1.02 : 1)
-                    .blur(radius: showLyrics && lyricPhotoMode ? 0 : 80)
-                    .opacity(showLyrics && lyricPhotoMode
-                             ? (colorScheme == .dark ? 0.88 : 0.82)
-                             : 0)
-                }
-
-                if !(showLyrics && lyricPhotoMode), let palette = paletteColor {
+                if !(showLyrics && lyricPhotoMode), let palette = albumTheme.paletteColor {
                     LinearGradient(
                         stops: [
-                            .init(color: palette.opacity(colorScheme == .dark ? 0.60 : 0.34), location: 0),
-                            .init(color: palette.opacity(colorScheme == .dark ? 0.24 : 0.13), location: 0.52),
+                            .init(color: palette.opacity(colorScheme == .dark ? 0.88 : 0.60), location: 0),
+                            .init(color: palette.opacity(colorScheme == .dark ? 0.46 : 0.30), location: 0.42),
+                            .init(color: palette.opacity(colorScheme == .dark ? 0.18 : 0.10), location: 0.76),
                             .init(color: Theme.background, location: 1)
                         ],
-                        startPoint: .top,
-                        endPoint: .bottom
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     )
+                }
+
+                if showLyrics && lyricPhotoMode, let url = player.current?.coverURL {
+                    CoverImage(url: url, size: max(geo.size.width, geo.size.height), radius: 0)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .scaleEffect(1.02)
+                        .blur(radius: 0)
+                        .opacity(colorScheme == .dark ? 0.88 : 0.82)
                 }
 
                 if showLyrics && lyricPhotoMode {
@@ -171,15 +169,36 @@ struct NowPlayingView: View {
         }
         .ignoresSafeArea()
         .animation(.easeInOut(duration: 0.35), value: lyricPhotoMode)
+        .animation(.easeInOut(duration: 0.55), value: albumTheme.paletteKey)
     }
 
-    private func updatePalette(_ image: UIImage, for url: URL) {
-        guard paletteURL != url.absoluteString else { return }
-        guard let color = ArtworkPalette.dominantColor(from: image) else { return }
-        paletteURL = url.absoluteString
-        withAnimation(.easeInOut(duration: 0.46)) {
-            paletteColor = Color(uiColor: color)
-        }
+    private var dismissGesture: some Gesture {
+        DragGesture(minimumDistance: 24, coordinateSpace: .local)
+            .onChanged { value in
+                guard activeSheet == nil else { return }
+                guard !showLyrics || value.startLocation.y < 100 else { return }
+                let vertical = value.translation.height
+                let horizontal = abs(value.translation.width)
+                guard vertical > 0, vertical > horizontal * 1.25 else { return }
+                dragOffset = min(vertical * 0.88, 280)
+            }
+            .onEnded { value in
+                guard activeSheet == nil else { return }
+                guard !showLyrics || value.startLocation.y < 100 else {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { dragOffset = 0 }
+                    return
+                }
+                let vertical = value.translation.height
+                let horizontal = abs(value.translation.width)
+                let predicted = value.predictedEndTranslation.height
+                if vertical > 110, vertical > horizontal, predicted > 120 {
+                    dismiss()
+                } else {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                        dragOffset = 0
+                    }
+                }
+            }
     }
 
     private var topBar: some View {
@@ -393,17 +412,24 @@ struct NowPlayingView: View {
                 let width = max(geo.size.width, 1)
                 let ratio = player.duration > 0 ? min(max(displayedTime / player.duration, 0), 1) : 0
                 ZStack(alignment: .leading) {
+                    // 透明进度：底线接近音质标签的淡度，播放段用主色渐变保持可读。
                     Capsule()
-                        .fill(Theme.text.opacity(0.14))
-                        .frame(height: 3)
+                        .fill(Theme.text.opacity(colorScheme == .dark ? 0.11 : 0.08))
+                        .frame(height: 2.5)
                     Capsule()
-                        .fill(Theme.accent)
-                        .frame(width: width * ratio, height: 3)
+                        .fill(
+                            LinearGradient(
+                                colors: [Theme.accent.opacity(0.42), Theme.accent.opacity(0.72)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: width * ratio, height: 2.5)
                     Circle()
-                        .fill(Theme.accent)
-                        .frame(width: 12, height: 12)
-                        .overlay(Circle().stroke(Theme.background.opacity(0.9), lineWidth: 1))
-                        .offset(x: width * ratio - 6)
+                        .fill(Theme.accent.opacity(0.62))
+                        .frame(width: 9, height: 9)
+                        .overlay(Circle().stroke(Theme.background.opacity(0.34), lineWidth: 0.6))
+                        .offset(x: width * ratio - 4.5)
 
                     if isScrubbing {
                         Text(format(displayedTime))
@@ -411,7 +437,7 @@ struct NowPlayingView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Theme.accent)
+                            .background(Theme.accent.opacity(0.78))
                             .cornerRadius(8)
                             .position(x: min(max(width * ratio, 30), max(width - 30, 30)), y: -12)
                     }
@@ -573,7 +599,7 @@ struct NowPlayingView: View {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 7)
-                                .background(Theme.accent)
+                                .background(Theme.accentGradient)
                                 .cornerRadius(9)
                             }
                             .buttonStyle(GlassPressButtonStyle())
@@ -593,7 +619,7 @@ struct NowPlayingView: View {
                     }
                     .padding(.top, 24)
                 } else {
-                    LazyVStack(alignment: .leading, spacing: 22) {
+                    LazyVStack(alignment: .leading, spacing: 28) {
                         ForEach(Array(player.lyric.enumerated()), id: \.offset) { index, line in
                             VStack(alignment: .leading, spacing: 5) {
                                 Group {
@@ -607,15 +633,15 @@ struct NowPlayingView: View {
                                 }
                                 .font(.system(size: index == player.lyricIndex
                                               ? lyricSize.fontSize + 7
-                                              : lyricSize.fontSize + 1,
+                                              : lyricSize.fontSize,
                                               weight: index == player.lyricIndex ? .bold : .medium))
-                                .lineSpacing(4)
+                                .lineSpacing(6)
                                 .multilineTextAlignment(.leading)
 
                                 if showTranslation, let translation = line.translation,
                                    !translation.isEmpty {
                                     Text(translation)
-                                        .font(.system(size: lyricSize.fontSize - 1, weight: .regular))
+                                        .font(.system(size: lyricSize.fontSize - 2, weight: .regular))
                                         .foregroundColor(Theme.secondaryText.opacity(colorScheme == .dark ? 0.68 : 0.78))
                                         .lineSpacing(2)
                                 }
@@ -623,14 +649,14 @@ struct NowPlayingView: View {
                                 if showRomanization, let romanization = line.romanization,
                                    !romanization.isEmpty {
                                     Text(romanization)
-                                        .font(.system(size: lyricSize.fontSize - 2, weight: .regular))
+                                        .font(.system(size: lyricSize.fontSize - 3, weight: .regular))
                                         .foregroundColor(Theme.tertiaryText.opacity(colorScheme == .dark ? 0.72 : 0.82))
                                         .lineSpacing(2)
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .blur(radius: player.lyricIndex >= 0 && index > player.lyricIndex ? 1.5 : 0)
-                            .opacity(player.lyricIndex >= 0 && index > player.lyricIndex ? 0.55 : 1)
+                            .blur(radius: index == player.lyricIndex ? 0 : 2.2)
+                            .opacity(index == player.lyricIndex ? 1 : 0.48)
                             .animation(.easeInOut(duration: 0.28), value: player.lyricIndex)
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -719,9 +745,7 @@ struct NowPlayingView: View {
         let base: (Double, Double, Double) = colorScheme == .dark
             ? (1.0, 1.0, 1.0)
             : (0.043, 0.071, 0.125)
-        let accent: (Double, Double, Double) = colorScheme == .dark
-            ? (0.039, 0.518, 1.0)
-            : (0.0, 0.478, 1.0)
+        let accent = albumTheme.accentComponents(for: colorScheme)
         let p = min(max(progress, 0), 1)
         return Color(
             red: base.0 + (accent.0 - base.0) * p,

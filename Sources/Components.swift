@@ -4,20 +4,49 @@ import Combine
 
 enum Theme {
     static let background = Color("Background")
-    static let card = Color("Card")
-    static let accent = Color("Accent")
+    // 半透明卡片让全局专辑色透出来，但正文仍保持原有的黑白层级。
+    static let card = Color("Card").opacity(0.88)
+    // 跟随根视图的 accentColor，切歌后所有强调色一起换掉。
+    static let accent = Color.accentColor
     static let text = Color("TextPrimary")
     static let secondaryText = Color("TextSecondary")
     static let tertiaryText = Color("TextTertiary")
-    static let chip = Color("Chip")
+    static let chip = Color("Chip").opacity(0.84)
     static let separator = Color("Separator")
     static let border = Color("Separator").opacity(0.72)
+
+    static var accentGradient: LinearGradient {
+        LinearGradient(
+            colors: [accent.opacity(0.96), accent.opacity(0.68)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 }
 
-/// iOS 原生式平面背景：一层实色，不加渐变、光晕或氛围材质。
+/// 全局背景：页面底色 + 当前播放封面的主色渐变。所有主页面、sheet 和详情页共用。
 struct AppBackground: View {
+    @ObservedObject private var albumTheme = AlbumThemeStore.shared
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
-        Theme.background.ignoresSafeArea()
+        ZStack {
+            Theme.background
+
+            if let palette = albumTheme.paletteColor {
+                LinearGradient(
+                    stops: [
+                        .init(color: palette.opacity(colorScheme == .dark ? 0.56 : 0.34), location: 0),
+                        .init(color: palette.opacity(colorScheme == .dark ? 0.27 : 0.15), location: 0.46),
+                        .init(color: .clear, location: 1)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
+        .ignoresSafeArea()
+        .animation(.easeInOut(duration: 0.55), value: albumTheme.paletteKey)
     }
 }
 
