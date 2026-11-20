@@ -779,7 +779,7 @@ struct ProfileView: View {
                     Text("我喜欢")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(Theme.text)
-                    Text("\(library.favorites.count) 首")
+                    Text(library.favoritesLoading ? "同步中…" : "\(library.favorites.count) 首")
                         .font(.system(size: 11))
                         .foregroundColor(Theme.secondaryText)
                 }
@@ -1117,9 +1117,20 @@ struct LibrarySongsView: View {
     var body: some View {
         NavigationView {
             List {
-                if songs.isEmpty {
+                if kind == .favorites && library.favoritesLoading && songs.isEmpty {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
+                        Text("正在同步官方「我喜欢」…")
+                            .font(.system(size: 13))
+                            .foregroundColor(Theme.secondaryText)
+                    }
+                    .listRowBackground(Theme.card)
+                } else if songs.isEmpty {
                     Text(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                         ? (kind == .favorites ? "还没有喜欢的歌曲，长按歌曲就能加入我喜欢" : "还没有播放记录")
+                         ? (kind == .favorites
+                            ? (library.favoritesMessage.isEmpty ? "官方「我喜欢」里还没有歌曲" : library.favoritesMessage)
+                            : "还没有播放记录")
                          : "没有匹配的歌曲")
                         .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
@@ -1135,7 +1146,10 @@ struct LibrarySongsView: View {
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
                                 if kind == .favorites {
-                                    library.toggleFavorite(song)
+                                    Task {
+                                        let result = await library.toggleFavorite(song)
+                                        if result == nil { player.showToast(library.favoritesMessage) }
+                                    }
                                 } else {
                                     library.removeRecent(song)
                                 }
@@ -1171,19 +1185,26 @@ struct LibrarySongsView: View {
                         Image(systemName: "arrow.up.arrow.down")
                     }
                     .disabled(songs.isEmpty)
-                    Button("清空") { showClearConfirm = true }
-                        .disabled(songs.isEmpty)
+                    if kind != .favorites {
+                        Button("清空") { showClearConfirm = true }
+                            .disabled(songs.isEmpty)
+                    }
                     Button("关闭") { dismiss() }
                 }
             }
             .confirmationDialog("确定清空\(kind.title)？", isPresented: $showClearConfirm, titleVisibility: .visible) {
                 Button("清空", role: .destructive) {
-                    if kind == .favorites { library.clearFavorites() } else { library.clearRecent() }
+                    library.clearRecent()
                 }
                 Button("取消", role: .cancel) {}
             }
         }
         .navigationViewStyle(.stack)
+        .task {
+            if kind == .favorites {
+                await library.refreshFavorites(force: true)
+            }
+        }
     }
 }
 

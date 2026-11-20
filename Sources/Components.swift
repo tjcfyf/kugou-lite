@@ -103,7 +103,7 @@ struct SongActionsSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private var isFavorite: Bool {
-        library.favorites.contains(where: { $0.FileHash == song.FileHash })
+        library.isFavorite(song)
     }
 
     var body: some View {
@@ -130,9 +130,15 @@ struct SongActionsSheet: View {
                 dismiss()
             }
             actionRow(title: isFavorite ? "取消我喜欢" : "我喜欢", icon: isFavorite ? "heart.fill" : "heart") {
-                let added = library.toggleFavorite(song)
-                player.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
                 dismiss()
+                Task {
+                    let added = await library.toggleFavorite(song)
+                    if let added = added {
+                        player.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
+                    } else {
+                        player.showToast(library.favoritesMessage)
+                    }
+                }
             }
             actionRow(title: "加入播放列表末尾", icon: "text.badge.plus") {
                 player.appendToQueue(song)
@@ -198,7 +204,7 @@ struct SongRow: View {
     @ObservedObject private var library = LibraryStore.shared
 
     private var isFavorite: Bool {
-        library.favorites.contains(where: { $0.FileHash == song.FileHash })
+        library.isFavorite(song)
     }
 
     var body: some View {
@@ -251,8 +257,14 @@ struct SongRow: View {
                 Label("加入播放列表", systemImage: "text.badge.plus")
             }
             Button {
-                let added = library.toggleFavorite(song)
-                player.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
+                Task {
+                    let added = await library.toggleFavorite(song)
+                    if let added = added {
+                        player.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
+                    } else {
+                        player.showToast(library.favoritesMessage)
+                    }
+                }
             } label: {
                 Label(isFavorite ? "取消我喜欢" : "我喜欢",
                       systemImage: isFavorite ? "heart.fill" : "heart")

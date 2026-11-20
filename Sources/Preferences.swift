@@ -288,6 +288,7 @@ extension Song {
         if let v = dict["payType"] { json["PayType"] = v }
         if let v = dict["mixSongID"] { json["MixSongID"] = v }
         if let v = dict["audioID"] { json["Audioid"] = v }
+        if let v = dict["fileID"] { json["FileID"] = v }
         if let v = dict["authorID"] { json["AuthorID"] = v }
         self.init(json: json)
     }
@@ -306,6 +307,7 @@ extension Song {
         if let v = PayType { value["payType"] = v }
         if let v = MixSongID { value["mixSongID"] = v }
         if let v = Audioid { value["audioID"] = v }
+        if let v = FileID { value["fileID"] = v }
         if let v = AuthorID { value["authorID"] = v }
         return value
     }

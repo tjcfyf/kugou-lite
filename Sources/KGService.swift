@@ -427,7 +427,8 @@ enum KGService {
     }
 
     /// 把一批歌曲加入指定自建歌单。官方接口支持一次传多首，适合批量操作。
-    static func addSongs(_ songs: [Song], to playlist: CloudPlaylist) async throws {
+    static func addSongs(_ songs: [Song], to playlist: CloudPlaylist,
+                         typeOverride: Int? = nil) async throws {
         guard let token = KGApi.shared.token, KGApi.shared.userid != 0 else {
             throw KGError.server("请先登录")
         }
@@ -435,7 +436,7 @@ enum KGService {
             throw KGError.server("这个歌单没有 listid，不能写入")
         }
         guard !songs.isEmpty else { return }
-        guard !playlist.isCollected else {
+        guard !playlist.isCollected || typeOverride == 0 else {
             throw KGError.server("收藏歌单不能直接写入，请选择我创建的歌单")
         }
 
@@ -447,7 +448,7 @@ enum KGService {
                 "hash": song.FileHash,
                 "size": 0,
                 "sort": 0,
-                "timelen": 0,
+                "timelen": (song.Duration ?? 0) * 1000,
                 "bitrate": 0,
                 "album_id": song.AlbumID ?? 0,
                 "mixsongid": song.MixSongID ?? song.Audioid ?? 0
@@ -466,7 +467,7 @@ enum KGService {
                 "token": token,
                 "listid": listid,
                 "list_ver": 0,
-                "type": 0,
+                "type": typeOverride ?? 0,
                 "slow_upload": 1,
                 "scene": "false;null",
                 "data": resources
@@ -482,6 +483,94 @@ enum KGService {
             let message = (root["error"]) as? String ?? (root["error_msg"] as? String) ?? ""
             throw KGError.server("加入歌单失败（\(status)/\(code)）\(message.isEmpty ? "" : "：\(message)")")
         }
+    }
+
+    /// 官方「我喜欢」歌单。名字优先，其次兼容“我的收藏 / favorite / liked”。
+    static func favoritePlaylist() async throws -> CloudPlaylist? {
+        let lists = try await playlists()
+        let trimmed = lists.filter {
+            let name = $0.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !name.isEmpty
+        }
+        let exact = trimmed.first { $0.name == "我喜欢" }
+        let primary = exact
+            ?? trimmed.first { $0.name.contains("我喜欢") }
+            ?? trimmed.first { $0.name.contains("我的收藏") }
+            ?? trimmed.first {
+                let lower = $0.name.lowercased()
+                return lower.contains("favorite") || lower.contains("liked")
+            }
+        guard let playlist = primary else { return nil }
+        let listid = playlist.listid ?? listIDFromGlobalID(playlist.id) ?? playlist.id
+        guard !listid.isEmpty else { return nil }
+        // 官方「我喜欢」在云歌单里按 type=0 处理，收藏分组只是接口返回的位置。
+        return CloudPlaylist(id: playlist.id, name: playlist.name, count: playlist.count,
+                             cover: playlist.cover, listid: listid, type: 0,
+                             creatorID: playlist.creatorID)
+    }
+
+    private static func listIDFromGlobalID(_ raw: String) -> String? {
+        let parts = raw.split(separator: "_")
+        guard parts.count >= 4, parts[0] == "collection" else { return nil }
+        let value = String(parts[3])
+        return value.isEmpty ? nil : value
+    }
+
+    /// 取消官方「我喜欢」中的一首歌：先找到该曲目的 fileid，再调删除接口。
+    static func removeFavorite(_ song: Song, from playlist: CloudPlaylist) async throws {
+        guard let token = KGApi.shared.token, KGApi.shared.userid != 0 else {
+            throw KGError.server("请先登录")
+        }
+        guard let listid = playlist.listid, !listid.isEmpty else {
+            throw KGError.server("官方「我喜欢」没有 listid，不能删除")
+        }
+        var fileID = song.FileID ?? 0
+        if fileID == 0 {
+            fileID = await findFavoriteFileID(hash: song.FileHash, playlist: playlist) ?? 0
+        }
+        guard fileID != 0 else {
+            throw KGError.server("官方「我喜欢」里没有找到这首歌，先同步再试")
+        }
+        let data = try await KGApi.shared.post(
+            path: "/v4/delete_songs",
+            params: [:],
+            body: [
+                "listid": listid,
+                "userid": KGApi.shared.userid,
+                "token": token,
+                "type": 0,
+                "list_ver": 0,
+                "data": [["fileid": fileID]]
+            ],
+            router: "cloudlist.service.kugou.com",
+            lite: true
+        )
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw KGError.server("取消我喜欢返回格式异常")
+        }
+        let status = Song.intValue(root["status"]) ?? 0
+        if status != 1 {
+            let code = Song.intValue(root["error_code"]) ?? 0
+            let message = (root["error"] as? String) ?? (root["error_msg"] as? String) ?? ""
+            throw KGError.server("取消我喜欢失败（\(status)/\(code)）\(message.isEmpty ? "" : "：\(message)")")
+        }
+    }
+
+    private static func findFavoriteFileID(hash: String, playlist: CloudPlaylist) async -> Int? {
+        let target = hash.lowercased()
+        var page = 1
+        while page <= 20 {
+            let batch = try? await playlistSongs(playlist: playlist, page: page, pageSize: 30)
+            guard let songs = batch, !songs.isEmpty else { return nil }
+            if let found = songs.first(where: { $0.FileHash.lowercased() == target }),
+               let fileID = found.FileID, fileID != 0 {
+                return fileID
+            }
+            if songs.count < 30 { break }
+            if playlist.count > 0, songs.count * page >= playlist.count { break }
+            page += 1
+        }
+        return nil
     }
 
     /// 从云歌单列表里提取当前账号昵称/头像，给资料接口做兜底。
@@ -640,6 +729,7 @@ enum KGService {
         if json["AlbumID"] == nil { json["AlbumID"] = item["album_id"] ?? item["albumid"] }
         if json["MixSongID"] == nil { json["MixSongID"] = item["mixsongid"] ?? item["album_audio_id"] }
         if json["Audioid"] == nil { json["Audioid"] = item["audioid"] ?? item["audio_id"] }
+        if json["FileID"] == nil { json["FileID"] = item["fileid"] ?? item["file_id"] }
         if json["Image"] == nil { json["Image"] = findImage(in: item) }
         if json["Privilege"] == nil { json["Privilege"] = item["privilege"] }
         return Song(json: json)

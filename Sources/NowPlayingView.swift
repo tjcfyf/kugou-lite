@@ -29,16 +29,16 @@ struct NowPlayingView: View {
 
     private enum PlayerSheet: Identifiable {
         case queue
-        case settings
         case album(AlbumTarget)
         case artist(ArtistTarget)
+        case addToPlaylist(Song)
 
         var id: String {
             switch self {
             case .queue: return "queue"
-            case .settings: return "settings"
             case .album(let target): return "album-\(target.id)"
             case .artist(let target): return "artist-\(target.id)"
+            case .addToPlaylist(let song): return "add-\(song.FileHash)"
             }
         }
     }
@@ -90,9 +90,15 @@ struct NowPlayingView: View {
                         },
                         perform: {
                             guard let song = player.current else { return }
-                            let added = library.toggleFavorite(song)
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            player.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
+                            Task {
+                                let added = await library.toggleFavorite(song)
+                                if let added = added {
+                                    player.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
+                                } else {
+                                    player.showToast(library.favoritesMessage)
+                                }
+                            }
                         }
                     )
                     .padding(.top, 8)
@@ -180,9 +186,13 @@ struct NowPlayingView: View {
                 .padding(.horizontal, 28)
                 .padding(.top, 18)
 
+                playlistActions
+                    .padding(.horizontal, 24)
+                    .padding(.top, 14)
+
                 progress
                     .padding(.horizontal, 24)
-                    .padding(.top, 18)
+                    .padding(.top, 12)
 
                 if !gestureMode {
                     controls
@@ -194,37 +204,6 @@ struct NowPlayingView: View {
                     .padding(.top, gestureMode ? 4 : 8)
             }
             .animation(.easeInOut(duration: 0.24), value: gestureMode)
-
-            VStack {
-                HStack(spacing: 8) {
-                    if gestureMode {
-                        Button { activeSheet = .queue } label: {
-                            Image(systemName: "list.bullet")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(Theme.text.opacity(0.7))
-                                .frame(width: 30, height: 30)
-                                .background(Theme.chip)
-                                .clipShape(Circle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    Spacer()
-                    Button {
-                        activeSheet = .settings
-                    } label: {
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(Theme.text.opacity(0.75))
-                            .frame(width: 34, height: 34)
-                            .background(Theme.chip)
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
 
             if let toast = player.toast {
                 VStack {
@@ -247,8 +226,10 @@ struct NowPlayingView: View {
             switch sheet {
             case .queue:
                 QueueView().environmentObject(player)
-            case .settings:
-                PlayerSettingsView().environmentObject(player)
+            case .addToPlaylist(let song):
+                PlaylistTargetPicker { target in
+                    Task { await addToPlaylist(song, target) }
+                }
             case .album(let target):
                 AlbumDetailSheet(target: target).environmentObject(player)
             case .artist(let target):
@@ -293,6 +274,54 @@ struct NowPlayingView: View {
             .frame(width: 38, height: 5)
             .padding(.top, 10)
             .padding(.bottom, 8)
+    }
+
+    private var playlistActions: some View {
+        HStack(spacing: 12) {
+            Button { activeSheet = .queue } label: {
+                playlistActionLabel(title: "播放列表", icon: "list.bullet")
+            }
+            .buttonStyle(.plain)
+
+            Spacer(minLength: 0)
+
+            Button {
+                guard let song = player.current else { return }
+                activeSheet = .addToPlaylist(song)
+            } label: {
+                playlistActionLabel(title: "加入歌单", icon: "text.badge.plus")
+            }
+            .buttonStyle(.plain)
+            .disabled(player.current == nil)
+            .opacity(player.current == nil ? 0.45 : 1)
+        }
+    }
+
+    private func playlistActionLabel(title: String, icon: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+        }
+        .foregroundColor(Theme.text.opacity(0.88))
+        .padding(.horizontal, 14)
+        .frame(height: 34)
+        .background(Capsule().fill(.ultraThinMaterial))
+        .overlay(
+            Capsule()
+                .stroke(Color.white.opacity(0.28), lineWidth: 0.6)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 3)
+    }
+
+    private func addToPlaylist(_ song: Song, _ target: CloudPlaylist) async {
+        do {
+            try await KGService.addSongs([song], to: target)
+            player.showToast("已加入「\(target.name)」")
+        } catch {
+            player.showToast((error as? LocalizedError)?.errorDescription ?? "加入歌单失败")
+        }
     }
 
     private var displayedTime: Double {
@@ -404,11 +433,8 @@ struct NowPlayingView: View {
                     .foregroundColor(Theme.text.opacity(0.85))
             }
 
-            Button { activeSheet = .queue } label: {
-                Image(systemName: "list.bullet")
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundColor(Theme.text.opacity(0.65))
-            }
+            Color.clear
+                .frame(width: 19, height: 34)
         }
         .buttonStyle(.plain)
     }

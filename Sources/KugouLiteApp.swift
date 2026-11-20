@@ -20,6 +20,7 @@ struct RootView: View {
     @StateObject private var recommendModel = RecommendModel()
     @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var auth: AuthStore
+    @ObservedObject private var library = LibraryStore.shared
     @State private var showPlayer = false
     @State private var showSettings = false
     @State private var tab = 0
@@ -71,6 +72,13 @@ struct RootView: View {
         )
         .onAppear { applyInterfaceStyle() }
         .onChange(of: themeRaw) { _ in applyInterfaceStyle() }
+        .task(id: auth.isLoggedIn) {
+            if auth.isLoggedIn {
+                await library.refreshFavorites(force: true)
+            } else {
+                library.resetFavorites()
+            }
+        }
     }
 
     private func applyInterfaceStyle() {
