@@ -102,7 +102,10 @@ enum KGService {
 
     /// 酷狗歌曲评论列表。评论池无需登录即可读取，只做展示，不发送评论。
     static func comments(for song: Song, page: Int = 1, pageSize: Int = 20) async throws -> CommentPage {
-        guard let mixSongID = song.MixSongID ?? song.Audioid, mixSongID > 0 else {
+        let mixSongID = [song.MixSongID, song.Audioid]
+            .compactMap { $0 }
+            .first(where: { $0 > 0 })
+        guard let mixSongID = mixSongID else {
             throw KGError.server("当前歌曲缺少评论 ID")
         }
         let data = try await KGApi.shared.post(
