@@ -35,6 +35,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     private var lyricTask: Task<Void, Never>?
     private var urlCache: [String: URL] = [:]
     private var recentAutoIndices: [Int] = []
+    private var settingsVisible = false
     private var toastTask: Task<Void, Never>?
     private var artworkTask: Task<Void, Never>?
 
@@ -376,6 +377,10 @@ final class PlayerEngine: NSObject, ObservableObject {
         }
     }
 
+    func setSettingsVisible(_ visible: Bool) {
+        settingsVisible = visible
+    }
+
     // MARK: - Ticking
 
     private func tick(_ time: CMTime) {
@@ -391,10 +396,12 @@ final class PlayerEngine: NSObject, ObservableObject {
         }
         let seconds = time.seconds
         guard seconds.isFinite else { return }
-        currentTime = seconds
-        if duration <= 0, let item = player.currentItem {
-            let value = item.duration.seconds
-            if value.isFinite, value > 0 { duration = value }
+        if !settingsVisible {
+            currentTime = seconds
+            if duration <= 0, let item = player.currentItem {
+                let value = item.duration.seconds
+                if value.isFinite, value > 0 { duration = value }
+            }
         }
         if let deadline = sleepDeadline, Date() >= deadline {
             sleepDeadline = nil
@@ -407,8 +414,10 @@ final class PlayerEngine: NSObject, ObservableObject {
                 showToast("睡眠定时已到，已暂停")
             }
         }
-        updateLyricIndex(seconds)
-        if Int(seconds) % 5 == 0 {
+        if !settingsVisible {
+            updateLyricIndex(seconds)
+        }
+        if !settingsVisible, Int(seconds) % 5 == 0 {
             refreshNowPlayingPlayback()
             if let hash = current?.FileHash { PlaybackMemory.save(seconds, for: hash) }
         }

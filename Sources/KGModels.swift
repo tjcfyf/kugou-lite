@@ -72,6 +72,28 @@ struct CloudPlaylist: Identifiable, Equatable {
     let name: String
     let count: Int
     let cover: String?
+    let listid: String?
+    let type: Int
+    let creatorID: String?
+
+    init(id: String, name: String, count: Int, cover: String?,
+         listid: String? = nil, type: Int = 0, creatorID: String? = nil) {
+        self.id = id
+        self.name = name
+        self.count = count
+        self.cover = cover
+        self.listid = listid
+        self.type = type
+        self.creatorID = creatorID
+    }
+
+    var isCollected: Bool { type == 1 }
+
+    var globalID: String? {
+        if let listid = listid, id != listid, !id.isEmpty { return id }
+        if id.hasPrefix("collection_") { return id }
+        return nil
+    }
 }
 
 struct RankItem: Identifiable, Equatable {

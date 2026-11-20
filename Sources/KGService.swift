@@ -298,6 +298,30 @@ enum KGService {
     // MARK: - 云歌单
 
     static func playlists() async throws -> [CloudPlaylist] {
+        guard KGApi.shared.token != nil, KGApi.shared.userid != 0 else { return [] }
+
+        // type 2 是官方“全部歌单”，正常情况下自建 + 收藏都会返回。
+        let all = (try? await playlists(type: 2)) ?? []
+        if !all.isEmpty { return all }
+
+        // 少数账号 type 2 只返回单一类型，按 0/1 再补一次。
+        let created = (try? await playlists(type: 0)) ?? []
+        let collected = (try? await playlists(type: 1)) ?? []
+        var merged: [String: CloudPlaylist] = [:]
+        var order: [String] = []
+        func add(_ list: [CloudPlaylist]) {
+            for playlist in list {
+                let key = playlist.listid ?? playlist.id
+                guard !key.isEmpty else { continue }
+                if merged[key] == nil { order.append(key); merged[key] = playlist }
+            }
+        }
+        add(created)
+        add(collected)
+        return order.compactMap { merged[$0] }
+    }
+
+    private static func playlists(type: Int) async throws -> [CloudPlaylist] {
         guard let token = KGApi.shared.token, KGApi.shared.userid != 0 else { return [] }
         let data = try await KGApi.shared.post(
             path: "/v7/get_all_list",
@@ -306,28 +330,83 @@ enum KGService {
                 "userid": KGApi.shared.userid,
                 "token": token,
                 "total_ver": 979,
-                "type": 2,
+                "type": type,
                 "page": 1,
-                "pagesize": 60
+                "pagesize": 100
             ],
             router: "cloudlist.service.kugou.com"
         )
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
-        let raw = (root["data"] as? [String: Any])?["info"] as? [[String: Any]]
-            ?? (root["data"] as? [String: Any])?["list"] as? [[String: Any]]
+        let container = root["data"] as? [String: Any]
+        let raw = container?["info"] as? [[String: Any]]
+            ?? container?["list"] as? [[String: Any]]
+            ?? container?["lists"] as? [[String: Any]]
             ?? root["info"] as? [[String: Any]]
             ?? []
         return raw.compactMap { item in
-            let gid = (item["list_create_gid"] as? String)
-                ?? (item["global_collection_id"] as? String)
-                ?? (item["listid"] as? String)
-                ?? (item["listid"].map { String(describing: $0) })
-            guard let id = gid, !id.isEmpty else { return nil }
-            let name = (item["name"] as? String) ?? (item["list_name"] as? String) ?? (item["specialname"] as? String) ?? "未命名歌单"
-            let count = Song.intValue(item["count"]) ?? Song.intValue(item["song_count"]) ?? Song.intValue(item["percount"]) ?? 0
+            let listid = stringValue(item["listid"])
+                ?? stringValue(item["list_create_listid"])
+            let gid = stringValue(item["global_collection_id"])
+                ?? stringValue(item["list_create_gid"])
+                ?? stringValue(item["gid"])
+            guard let id = gid ?? listid, !id.isEmpty else { return nil }
+            let name = stringValue(item["name"])
+                ?? stringValue(item["list_name"])
+                ?? stringValue(item["specialname"])
+                ?? "未命名歌单"
+            let count = Song.intValue(item["count"])
+                ?? Song.intValue(item["song_count"])
+                ?? Song.intValue(item["percount"])
+                ?? 0
             let cover = findImage(in: item)
-            return CloudPlaylist(id: id, name: name, count: count, cover: cover)
+            let creator = stringValue(item["list_create_userid"]) ?? stringValue(item["userid"])
+            let reportedType = Song.intValue(item["type"]) ?? type
+            var resolvedType = reportedType
+            if resolvedType != 1, let creatorID = creator, creatorID != String(KGApi.shared.userid) {
+                // type=2 的汇总列表里没有可靠的 type 字段，收藏歌单的创建者不是自己。
+                resolvedType = 1
+            }
+            if resolvedType == 2 { resolvedType = 0 }
+            return CloudPlaylist(id: id, name: name, count: count, cover: cover,
+                                 listid: listid, type: resolvedType, creatorID: creator)
         }
+    }
+
+    static func playlistSongs(playlist: CloudPlaylist, page: Int = 1, pageSize: Int = 30) async throws -> [Song] {
+        guard let token = KGApi.shared.token else { return [] }
+
+        // 用户自建 / 收藏歌单优先走 v4 云歌单接口，它支持分页和 listid。
+        if let listid = playlist.listid, !listid.isEmpty {
+            let types = playlist.type == 1 ? [1] : (playlist.type == 0 ? [0] : [0, 1])
+            for listType in types {
+                let data = try? await KGApi.shared.post(
+                    path: "/v4/get_list_all_file_v3",
+                    params: [:],
+                    body: [
+                        "listid": listid,
+                        "userid": KGApi.shared.userid,
+                        "type": listType,
+                        "page": page,
+                        "pagesize": pageSize,
+                        "area_code": 1,
+                        "allplatform": 1,
+                        "show_cover": 1,
+                        "token": token
+                    ],
+                    router: "cloudlist.service.kugou.com"
+                )
+                if let data = data {
+                    let songs = parsePlaylistSongs(data)
+                    if !songs.isEmpty { return songs }
+                }
+            }
+        }
+
+        // 官方推荐歌单只有 global_collection_id，走老接口。
+        if let gid = playlist.globalID {
+            return try await playlistSongs(id: gid)
+        }
+        return []
     }
 
     static func playlistSongs(id: String) async throws -> [Song] {
@@ -342,34 +421,51 @@ enum KGService {
             ],
             router: "pubsongs.kugou.com"
         )
+        return parsePlaylistSongs(data)
+    }
+
+    private static func parsePlaylistSongs(_ data: Data) -> [Song] {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
-        let raw = (root["data"] as? [String: Any])?["songs"] as? [[String: Any]]
-            ?? (root["data"] as? [String: Any])?["info"] as? [[String: Any]]
+        let container = root["data"] as? [String: Any]
+        let raw = container?["songs"] as? [[String: Any]]
+            ?? container?["info"] as? [[String: Any]]
+            ?? container?["list"] as? [[String: Any]]
+            ?? container?["file_list"] as? [[String: Any]]
+            ?? root["songs"] as? [[String: Any]]
+            ?? root["info"] as? [[String: Any]]
             ?? []
-        return raw.compactMap { item in
-            guard let hash = item["hash"] as? String, !hash.isEmpty else { return nil }
-            var json = item
-            json["FileHash"] = hash
-            let fullName = (item["name"] as? String) ?? (item["filename"] as? String) ?? ""
-            if let range = fullName.range(of: " - ") {
-                json["SongName"] = String(fullName[range.upperBound...])
-                json["SingerName"] = String(fullName[..<range.lowerBound])
-            } else {
-                json["SongName"] = fullName.isEmpty ? "未知歌曲" : fullName
-                json["SingerName"] = (item["singername"] as? String) ?? ""
-            }
-            if let album = item["albuminfo"] as? [String: Any] {
-                json["AlbumName"] = album["name"] as? String
-                if json["AlbumID"] == nil { json["AlbumID"] = album["albumid"] ?? album["id"] }
-            }
-            if json["Duration"] == nil { json["Duration"] = item["timelen"] ?? item["duration"] }
-            if json["AlbumID"] == nil { json["AlbumID"] = item["album_id"] ?? item["albumid"] }
-            if json["MixSongID"] == nil { json["MixSongID"] = item["mixsongid"] ?? item["album_audio_id"] }
-            if json["Audioid"] == nil { json["Audioid"] = item["audioid"] ?? item["audio_id"] }
-            if json["Image"] == nil { json["Image"] = findImage(in: item) }
-            if json["Privilege"] == nil { json["Privilege"] = item["privilege"] }
-            return Song(json: json)
+        return raw.compactMap { normalizePlaylistSong($0) }
+    }
+
+    private static func normalizePlaylistSong(_ item: [String: Any]) -> Song? {
+        guard let hash = stringValue(item["hash"]), !hash.isEmpty else { return nil }
+        var json = item
+        json["FileHash"] = hash
+        let fullName = stringValue(item["name"]) ?? stringValue(item["filename"]) ?? ""
+        if let range = fullName.range(of: " - ") {
+            json["SongName"] = String(fullName[range.upperBound...])
+            json["SingerName"] = String(fullName[..<range.lowerBound])
+        } else {
+            json["SongName"] = fullName.isEmpty ? "未知歌曲" : fullName
+            json["SingerName"] = stringValue(item["singername"]) ?? ""
         }
+        if let album = item["albuminfo"] as? [String: Any] {
+            json["AlbumName"] = album["name"] as? String
+            if json["AlbumID"] == nil { json["AlbumID"] = album["albumid"] ?? album["id"] }
+        }
+        if json["Duration"] == nil { json["Duration"] = item["timelen"] ?? item["duration"] }
+        if json["AlbumID"] == nil { json["AlbumID"] = item["album_id"] ?? item["albumid"] }
+        if json["MixSongID"] == nil { json["MixSongID"] = item["mixsongid"] ?? item["album_audio_id"] }
+        if json["Audioid"] == nil { json["Audioid"] = item["audioid"] ?? item["audio_id"] }
+        if json["Image"] == nil { json["Image"] = findImage(in: item) }
+        if json["Privilege"] == nil { json["Privilege"] = item["privilege"] }
+        return Song(json: json)
+    }
+
+    private static func stringValue(_ value: Any?) -> String? {
+        if let string = value as? String, !string.isEmpty { return string }
+        if let number = value as? NSNumber { return number.stringValue }
+        return nil
     }
 
     /// 推荐接口的封面字段名不稳定，递归找一圈。

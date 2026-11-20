@@ -226,7 +226,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 16) {
+                LazyVStack(spacing: 16) {
                     appearanceCard
                     GestureSettingsCard()
                     KeepAwakeSettingsCard()
@@ -258,6 +258,8 @@ struct SettingsView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .onAppear { player.setSettingsVisible(true) }
+        .onDisappear { player.setSettingsVisible(false) }
     }
 
     private var appearanceCard: some View {
@@ -522,7 +524,7 @@ struct PlayerSettingsView: View {
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 16) {
+                LazyVStack(spacing: 16) {
                     GestureSettingsCard()
                     KeepAwakeSettingsCard()
                     playModeCard
@@ -544,6 +546,8 @@ struct PlayerSettingsView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .onAppear { player.setSettingsVisible(true) }
+        .onDisappear { player.setSettingsVisible(false) }
     }
 
     private var sleepCard: some View {

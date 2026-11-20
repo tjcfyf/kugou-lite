@@ -31,9 +31,30 @@ struct RecommendView: View {
     let onOpenPlayer: () -> Void
 
     @ObservedObject private var library = LibraryStore.shared
+    @ObservedObject private var auth = AuthStore.shared
     @State private var playlists: [CloudPlaylist] = []
+    @State private var playlistsLoading = false
+    @State private var playlistsMessage = ""
     @State private var ranks: [RankItem] = []
     @State private var sheetTarget: DiscoverSheet?
+
+    private func loadPlaylists() async {
+        guard auth.isLoggedIn else {
+            playlists = []
+            playlistsMessage = ""
+            return
+        }
+        guard !playlistsLoading else { return }
+        playlistsLoading = true
+        playlistsMessage = ""
+        do {
+            playlists = try await KGService.playlists()
+            if playlists.isEmpty { playlistsMessage = "官方账号里没有读到歌单" }
+        } catch {
+            playlistsMessage = (error as? LocalizedError)?.errorDescription ?? "歌单同步失败"
+        }
+        playlistsLoading = false
+    }
 
     var body: some View {
         ScrollView {
@@ -55,19 +76,45 @@ struct RecommendView: View {
                         .padding(.top, 20)
                 }
 
-                if !playlists.isEmpty {
-                    SectionTitle(title: "我的歌单", subtitle: "\(playlists.count) 个")
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(playlists) { playlist in
-                                Button { sheetTarget = .playlist(playlist) } label: {
-                                    PlaylistCard(playlist: playlist)
-                                }
-                                .buttonStyle(.plain)
-                            }
+                if auth.isLoggedIn {
+                    SectionTitle(title: "我的歌单",
+                                 subtitle: playlistsLoading ? "同步中…" : "\(playlists.count) 个",
+                                 actionTitle: "同步") {
+                        Task { await loadPlaylists() }
+                    }
+                    if playlistsLoading && playlists.isEmpty {
+                        HStack(spacing: 8) {
+                            ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
+                            Text("正在同步官方歌单…")
+                                .font(.system(size: 12))
+                                .foregroundColor(Theme.secondaryText)
                         }
                         .padding(.horizontal, 16)
-                        .padding(.bottom, 6)
+                        .padding(.vertical, 14)
+                    } else if playlists.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(playlistsMessage.isEmpty ? "还没有读取到歌单" : playlistsMessage)
+                                .font(.system(size: 12))
+                                .foregroundColor(Theme.secondaryText)
+                            Button("重新同步") { Task { await loadPlaylists() } }
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(Theme.accent)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                    } else {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(playlists) { playlist in
+                                    Button { sheetTarget = .playlist(playlist) } label: {
+                                        PlaylistCard(playlist: playlist)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 6)
+                        }
                     }
                 }
 
@@ -142,9 +189,7 @@ struct RecommendView: View {
             await model.load(force: true)
             await library.enrichMissingCovers()
             ranks = (try? await KGService.ranks()) ?? ranks
-            if AuthStore.shared.isLoggedIn {
-                playlists = (try? await KGService.playlists()) ?? playlists
-            }
+            await loadPlaylists()
         }
         .onAppear {
             library.refresh()
@@ -152,9 +197,7 @@ struct RecommendView: View {
         .task {
             await library.enrichMissingCovers()
             if ranks.isEmpty { ranks = (try? await KGService.ranks()) ?? [] }
-            if playlists.isEmpty, AuthStore.shared.isLoggedIn {
-                playlists = (try? await KGService.playlists()) ?? []
-            }
+            await loadPlaylists()
         }
         .sheet(item: $sheetTarget) { target in
             switch target {
@@ -399,7 +442,7 @@ struct PlaylistCard: View {
                 .foregroundColor(Theme.text)
                 .lineLimit(1)
                 .frame(width: 108, alignment: .leading)
-            Text("\(playlist.count) 首")
+            Text(playlist.isCollected ? "收藏 · \(playlist.count) 首" : "\(playlist.count) 首")
                 .font(.system(size: 10))
                 .foregroundColor(Theme.secondaryText)
         }
@@ -413,7 +456,10 @@ struct PlaylistDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var songs: [Song] = []
     @State private var loading = true
+    @State private var loadingMore = false
     @State private var message = ""
+    @State private var page = 1
+    @State private var hasMore = true
 
     var body: some View {
         NavigationView {
@@ -421,8 +467,16 @@ struct PlaylistDetailSheet: View {
                 LazyVStack(spacing: 0) {
                     if loading {
                         ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white)).padding(.top, 30)
-                    } else if !message.isEmpty {
+                    } else if !message.isEmpty && songs.isEmpty {
                         Text(message).font(.system(size: 13)).foregroundColor(Theme.secondaryText).padding(.top, 24)
+                    } else if !songs.isEmpty {
+                        Text(playlist.isCollected ? "收藏歌单 · \(playlist.count) 首" : "歌单 · \(playlist.count) 首")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Theme.secondaryText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 14)
+                            .padding(.bottom, 4)
                     }
                     ForEach(songs) { song in
                         Button {
@@ -433,6 +487,29 @@ struct PlaylistDetailSheet: View {
                         }
                         .buttonStyle(.plain)
                         .padding(.horizontal, 16)
+                    }
+                    if !loading && !songs.isEmpty && hasMore {
+                        Button {
+                            Task { await loadMore() }
+                        } label: {
+                            HStack(spacing: 6) {
+                                if loadingMore { ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.text)) }
+                                Text(loadingMore ? "加载中…" : "加载更多")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Theme.secondaryText)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(loadingMore)
+                        .id("playlist-more-\(songs.count)")
+                    } else if !loading && !message.isEmpty && !songs.isEmpty {
+                        Text(message)
+                            .font(.system(size: 11))
+                            .foregroundColor(Theme.secondaryText)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
                     }
                 }
                 .padding(.bottom, 24)
@@ -452,13 +529,36 @@ struct PlaylistDetailSheet: View {
                 }
             }
         }
-        .task {
-            do {
-                songs = try await KGService.playlistSongs(id: playlist.id)
-                loading = false
-                if songs.isEmpty { message = "这个歌单是空的，或者没有读取权限" }
-            } catch {
-                loading = false
+        .task { await loadMore() }
+    }
+
+    private func loadMore() async {
+        guard !loadingMore else { return }
+        loadingMore = true
+        if page == 1 { message = "" }
+        do {
+            let newSongs = try await KGService.playlistSongs(playlist: playlist, page: page, pageSize: 30)
+            if page == 1 {
+                songs = newSongs
+            } else {
+                let existing = Set(songs.map { $0.id })
+                songs.append(contentsOf: newSongs.filter { !existing.contains($0.id) })
+            }
+            if newSongs.isEmpty || newSongs.count < 30 || (page == 1 && newSongs.count > 30) {
+                hasMore = false
+            } else if playlist.count > 0, songs.count >= playlist.count {
+                hasMore = false
+            } else {
+                hasMore = true
+            }
+            page += 1
+            loading = false
+            loadingMore = false
+            if songs.isEmpty { message = "这个歌单是空的，或者没有读取权限" }
+        } catch {
+            loading = false
+            loadingMore = false
+            if songs.isEmpty {
                 message = (error as? LocalizedError)?.errorDescription ?? "歌单加载失败"
             }
         }
