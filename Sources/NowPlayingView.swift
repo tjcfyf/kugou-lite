@@ -91,7 +91,6 @@ struct NowPlayingView: View {
             }
             .padding(.horizontal, 12)
             .padding(.top, 8)
-            .padding(.top, 8)
 
             if let toast = player.toast {
                 VStack {
@@ -111,26 +110,32 @@ struct NowPlayingView: View {
     }
 
     private var background: some View {
-        ZStack {
-            Theme.background
-            if let url = player.current?.coverURL {
-                CoverImage(url: url, size: 460, radius: 0)
-                    .scaleEffect(1.9)
-                    .blur(radius: 55)
-                    .opacity(colorScheme == .dark ? 0.55 : 0.40)
-            }
-            Theme.background.opacity(colorScheme == .dark ? 0.35 : 0.55)
-            LinearGradient(
-                colors: [
-                    Theme.accent.opacity(colorScheme == .dark ? 0.18 : 0.10),
-                    Color.clear,
-                    Theme.background.opacity(0.8),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottom
+        Theme.background
+            .overlay(
+                GeometryReader { geo in
+                    ZStack {
+                        if let url = player.current?.coverURL {
+                            CoverImage(url: url, size: max(geo.size.width, geo.size.height), radius: 0)
+                                .scaleEffect(1.35)
+                                .blur(radius: 55)
+                                .opacity(colorScheme == .dark ? 0.55 : 0.40)
+                        }
+                        Theme.background.opacity(colorScheme == .dark ? 0.35 : 0.55)
+                        LinearGradient(
+                            colors: [
+                                Theme.accent.opacity(colorScheme == .dark ? 0.18 : 0.10),
+                                Color.clear,
+                                Theme.background.opacity(0.8),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottom
+                        )
+                    }
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipped()
+                }
             )
-        }
-        .ignoresSafeArea()
+            .ignoresSafeArea()
     }
 
     private var grabber: some View {
