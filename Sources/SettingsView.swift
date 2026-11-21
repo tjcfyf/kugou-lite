@@ -168,7 +168,7 @@ struct SettingsView: View {
                     storageCard
                     accountCard
 
-                    Text("Sonora · iOS 15 · v83")
+                    Text("Sonora · iOS 15 · v84")
                         .font(.system(size: 11))
                         .foregroundColor(Theme.secondaryText)
                         .padding(.top, 6)

@@ -637,15 +637,14 @@ struct TopRoundedRectangle: Shape {
     }
 }
 
-/// iOS 15 没有 presentationDetents，用原生 UIVisualEffectView 自己搭半屏玻璃。
-/// 背景保留透出能力，播放页歌词会从磨砂玻璃后面隐约透出来。
+/// iOS 15 没有 presentationDetents，用 SwiftUI 原生 Material 搭半屏玻璃。
+/// 只做位移，不做缩放/透明度动画，避免磨砂层每帧重绘导致掉帧。
 struct GlassHalfSheet<Content: View>: View {
     @Binding var isPresented: Bool
     var heightRatio: CGFloat
     private let content: Content
 
     @Environment(\.colorScheme) private var colorScheme
-    @State private var dragOffset: CGFloat = 0
 
     init(isPresented: Binding<Bool>,
          heightRatio: CGFloat = 0.52,
@@ -663,22 +662,24 @@ struct GlassHalfSheet<Content: View>: View {
             Color.black.opacity(isPresented ? 0.18 : 0)
                 .ignoresSafeArea()
                 .onTapGesture { close() }
-                .animation(.easeInOut(duration: 0.26), value: isPresented)
+                .animation(.easeInOut(duration: 0.22), value: isPresented)
 
             VStack(spacing: 0) {
-                VStack(spacing: 2) {
-                    Capsule()
-                        .fill(Theme.text.opacity(0.24))
-                        .frame(width: 36, height: 5)
-                    Text("下拉关闭")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(Theme.tertiaryText)
+                Button(action: close) {
+                    VStack(spacing: 2) {
+                        Capsule()
+                            .fill(Theme.text.opacity(0.24))
+                            .frame(width: 40, height: 5)
+                        Text("点击关闭")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(Theme.tertiaryText)
+                    }
+                    .padding(.top, 8)
+                    .padding(.bottom, 3)
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
                 }
-                .padding(.top, 8)
-                .padding(.bottom, 2)
-                .frame(maxWidth: .infinity)
-                .contentShape(Rectangle())
-                .gesture(dragGesture)
+                .buttonStyle(.plain)
 
                 content
             }
@@ -691,51 +692,21 @@ struct GlassHalfSheet<Content: View>: View {
             )
             .clipShape(TopRoundedRectangle(radius: 26))
             .overlay(alignment: .top) {
-                Color.clear
-                    .frame(height: 72)
-                    .contentShape(Rectangle())
-                    .gesture(dragGesture)
-            }
-            .overlay(alignment: .top) {
                 Rectangle()
                     .fill(Theme.text.opacity(0.10))
                     .frame(height: 0.5)
             }
             .shadow(color: .black.opacity(colorScheme == .dark ? 0.35 : 0.12),
-                    radius: 24, x: 0, y: -8)
-            .offset(y: isPresented ? dragOffset : panelHeight + 30)
-            .scaleEffect(isPresented ? 1 : 0.985, anchor: .bottom)
-            .opacity(isPresented ? 1 : 0)
-            .animation(.spring(response: 0.42, dampingFraction: 0.88), value: isPresented)
+                    radius: 20, x: 0, y: -6)
+            .offset(y: isPresented ? 0 : panelHeight + 20)
+            .animation(.spring(response: 0.40, dampingFraction: 0.92), value: isPresented)
         }
         .ignoresSafeArea()
         .allowsHitTesting(isPresented)
         .accessibilityHidden(!isPresented)
     }
 
-    private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 4)
-            .onChanged { value in
-                dragOffset = max(0, value.translation.height)
-            }
-            .onEnded { value in
-                if value.translation.height > 80 || value.predictedEndTranslation.height > 120 {
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.9)) {
-                        isPresented = false
-                        dragOffset = 0
-                    }
-                } else {
-                    withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
-                        dragOffset = 0
-                    }
-                }
-            }
-    }
-
     private func close() {
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.9)) {
-            isPresented = false
-        }
-        dragOffset = 0
+        isPresented = false
     }
 }
