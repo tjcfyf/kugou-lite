@@ -168,7 +168,7 @@ struct SettingsView: View {
                     storageCard
                     accountCard
 
-                    Text("Sonora · iOS 15 · v81")
+                    Text("Sonora · iOS 15 · v82")
                         .font(.system(size: 11))
                         .foregroundColor(Theme.secondaryText)
                         .padding(.top, 6)
@@ -393,7 +393,9 @@ struct SettingsView: View {
                 Image(systemName: player.aiSeparationEnabled ? "waveform" : "waveform.slash")
                     .font(.system(size: 13))
                     .foregroundColor(player.aiSeparationEnabled ? Theme.accent : Theme.tertiaryText)
-                Text(player.aiSeparationEnabled ? "AI 已开启；官方双轨仍然优先" : "当前未开启；没有官方双轨时退回中置声道")
+                Text(player.aiSeparationEnabled
+                     ? (player.aiSeparationAvailable ? "AI 已开启；官方双轨仍然优先" : "正在后台加载 AI 模型…")
+                     : "当前未开启；没有官方双轨时退回中置声道")
                     .font(.system(size: 11))
                     .foregroundColor(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)

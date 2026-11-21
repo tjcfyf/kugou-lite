@@ -106,19 +106,15 @@ struct NowPlayingView: View {
                 bottomActions
             }
 
-            if showSleepSheet {
-                GlassHalfSheet(isPresented: $showSleepSheet, heightRatio: 0.50) {
-                    SleepTimerSheet(onClose: { showSleepSheet = false }).environmentObject(player)
-                }
-                .zIndex(20)
+            GlassHalfSheet(isPresented: $showSleepSheet, heightRatio: 0.50) {
+                SleepTimerSheet(onClose: { showSleepSheet = false }).environmentObject(player)
             }
+            .zIndex(20)
 
-            if showKaraokeSheet {
-                GlassHalfSheet(isPresented: $showKaraokeSheet, heightRatio: 0.60) {
-                    KaraokeSheet(onClose: { showKaraokeSheet = false }).environmentObject(player)
-                }
-                .zIndex(20)
+            GlassHalfSheet(isPresented: $showKaraokeSheet, heightRatio: 0.60) {
+                KaraokeSheet(onClose: { showKaraokeSheet = false }).environmentObject(player)
             }
+            .zIndex(21)
 
             if let toast = player.toast {
                 VStack {
@@ -133,8 +129,6 @@ struct NowPlayingView: View {
         .simultaneousGesture(dismissGesture)
         .animation(.easeInOut(duration: 0.32), value: showLyrics)
         .animation(.easeOut(duration: 0.22), value: player.toast)
-        .animation(.spring(response: 0.38, dampingFraction: 0.88), value: showSleepSheet)
-        .animation(.spring(response: 0.38, dampingFraction: 0.88), value: showKaraokeSheet)
         .onChange(of: player.current?.FileHash) { _ in
             artworkPalette = []
         }

@@ -656,48 +656,53 @@ struct GlassHalfSheet<Content: View>: View {
     }
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .bottom) {
-                Color.black.opacity(0.16)
-                    .ignoresSafeArea()
-                    .onTapGesture { close() }
+        let screen = UIScreen.main.bounds
+        let panelHeight = min(max(screen.height * heightRatio, 300), screen.height - 64)
 
-                VStack(spacing: 0) {
-                    Capsule()
-                        .fill(Theme.text.opacity(0.24))
-                        .frame(width: 36, height: 5)
-                        .padding(.top, 8)
-                        .padding(.bottom, 2)
-                        .frame(maxWidth: .infinity)
-                        .contentShape(Rectangle())
-                        .gesture(dragGesture)
+        ZStack(alignment: .bottom) {
+            Color.black.opacity(isPresented ? 0.18 : 0)
+                .ignoresSafeArea()
+                .onTapGesture { close() }
+                .animation(.easeInOut(duration: 0.26), value: isPresented)
 
-                    content
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: max(300, geo.size.height * heightRatio), alignment: .top)
-                .background(
-                    ZStack {
-                        NativeFrostedGlass(style: colorScheme == .dark
-                                           ? .systemUltraThinMaterialDark
-                                           : .systemUltraThinMaterialLight)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        Theme.background.opacity(colorScheme == .dark ? 0.10 : 0.05)
-                    }
-                )
-                .clipShape(TopRoundedRectangle(radius: 26))
-                .overlay(alignment: .top) {
-                    Rectangle()
-                        .fill(Theme.text.opacity(0.10))
-                        .frame(height: 0.5)
-                }
-                .shadow(color: .black.opacity(colorScheme == .dark ? 0.35 : 0.12),
-                        radius: 24, x: 0, y: -8)
-                .offset(y: dragOffset)
+            VStack(spacing: 0) {
+                Capsule()
+                    .fill(Theme.text.opacity(0.24))
+                    .frame(width: 36, height: 5)
+                    .padding(.top, 8)
+                    .padding(.bottom, 2)
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .gesture(dragGesture)
+
+                content
             }
-            .ignoresSafeArea()
+            .frame(width: screen.width, height: panelHeight, alignment: .top)
+            .background(
+                ZStack {
+                    NativeFrostedGlass(style: colorScheme == .dark
+                                       ? .systemUltraThinMaterialDark
+                                       : .systemUltraThinMaterialLight)
+                        .frame(width: screen.width, height: panelHeight)
+                    Theme.background.opacity(colorScheme == .dark ? 0.10 : 0.05)
+                }
+            )
+            .clipShape(TopRoundedRectangle(radius: 26))
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(Theme.text.opacity(0.10))
+                    .frame(height: 0.5)
+            }
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.35 : 0.12),
+                    radius: 24, x: 0, y: -8)
+            .offset(y: isPresented ? dragOffset : panelHeight + 30)
+            .scaleEffect(isPresented ? 1 : 0.985, anchor: .bottom)
+            .opacity(isPresented ? 1 : 0)
+            .animation(.spring(response: 0.42, dampingFraction: 0.88), value: isPresented)
         }
-        .transition(.opacity)
+        .ignoresSafeArea()
+        .allowsHitTesting(isPresented)
+        .accessibilityHidden(!isPresented)
     }
 
     private var dragGesture: some Gesture {
@@ -707,9 +712,12 @@ struct GlassHalfSheet<Content: View>: View {
             }
             .onEnded { value in
                 if value.translation.height > 80 || value.predictedEndTranslation.height > 120 {
-                    close()
+                    withAnimation(.spring(response: 0.38, dampingFraction: 0.9)) {
+                        isPresented = false
+                        dragOffset = 0
+                    }
                 } else {
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                    withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
                         dragOffset = 0
                     }
                 }
@@ -717,7 +725,7 @@ struct GlassHalfSheet<Content: View>: View {
     }
 
     private func close() {
-        withAnimation(.easeInOut(duration: 0.24)) {
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.9)) {
             isPresented = false
         }
         dragOffset = 0

@@ -9,6 +9,7 @@ final class MSSRuntime {
 
     private(set) var isAvailable = false
     private var prepared = false
+    private let queue = DispatchQueue(label: "sonora.mss.prepare", qos: .userInitiated)
 
     private init() {}
 
@@ -17,9 +18,9 @@ final class MSSRuntime {
             ?? Bundle.main.url(forResource: "mss-model", withExtension: "tflite", subdirectory: "Resources")
     }
 
-    /// 主线程调用一次即可；首次会创建解释器并校验 29 入/29 出、张量形状。
+    /// 首次会创建解释器并校验 29 入/29 出、张量形状；必须放到后台队列执行。
     @discardableResult
-    func prepare() -> Bool {
+    private func prepareNow() -> Bool {
         if prepared { return isAvailable }
         prepared = true
         guard let url = modelURL else {
@@ -28,6 +29,19 @@ final class MSSRuntime {
         }
         isAvailable = MSSEngine(path: url.path) != nil
         return isAvailable
+    }
+
+    /// 异步准备模型。TFLite 分配张量和 XNNPACK 初始化可能耗时数百毫秒，
+    /// 放在主线程会让设置页和播放页看起来像卡死，所以统一丢到串行后台队列。
+    func prepareAsync() async -> Bool {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                let result = self.prepareNow()
+                DispatchQueue.main.async {
+                    continuation.resume(returning: result)
+                }
+            }
+        }
     }
 
     /// 每个播放 item 各持一份引擎；TFLite Interpreter 不是线程安全的。

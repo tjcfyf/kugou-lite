@@ -49,6 +49,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     var currentIndex: Int { index }
     private var loadTask: Task<Void, Never>?
     private var lyricTask: Task<Void, Never>?
+    private var aiPreparationTask: Task<Void, Never>?
     private var rawLyric: [LyricLine] = []
     private var selectedLyricIDs: [String: String] = [:]
     private var urlCache: [String: URL] = [:]
@@ -308,29 +309,48 @@ final class PlayerEngine: NSObject, ObservableObject {
         showToast(enabled ? "伴唱已开启" : "伴唱已关闭")
     }
 
-    /// 本地 MSS 分离开关。开启时会先把模型加载到内存并校验张量形状，
-    /// 模型不可用则保持中置声道兼容模式。
+    /// 本地 MSS 分离开关。模型加载放到后台队列，开关本身先立即响应，
+    /// 避免 TFLite 首次分配张量时把主线程卡住。
     func setAISeparationEnabled(_ enabled: Bool) {
         guard aiSeparationEnabled != enabled else { return }
+
+        aiPreparationTask?.cancel()
+        aiPreparationTask = nil
+
         if enabled {
-            aiSeparationAvailable = MSSRuntime.shared.prepare()
-            guard aiSeparationAvailable else {
-                aiSeparationEnabled = false
-                Preferences.aiSeparationEnabled = false
-                showToast("AI 模型不可用，继续使用兼容分离")
-                return
-            }
+            aiSeparationEnabled = true
+            Preferences.aiSeparationEnabled = true
             if !karaokeEnabled {
                 karaokeEnabled = true
                 Preferences.karaokeEnabled = true
             }
+            showToast("正在加载 AI 模型…")
+
+            aiPreparationTask = Task { [weak self] in
+                guard let self else { return }
+                let available = await MSSRuntime.shared.prepareAsync()
+                guard !Task.isCancelled, self.aiSeparationEnabled else { return }
+                self.aiSeparationAvailable = available
+                if !available {
+                    self.aiSeparationEnabled = false
+                    Preferences.aiSeparationEnabled = false
+                    self.showToast("AI 模型加载失败，继续使用兼容分离")
+                } else {
+                    self.showToast("AI 本地分离已就绪；官方双轨仍优先")
+                }
+                if self.karaokeEnabled, self.current != nil {
+                    self.reloadForKaraoke()
+                }
+            }
+            return
         }
-        aiSeparationEnabled = enabled
-        Preferences.aiSeparationEnabled = enabled
-        AudioEnhancer.shared.setAI(active: enabled)
+
+        aiSeparationEnabled = false
+        Preferences.aiSeparationEnabled = false
+        AudioEnhancer.shared.setAI(active: false)
         if current == nil { return }
         reloadForKaraoke()
-        showToast(enabled ? "AI 本地分离已开启" : "已切回兼容分离")
+        showToast("已关闭 AI 分离；有官方双轨时继续用官方双轨")
     }
 
     func setKaraokeVolumes(vocal: Double, accompaniment: Double) {
@@ -602,14 +622,17 @@ final class PlayerEngine: NSObject, ObservableObject {
 
     /// 官方双轨取不到时的兜底：先尝试本地 AI，失败再退立体声中置声道。
     private func makeKaraokeFallbackItem(url: URL) async -> (item: AVPlayerItem, mode: KaraokeMode) {
-        if aiSeparationEnabled, MSSRuntime.shared.prepare() {
-            aiSeparationAvailable = true
-            let result = await makeNormalItem(url: url, karaokeFallback: false, aiSeparation: true)
-            if result.aiAttached {
-                AudioEnhancer.shared.setKaraoke(active: false,
-                                                vocal: Float(karaokeVocalVolume),
-                                                accompaniment: Float(karaokeAccompanimentVolume))
-                return (result.item, .aiModel)
+        if aiSeparationEnabled {
+            let available = await MSSRuntime.shared.prepareAsync()
+            aiSeparationAvailable = available
+            if available {
+                let result = await makeNormalItem(url: url, karaokeFallback: false, aiSeparation: true)
+                if result.aiAttached {
+                    AudioEnhancer.shared.setKaraoke(active: false,
+                                                    vocal: Float(karaokeVocalVolume),
+                                                    accompaniment: Float(karaokeAccompanimentVolume))
+                    return (result.item, .aiModel)
+                }
             }
         }
         aiSeparationAvailable = false
