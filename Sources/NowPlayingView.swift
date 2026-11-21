@@ -672,20 +672,20 @@ struct NowPlayingView: View {
                 } else {
                     LazyVStack(alignment: .leading, spacing: 28) {
                         ForEach(Array(player.lyric.enumerated()), id: \.offset) { index, line in
+                            let active = index == player.lyricIndex
                             VStack(alignment: .leading, spacing: 5) {
                                 Group {
-                                    if index == player.lyricIndex, !line.words.isEmpty, player.isPlaying {
+                                    if active, !line.words.isEmpty, player.isPlaying {
                                         TimelineView(.periodic(from: .now, by: 0.08)) { context in
                                             lyricText(line, active: true, timeOverride: lyricClock(context.date))
                                         }
                                     } else {
-                                        lyricText(line, active: index == player.lyricIndex)
+                                        lyricText(line, active: active)
                                     }
                                 }
-                                .font(.system(size: index == player.lyricIndex
-                                              ? lyricSize.fontSize + 7
-                                              : lyricSize.fontSize,
-                                              weight: index == player.lyricIndex ? .bold : .medium))
+                                // 活动行不再放大字号：字号一变整段歌词会重排，视觉上就是“突然跳一下”。
+                                // 用固定字号 + 轻微字重/透明度过渡，滚动只由 ScrollViewReader 负责。
+                                .font(.system(size: lyricSize.fontSize, weight: active ? .semibold : .medium))
                                 .lineSpacing(6)
                                 .multilineTextAlignment(.leading)
 
@@ -706,8 +706,8 @@ struct NowPlayingView: View {
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .opacity(index == player.lyricIndex ? 1 : 0.42)
-                            .animation(.easeInOut(duration: 0.28), value: player.lyricIndex)
+                            .opacity(active ? 1 : 0.50)
+                            .animation(.easeInOut(duration: 0.16), value: active)
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 player.seek(to: max(0, line.time - Double(player.lyricOffsetMs) / 1000))
@@ -717,7 +717,6 @@ struct NowPlayingView: View {
                     }
                     .padding(.horizontal, 28)
                     .padding(.vertical, 26)
-                    .animation(.easeInOut(duration: 0.22), value: player.lyricIndex)
                 }
             }
             .onAppear {
@@ -732,13 +731,13 @@ struct NowPlayingView: View {
             }
             .onChange(of: player.lyricIndex) { index in
                 guard lyricAutoFollow else { return }
-                withAnimation(.easeOut(duration: 0.22)) {
+                withAnimation(.easeInOut(duration: 0.26)) {
                     proxy.scrollTo(index, anchor: .center)
                 }
             }
             .onChange(of: lyricAutoFollow) { enabled in
                 guard enabled else { return }
-                withAnimation(.easeOut(duration: 0.22)) {
+                withAnimation(.easeInOut(duration: 0.26)) {
                     proxy.scrollTo(player.lyricIndex, anchor: .center)
                 }
             }
@@ -926,7 +925,7 @@ struct KaraokeSheet: View {
     private var modeTitle: String {
         switch player.karaokeMode {
         case .dualTrack: return "官方双轨"
-        case .centerChannel: return "立体声兼容分离"
+        case .centerChannel: return "兼容模式（非 AI）"
         case .aiModel: return "AI 本地分离"
         case .unavailable: return player.karaokeEnabled ? "正在准备分离资源" : "未开启"
         }
@@ -937,9 +936,9 @@ struct KaraokeSheet: View {
         case .dualTrack:
             return "已取到官方人声/伴奏双轨，可独立调节两条音轨音量。"
         case .centerChannel:
-            return "官方双轨和 AI 都不可用，临时使用立体声中置声道估计分离。"
+            return "没有走 AI：官方双轨和本地模型都不可用，实际用立体声中置声道估计；鼓点和居中低频会明显保留。"
         case .aiModel:
-            return "官方没有双轨，已自动切到本地 MSS 模型；4.9MB，完全离线，约 0.1 秒延迟。"
+            return "本地 4.9MB MSS 模型，完全离线；轻量模型做不到 Demucs 级，纯人声偶尔会残留少量鼓点/齿音。"
         case .unavailable:
             return player.karaokeEnabled
                 ? "正在请求官方双轨；取不到时会自动尝试 AI 本地分离。"
@@ -1021,6 +1020,14 @@ struct KaraokeSheet: View {
                 .font(.system(size: 11))
                 .foregroundColor(Theme.tertiaryText)
                 .fixedSize(horizontal: false, vertical: true)
+            if player.karaokeMode == .aiModel {
+                TimelineView(.periodic(from: .now, by: 0.5)) { _ in
+                    Text("AI 运行状态：\(AudioEnhancer.shared.aiStatusText())")
+                        .font(.system(size: 10))
+                        .foregroundColor(Theme.tertiaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)

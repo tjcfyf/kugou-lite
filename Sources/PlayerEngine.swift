@@ -334,7 +334,7 @@ final class PlayerEngine: NSObject, ObservableObject {
                 if !available {
                     self.aiSeparationEnabled = false
                     Preferences.aiSeparationEnabled = false
-                    self.showToast("AI 模型加载失败，继续使用兼容分离")
+                    self.showToast("AI 模型加载失败：\(MSSRuntime.shared.lastError ?? "未知原因")")
                 } else {
                     self.showToast("AI 本地分离已就绪；官方双轨仍优先")
                 }

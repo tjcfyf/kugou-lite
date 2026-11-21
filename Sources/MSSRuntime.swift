@@ -8,6 +8,7 @@ final class MSSRuntime {
     static let shared = MSSRuntime()
 
     private(set) var isAvailable = false
+    private(set) var lastError: String?
     private var prepared = false
     private let queue = DispatchQueue(label: "sonora.mss.prepare", qos: .userInitiated)
 
@@ -25,13 +26,21 @@ final class MSSRuntime {
         prepared = true
         guard let url = modelURL else {
             isAvailable = false
+            lastError = "模型文件缺失"
             return false
         }
-        guard let engine = MSSEngine(path: url.path), engine.validateRuntime() else {
+        guard let engine = MSSEngine(path: url.path) else {
             isAvailable = false
+            lastError = "TFLite 创建解释器失败"
+            return false
+        }
+        guard engine.validateRuntime() else {
+            isAvailable = false
+            lastError = "TFLite 推理自检失败"
             return false
         }
         isAvailable = true
+        lastError = nil
         return true
     }
 

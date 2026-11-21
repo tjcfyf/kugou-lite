@@ -119,6 +119,9 @@ final class AudioEnhancer: ObservableObject {
     private var karaoke = KaraokeSnapshot(active: false, vocal: 1, accompaniment: 1)
     private var aiActive = false
     private var activeAIContext: DSPTapContext?
+    private var aiFormatText = "AI 尚未接管"
+    private var aiStarted = false
+    private var aiFormatError: String?
     private let lock = NSLock()
     private var version = 0
 
@@ -175,6 +178,42 @@ final class AudioEnhancer: ObservableObject {
         lock.lock()
         defer { lock.unlock() }
         return aiActive
+    }
+
+    /// 音频 tap 的真实输入格式。用来区分“看起来开了 AI”和“AI 真的在处理”。
+    func noteTapFormat(sampleRate: Double, channels: Int, isFloat: Bool, isPCM16: Bool, interleaved: Bool) {
+        lock.lock()
+        let encoding = isFloat ? "float" : (isPCM16 ? "16bit" : "未知")
+        aiFormatText = String(format: "%.1f kHz · %dch · %@ · %@",
+                              sampleRate / 1000,
+                              channels,
+                              encoding,
+                              interleaved ? "交错" : "分离")
+        aiStarted = false
+        aiFormatError = nil
+        lock.unlock()
+    }
+
+    func noteAIStarted() {
+        lock.lock()
+        aiStarted = true
+        aiFormatError = nil
+        lock.unlock()
+    }
+
+    func noteAIFailed(_ reason: String) {
+        lock.lock()
+        if aiFormatError == nil { aiFormatError = reason }
+        lock.unlock()
+    }
+
+    func aiStatusText() -> String {
+        lock.lock()
+        defer { lock.unlock() }
+        if let error = aiFormatError {
+            return "\(aiFormatText) · 未接管：\(error)"
+        }
+        return aiStarted ? "\(aiFormatText) · 已接管" : "\(aiFormatText) · 等待音频"
     }
 
     /// seek / 换曲时清空 MSS 的流式状态，避免把上一段的频谱状态带进新位置。
@@ -326,6 +365,14 @@ private final class DSPTapContext {
         floatFormat = format.mFormatID == kAudioFormatLinearPCM
             && (format.mFormatFlags & kAudioFormatFlagIsFloat) != 0
             && format.mBitsPerChannel == 32
+        pcm16 = format.mFormatID == kAudioFormatLinearPCM
+            && (format.mFormatFlags & kAudioFormatFlagIsSignedInteger) != 0
+            && format.mBitsPerChannel == 16
+        AudioEnhancer.shared.noteTapFormat(sampleRate: sampleRate,
+                                           channels: channels,
+                                           isFloat: floatFormat,
+                                           isPCM16: pcm16,
+                                           interleaved: interleaved)
         bands = []
         version = -1
     }
@@ -335,7 +382,7 @@ private final class DSPTapContext {
         let karaoke = AudioEnhancer.shared.karaokeValue()
         let aiActive = AudioEnhancer.shared.aiValue()
         guard eq.enabled || karaoke.active || aiActive else { return }
-        guard floatFormat else { return }
+        guard floatFormat || (aiActive && pcm16) else { return }
 
         if aiActive, let aiEngine {
             processAI(bufferList: bufferList,
@@ -345,7 +392,7 @@ private final class DSPTapContext {
                       karaoke: karaoke)
             return
         }
-        guard eq.enabled || karaoke.active else { return }
+        guard floatFormat, eq.enabled || karaoke.active else { return }
 
         var processEQ = eq.enabled
         if processEQ {
@@ -428,9 +475,15 @@ private final class DSPTapContext {
                            engine: MSSEngine,
                            eq: AudioEQSnapshot,
                            karaoke: KaraokeSnapshot) {
-        guard floatFormat, channels >= 1 else { return }
+        guard floatFormat || pcm16, channels >= 1 else {
+            AudioEnhancer.shared.noteAIFailed("音频格式不是 float/16bit")
+            return
+        }
         // 模型前端固定 44.1 kHz；48 kHz 音源先保持原音，避免变速/变调。
-        guard abs(sampleRate - 44100) < 1 else { return }
+        guard abs(sampleRate - 44100) < 1 else {
+            AudioEnhancer.shared.noteAIFailed(String(format: "%.1f kHz 音源不是 44.1 kHz", sampleRate / 1000))
+            return
+        }
         let n = Int(frameCount)
         guard n > 0 else { return }
         if consumeReset() { engine.reset() }
@@ -440,32 +493,63 @@ private final class DSPTapContext {
 
         if interleaved {
             guard abl.count > 0, let raw = abl[0].mData else { return }
-            let data = raw.assumingMemoryBound(to: Float.self)
-            let available = min(Int(abl[0].mDataByteSize) / MemoryLayout<Float>.size, n * channels)
-            guard available >= n * channels else { return }
-            for f in 0..<n {
-                let base = f * channels
-                let left = data[base]
-                let right = channels >= 2 ? data[base + 1] : left
-                input[2 * f] = left
-                input[2 * f + 1] = right
+            if floatFormat {
+                let data = raw.assumingMemoryBound(to: Float.self)
+                let available = min(Int(abl[0].mDataByteSize) / MemoryLayout<Float>.size, n * channels)
+                guard available >= n * channels else { return }
+                for f in 0..<n {
+                    let base = f * channels
+                    let left = data[base]
+                    let right = channels >= 2 ? data[base + 1] : left
+                    input[2 * f] = left
+                    input[2 * f + 1] = right
+                }
+            } else {
+                let data = raw.assumingMemoryBound(to: Int16.self)
+                let available = min(Int(abl[0].mDataByteSize) / MemoryLayout<Int16>.size, n * channels)
+                guard available >= n * channels else { return }
+                for f in 0..<n {
+                    let base = f * channels
+                    let left = Float(data[base]) / 32768
+                    let right = channels >= 2 ? Float(data[base + 1]) / 32768 : left
+                    input[2 * f] = left
+                    input[2 * f + 1] = right
+                }
             }
         } else {
             guard abl.count >= 1, let leftRaw = abl[0].mData else { return }
-            let leftData = leftRaw.assumingMemoryBound(to: Float.self)
-            let rightData: UnsafeMutablePointer<Float>?
-            if channels >= 2, abl.count >= 2, let raw = abl[1].mData {
-                rightData = raw.assumingMemoryBound(to: Float.self)
+            if floatFormat {
+                let leftData = leftRaw.assumingMemoryBound(to: Float.self)
+                let rightData: UnsafeMutablePointer<Float>?
+                if channels >= 2, abl.count >= 2, let raw = abl[1].mData {
+                    rightData = raw.assumingMemoryBound(to: Float.self)
+                } else {
+                    rightData = nil
+                }
+                let available = min(Int(abl[0].mDataByteSize) / MemoryLayout<Float>.size, n)
+                guard available >= n else { return }
+                for f in 0..<n {
+                    let left = leftData[f]
+                    let right = rightData?[f] ?? left
+                    input[2 * f] = left
+                    input[2 * f + 1] = right
+                }
             } else {
-                rightData = nil
-            }
-            let available = min(Int(abl[0].mDataByteSize) / MemoryLayout<Float>.size, n)
-            guard available >= n else { return }
-            for f in 0..<n {
-                let left = leftData[f]
-                let right = rightData?[f] ?? left
-                input[2 * f] = left
-                input[2 * f + 1] = right
+                let leftData = leftRaw.assumingMemoryBound(to: Int16.self)
+                let rightData: UnsafeMutablePointer<Int16>?
+                if channels >= 2, abl.count >= 2, let raw = abl[1].mData {
+                    rightData = raw.assumingMemoryBound(to: Int16.self)
+                } else {
+                    rightData = nil
+                }
+                let available = min(Int(abl[0].mDataByteSize) / MemoryLayout<Int16>.size, n)
+                guard available >= n else { return }
+                for f in 0..<n {
+                    let left = Float(leftData[f]) / 32768
+                    let right = rightData.map { Float($0[f]) / 32768 } ?? left
+                    input[2 * f] = left
+                    input[2 * f + 1] = right
+                }
             }
         }
 
@@ -474,34 +558,67 @@ private final class DSPTapContext {
 
         let vocalGain = karaoke.vocal
         let accompanimentGain = karaoke.accompaniment
+        func toPCM16(_ value: Float) -> Int16 {
+            if value <= -1 { return -32768 }
+            if value >= 1 { return 32767 }
+            return Int16(value * 32767)
+        }
         if interleaved {
             guard abl.count > 0, let raw = abl[0].mData else { return }
-            let data = raw.assumingMemoryBound(to: Float.self)
-            for f in 0..<n {
-                let base = f * channels
-                let left = separated.vocal[2 * f] * vocalGain + separated.accompaniment[2 * f] * accompanimentGain
-                let right = separated.vocal[2 * f + 1] * vocalGain + separated.accompaniment[2 * f + 1] * accompanimentGain
-                data[base] = left
-                if channels >= 2 { data[base + 1] = right }
+            if floatFormat {
+                let data = raw.assumingMemoryBound(to: Float.self)
+                for f in 0..<n {
+                    let base = f * channels
+                    let left = separated.vocal[2 * f] * vocalGain + separated.accompaniment[2 * f] * accompanimentGain
+                    let right = separated.vocal[2 * f + 1] * vocalGain + separated.accompaniment[2 * f + 1] * accompanimentGain
+                    data[base] = left
+                    if channels >= 2 { data[base + 1] = right }
+                }
+            } else {
+                let data = raw.assumingMemoryBound(to: Int16.self)
+                for f in 0..<n {
+                    let base = f * channels
+                    let left = separated.vocal[2 * f] * vocalGain + separated.accompaniment[2 * f] * accompanimentGain
+                    let right = separated.vocal[2 * f + 1] * vocalGain + separated.accompaniment[2 * f + 1] * accompanimentGain
+                    data[base] = toPCM16(left)
+                    if channels >= 2 { data[base + 1] = toPCM16(right) }
+                }
             }
         } else {
             guard abl.count >= 1, let leftRaw = abl[0].mData else { return }
-            let leftData = leftRaw.assumingMemoryBound(to: Float.self)
-            let rightData: UnsafeMutablePointer<Float>?
-            if channels >= 2, abl.count >= 2, let raw = abl[1].mData {
-                rightData = raw.assumingMemoryBound(to: Float.self)
+            if floatFormat {
+                let leftData = leftRaw.assumingMemoryBound(to: Float.self)
+                let rightData: UnsafeMutablePointer<Float>?
+                if channels >= 2, abl.count >= 2, let raw = abl[1].mData {
+                    rightData = raw.assumingMemoryBound(to: Float.self)
+                } else {
+                    rightData = nil
+                }
+                for f in 0..<n {
+                    let left = separated.vocal[2 * f] * vocalGain + separated.accompaniment[2 * f] * accompanimentGain
+                    let right = separated.vocal[2 * f + 1] * vocalGain + separated.accompaniment[2 * f + 1] * accompanimentGain
+                    leftData[f] = left
+                    rightData?[f] = right
+                }
             } else {
-                rightData = nil
-            }
-            for f in 0..<n {
-                let left = separated.vocal[2 * f] * vocalGain + separated.accompaniment[2 * f] * accompanimentGain
-                let right = separated.vocal[2 * f + 1] * vocalGain + separated.accompaniment[2 * f + 1] * accompanimentGain
-                leftData[f] = left
-                rightData?[f] = right
+                let leftData = leftRaw.assumingMemoryBound(to: Int16.self)
+                let rightData: UnsafeMutablePointer<Int16>?
+                if channels >= 2, abl.count >= 2, let raw = abl[1].mData {
+                    rightData = raw.assumingMemoryBound(to: Int16.self)
+                } else {
+                    rightData = nil
+                }
+                for f in 0..<n {
+                    let left = separated.vocal[2 * f] * vocalGain + separated.accompaniment[2 * f] * accompanimentGain
+                    let right = separated.vocal[2 * f + 1] * vocalGain + separated.accompaniment[2 * f + 1] * accompanimentGain
+                    leftData[f] = toPCM16(left)
+                    rightData?[f] = toPCM16(right)
+                }
             }
         }
 
-        guard eq.enabled else { return }
+        AudioEnhancer.shared.noteAIStarted()
+        guard eq.enabled, floatFormat else { return }
         if eq.version != version { apply(eq) }
         guard preamp > 0, !bands.isEmpty else { return }
         if interleaved {
