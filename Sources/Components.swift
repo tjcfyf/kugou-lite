@@ -37,19 +37,27 @@ struct AppBackground: View {
 struct NativeFrostedGlass: UIViewRepresentable {
     let style: UIBlurEffect.Style
 
+    final class Coordinator {
+        var style: UIBlurEffect.Style?
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
     func makeUIView(context: Context) -> UIVisualEffectView {
         let view = UIVisualEffectView(effect: UIBlurEffect(style: style))
         view.backgroundColor = .clear
         view.isUserInteractionEnabled = false
+        context.coordinator.style = style
         return view
     }
 
     func updateUIView(_ uiView: UIVisualEffectView, context: Context) {
         // 播放进度每 0.25 秒会刷新 SwiftUI 树；重复赋同一个 blur 会触发
         // UIVisualEffectView 重建，拖动时就会持续掉帧。只在样式变化时更新。
-        if let effect = uiView.effect as? UIBlurEffect, effect.style == style {
-            return
-        }
+        guard context.coordinator.style != style else { return }
+        context.coordinator.style = style
         uiView.effect = UIBlurEffect(style: style)
     }
 }
