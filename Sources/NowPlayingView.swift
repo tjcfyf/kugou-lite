@@ -1,12 +1,25 @@
 import SwiftUI
 import UIKit
 
+struct PlayerCoverFramePreferenceKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next.width > 0, next.height > 0 {
+            value = next
+        }
+    }
+}
+
 struct NowPlayingView: View {
     @EnvironmentObject private var player: PlayerEngine
+    @Binding var panelProgress: CGFloat
+    var panelOrigin: CGRect = .zero
     var onClose: (() -> Void)? = nil
     @ObservedObject private var library = LibraryStore.shared
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.playerPanelProgress) private var visualProgress
     @State private var activeSheet: PlayerSheet?
     @State private var showSleepSheet = false
     @State private var showKaraokeSheet = false
@@ -21,10 +34,10 @@ struct NowPlayingView: View {
     @State private var scrubTime: Double = 0
     @State private var lyricClockTime: Double = 0
     @State private var lyricClockDate = Date()
-    @State private var dragOffset: CGFloat = 0
     @State private var isClosing = false
     @State private var didCrossDismissThreshold = false
     @State private var artworkPalette: [Color] = []
+    @State private var coverFrame: CGRect = .zero
 
     private var qualityLabel: String {
         let quality = player.currentQuality
@@ -44,9 +57,16 @@ struct NowPlayingView: View {
         min(UIScreen.main.bounds.width - 72, 330)
     }
 
-    /// 下滑进度：背景只用一层纯色淡出，绝不对磨砂层做透明度动画。
-    private var dragProgress: CGFloat {
-        min(max(dragOffset / 260, 0), 1)
+    /// 页面内容在面板展开前 20% 行程内淡入；与 MD3Music 的
+    /// `playerPanelOpacity` 同式。面板底色由 PlayerPanelFrame 独立处理。
+    private var pageContentOpacity: Double {
+        let h = max(UIScreen.main.bounds.height, 1)
+        let originTop = min(max(panelOrigin.minY, 0), h)
+        let p = min(max(visualProgress, 0), 1)
+        let span = 0.2 * h
+        let travel = min(originTop, span)
+        guard travel > 0 else { return 1 }
+        return Double(min(1, p * originTop / travel))
     }
 
     private enum PlayerSheet: Identifiable {
@@ -71,12 +91,41 @@ struct NowPlayingView: View {
 
     var body: some View {
         ZStack {
-            background
+            pageContent
+                .opacity(pageContentOpacity)
 
-            Theme.background
-                .opacity(Double(dragProgress) * 0.94)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
+            coverMorphOverlay
+        }
+        .coordinateSpace(name: "playerPage")
+        .animation(M3Motion.expressive, value: showLyrics)
+        .animation(.easeOut(duration: 0.22), value: player.toast)
+        .onPreferenceChange(PlayerCoverFramePreferenceKey.self) { coverFrame = $0 }
+        .onChange(of: player.current?.FileHash) { _ in
+            artworkPalette = []
+        }
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .queue:
+                QueueView().environmentObject(player)
+            case .addToPlaylist(let song):
+                PlaylistTargetPicker { target in
+                    Task { await addToPlaylist(song, target) }
+                }
+            case .album(let target):
+                AlbumDetailSheet(target: target).environmentObject(player)
+            case .artist(let target):
+                ArtistDetailSheet(target: target).environmentObject(player)
+            case .comments(let song):
+                CommentsView(song: song)
+            case .lyricSources:
+                LyricSourceSheet().environmentObject(player)
+            }
+        }
+    }
+
+    private var pageContent: some View {
+        ZStack {
+            background
 
             VStack(spacing: 0) {
                 if showLyrics {
@@ -115,7 +164,6 @@ struct NowPlayingView: View {
                 bottomActions
             }
             .contentShape(Rectangle())
-            .offset(y: dragOffset)
             .simultaneousGesture(dismissGesture)
             .allowsHitTesting(!isClosing)
 
@@ -138,28 +186,46 @@ struct NowPlayingView: View {
             }
         }
         .background(Theme.background.ignoresSafeArea())
-        .animation(M3Motion.expressive, value: showLyrics)
-        .animation(.easeOut(duration: 0.22), value: player.toast)
-        .onChange(of: player.current?.FileHash) { _ in
-            artworkPalette = []
-        }
-        .sheet(item: $activeSheet) { sheet in
-            switch sheet {
-            case .queue:
-                QueueView().environmentObject(player)
-            case .addToPlaylist(let song):
-                PlaylistTargetPicker { target in
-                    Task { await addToPlaylist(song, target) }
-                }
-            case .album(let target):
-                AlbumDetailSheet(target: target).environmentObject(player)
-            case .artist(let target):
-                ArtistDetailSheet(target: target).environmentObject(player)
-            case .comments(let song):
-                CommentsView(song: song)
-            case .lyricSources:
-                LyricSourceSheet().environmentObject(player)
-            }
+    }
+
+    /// 封面飞行层：从底栏圆盘里的 44pt 封面飞到自己 318pt 的封面槽位。
+    /// 这一段对应 MD3Music 的 PlayerCoverMorph；原播放页封面在 pageContent
+    /// 里同步淡入，二者在 p=1 时逐像素重合后本层移除。
+    private var isCoverMorphing: Bool {
+        visualProgress < 0.999
+            && panelOrigin.width > 1
+            && coverFrame.width > 1
+            && player.current?.coverURL != nil
+    }
+
+    @ViewBuilder
+    private var coverMorphOverlay: some View {
+        if isCoverMorphing, let url = player.current?.coverURL {
+            let p = min(max(visualProgress, 0), 1)
+            let startSide = max(panelOrigin.width - 12, 20)
+            let start = CGRect(
+                x: (panelOrigin.width - startSide) / 2,
+                y: (panelOrigin.height - startSide) / 2,
+                width: startSide,
+                height: startSide
+            )
+            let rect = CGRect(
+                x: start.minX + (coverFrame.minX - start.minX) * p,
+                y: start.minY + (coverFrame.minY - start.minY) * p,
+                width: start.width + (coverFrame.width - start.width) * p,
+                height: start.height + (coverFrame.height - start.height) * p
+            )
+            let radius = 22 + (16 - 22) * p
+
+            CoverImage(
+                url: url,
+                size: max(rect.width, 1),
+                radius: max(radius, 0),
+                showsBorder: false
+            )
+            .shadow(color: .black.opacity(0.22), radius: 18, x: 0, y: 10)
+            .position(x: rect.midX, y: rect.midY)
+            .allowsHitTesting(false)
         }
     }
 
@@ -219,7 +285,8 @@ struct NowPlayingView: View {
                 let vertical = value.translation.height
                 let horizontal = abs(value.translation.width)
                 guard vertical > 0, vertical > horizontal * 1.25 else { return }
-                dragOffset = min(vertical * 0.88, 280)
+                let collapseDistance = max(UIScreen.main.bounds.height * 0.2, 1)
+                panelProgress = max(0, min(1, 1 - vertical / collapseDistance))
 
                 if vertical > 110, !didCrossDismissThreshold {
                     didCrossDismissThreshold = true
@@ -232,17 +299,18 @@ struct NowPlayingView: View {
                 guard activeSheet == nil, !showSleepSheet, !showKaraokeSheet, !isClosing else { return }
                 didCrossDismissThreshold = false
                 guard !showLyrics || value.startLocation.y < 100 else {
-                    withAnimation(M3Motion.panelSettle) { dragOffset = 0 }
+                    withAnimation(M3Motion.panelSettle) { panelProgress = 1 }
                     return
                 }
                 let vertical = value.translation.height
                 let horizontal = abs(value.translation.width)
                 let predicted = value.predictedEndTranslation.height
-                if vertical > 110, vertical > horizontal, predicted > 120 {
+                if panelProgress < 0.55
+                    || (vertical > 110 && vertical > horizontal && predicted > 120) {
                     closePlayer()
                 } else {
                     withAnimation(M3Motion.panelSettle) {
-                        dragOffset = 0
+                        panelProgress = 1
                     }
                 }
             }
@@ -422,9 +490,18 @@ struct NowPlayingView: View {
 
     private var artwork: some View {
         CrossfadeArtwork(url: player.current?.coverURL, size: artworkSize)
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: PlayerCoverFramePreferenceKey.self,
+                        value: proxy.frame(in: .named("playerPage"))
+                    )
+                }
+            )
             .shadow(color: .black.opacity(colorScheme == .dark ? 0.30 : 0.10),
                     radius: 16, x: 0, y: 8)
             .padding(.horizontal, 36)
+            .opacity(isCoverMorphing ? 0 : 1)
             // 封面不再接收切歌/双击手势，让播放页的系统的下拉收出手势覆盖整张封面。
             .allowsHitTesting(false)
     }
@@ -799,19 +876,18 @@ struct NowPlayingView: View {
         guard !isClosing else { return }
         isClosing = true
 
-        // 通知 Root 立刻开始 260ms 收场（Root 只做整页淡出 + 移除），
-        // 这里同步让前景从前任拖拽位置继续滑出屏幕，两边共用 panelCollapse。
-        let hasRoute = onClose != nil
-        onClose?()
-
-        withAnimation(M3Motion.panelCollapse) {
-            dragOffset = UIScreen.main.bounds.height
+        // Root 持有 PlayerPanelFrame：收起动画 = progress 1→0，
+        // 窗口缩回底栏圆盘、封面飞回，播放页自身不再做整页下滑。
+        if let onClose = onClose {
+            onClose()
+            return
         }
 
-        if !hasRoute {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
-                dismiss()
-            }
+        withAnimation(M3Motion.panelCollapse) {
+            panelProgress = 0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
+            dismiss()
         }
     }
 

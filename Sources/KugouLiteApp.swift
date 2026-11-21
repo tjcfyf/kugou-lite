@@ -34,10 +34,11 @@ struct RootView: View {
     @State private var showPlayer = false
     @State private var showSettings = false
     @State private var tab = 0
-    // 播放页转场由 Root 统一驱动：进入 400ms / 收起 260ms，与 MD3Music
-    // 的 DraggablePlayerRoute 时长逐值对齐。
-    @State private var playerOffset: CGFloat = 0
-    @State private var playerOpacity: Double = 0
+    // 播放页转场由 Root 统一驱动：以底栏播放封面圆盘为起点，
+    // 按 MD3Music 的 PlayerPanelFrame 几何展开/收回。
+    @State private var miniPlayerFrame: CGRect = .zero
+    @State private var playerOrigin: CGRect = .zero
+    @State private var playerProgress: CGFloat = 0
     @State private var isPlayerClosing = false
     @State private var isSearching = false
     @AppStorage(Preferences.themeModeKey) private var themeRaw = AppTheme.system.rawValue
@@ -84,23 +85,35 @@ struct RootView: View {
             // 播放页直接作为 Root 的覆盖层，不走 UIKit fullScreenCover。
             // 这样 tab 切换不会触发系统 presentation，也就不会闪一次播放页。
             //
-            // 转场复刻 MD3Music 的退化路径：点击进入时上滑 15% 屏高，
-            // 400ms panelExpandEasing；收起 260ms panelCollapseEasing。
-            // 不再叠 NowPlaying 内部的 entranceOffset，也不在根层再套
-            // `.transition(.opacity)`，避免「位移 + 根层淡入 + 内容淡入」三层叠加。
+            // 1:1 移植 MD3Music 的 DraggablePlayerRoute：
+            // 以外层底栏播放封面圆盘为 originRect，整页按 400ms panelExpand
+            // 从 56pt 圆角窗口长到全屏；收起 260ms panelCollapse 反向缩回。
+            // 不做 15% 位移/淡入的退化，也不给播放页内部另叠一层入场动画。
             if showPlayer {
-                NowPlayingView(onClose: { closePlayer() })
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .offset(y: playerOffset)
-                    .opacity(playerOpacity)
-                    .allowsHitTesting(!isPlayerClosing)
-                    .zIndex(30)
+                PlayerPanelFrame(
+                    progress: playerProgress,
+                    originRect: playerOrigin,
+                    originRadius: 28
+                ) {
+                    NowPlayingView(
+                        panelProgress: $playerProgress,
+                        panelOrigin: playerOrigin,
+                        onClose: { closePlayer() }
+                    )
+                }
+                .allowsHitTesting(!isPlayerClosing)
+                .zIndex(30)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppBackground().ignoresSafeArea())
         .overlay(alignment: .top) {
             ToastOverlay()
+        }
+        .onPreferenceChange(MiniPlayerFramePreferenceKey.self) { rect in
+            if rect.width > 1, rect.height > 1 {
+                miniPlayerFrame = rect
+            }
         }
         .preferredColorScheme(resolvedScheme)
         .accentColor(Theme.accent)
@@ -142,37 +155,42 @@ struct RootView: View {
         }
     }
 
-    /// 播放页展开：从屏幕下方 15% 处上滑，400ms 强 S 型曲线。
-    /// 只让 Root 这一层做位移 + 淡入，NowPlaying 内部不再叠第二层 entranceOffset。
+    /// 播放页展开：以底栏播放封面圆盘为起点，400ms 强 S 型曲线长到全屏。
+    /// 不叠加 15% 位移/根层淡入；几何、页面淡入、封面飞行全部由
+    /// PlayerPanelFrame + NowPlayingView 按同一 progress 驱动。
     private func openPlayer() {
         guard !showPlayer, !isPlayerClosing else { return }
-        let height = UIScreen.main.bounds.height
-        playerOpacity = 0
-        playerOffset = height * M3Motion.playerEntryOffsetRatio
+        let screen = UIScreen.main.bounds
+        let fallback = CGRect(
+            x: screen.midX - 28,
+            y: screen.maxY - 92,
+            width: 56,
+            height: 56
+        )
+        playerOrigin = (miniPlayerFrame.width > 1 && miniPlayerFrame.height > 1)
+            ? miniPlayerFrame
+            : fallback
+        playerProgress = 0
         showPlayer = true
 
-        // 先让第一帧以 0 透明度、15% 下移落位，再启动补间，
-        // 避免 SwiftUI 把插入瞬间和动画合并成一帧造成闪跳。
         DispatchQueue.main.async {
             withAnimation(M3Motion.panelExpand) {
-                playerOffset = 0
-                playerOpacity = 1
+                playerProgress = 1
             }
         }
     }
 
-    /// 播放页收起：260ms panelCollapse。NowPlaying 内部只负责前景下滑，
-    /// Root 这一层同步把整页淡出并在 260ms 后移除，避免背景磨砂层突然消失闪一下。
+    /// 播放页收起：260ms panelCollapse，反向缩回底栏圆盘。
+    /// NowPlaying 不再自己滑整页，Root 的窗口形变就是唯一的收起动画。
     private func closePlayer() {
         guard showPlayer, !isPlayerClosing else { return }
         isPlayerClosing = true
         withAnimation(M3Motion.panelCollapse) {
-            playerOpacity = 0
+            playerProgress = 0
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
             showPlayer = false
-            playerOffset = 0
-            playerOpacity = 0
+            playerProgress = 0
             isPlayerClosing = false
         }
     }

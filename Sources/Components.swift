@@ -2,6 +2,18 @@ import SwiftUI
 import UIKit
 import Combine
 
+/// 底栏播放封面圆盘在屏幕坐标系中的真实矩形。
+/// 播放页展开时用它作为 `PlayerPanelFrame` 的起点，不再用固定 15% 位移。
+struct MiniPlayerFramePreferenceKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next.width > 0, next.height > 0 {
+            value = next
+        }
+    }
+}
+
 enum Theme {
     static let background = Color("Background")
     // 半透明卡片让全局专辑色透出来，但正文只用黑/白两级。
@@ -476,6 +488,14 @@ private struct FloatingAlbumButton: View {
         } label: {
             BottomArtwork()
                 .frame(width: 56, height: 56)
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: MiniPlayerFramePreferenceKey.self,
+                            value: proxy.frame(in: .global)
+                        )
+                    }
+                )
                 .scaleEffect(player.isPlaying ? 1.0 : 0.985)
                 .contentShape(Circle())
                 .animation(.easeInOut(duration: 0.22), value: player.isPlaying)
