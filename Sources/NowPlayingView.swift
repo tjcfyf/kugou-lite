@@ -193,6 +193,7 @@ struct NowPlayingView: View {
     /// 里同步淡入，二者在 p=1 时逐像素重合后本层移除。
     private var isCoverMorphing: Bool {
         visualProgress < 0.999
+            && !showLyrics
             && panelOrigin.width > 1
             && coverFrame.width > 1
             && player.current?.coverURL != nil
