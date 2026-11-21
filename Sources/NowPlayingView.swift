@@ -685,6 +685,7 @@ struct NowPlayingView: View {
                                 }
                                 // 活动行不再放大字号：字号一变整段歌词会重排，视觉上就是“突然跳一下”。
                                 // 用固定字号 + 轻微字重/透明度过渡，滚动只由 ScrollViewReader 负责。
+                                .transition(.identity)
                                 .font(.system(size: lyricSize.fontSize, weight: active ? .semibold : .medium))
                                 .lineSpacing(6)
                                 .multilineTextAlignment(.leading)
@@ -706,8 +707,13 @@ struct NowPlayingView: View {
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .opacity(active ? 1 : 0.50)
-                            .animation(.easeInOut(duration: 0.16), value: active)
+                            // 非当前行整行做模糊；活动行保持完全清晰。
+                            // 这里不能给 active 加 opacity 动画：旧行淡出 + 新行淡入
+                            // 会在滚动动画期间同时留下两份半透明歌词，看起来就是“虚影”。
+                            .compositingGroup()
+                            .blur(radius: active ? 0 : 2.0)
+                            .opacity(active ? 1 : 0.58)
+                            .animation(nil, value: active)
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 player.seek(to: max(0, line.time - Double(player.lyricOffsetMs) / 1000))
@@ -731,13 +737,13 @@ struct NowPlayingView: View {
             }
             .onChange(of: player.lyricIndex) { index in
                 guard lyricAutoFollow else { return }
-                withAnimation(.easeInOut(duration: 0.26)) {
+                withAnimation(.easeInOut(duration: 0.22)) {
                     proxy.scrollTo(index, anchor: .center)
                 }
             }
             .onChange(of: lyricAutoFollow) { enabled in
                 guard enabled else { return }
-                withAnimation(.easeInOut(duration: 0.26)) {
+                withAnimation(.easeInOut(duration: 0.22)) {
                     proxy.scrollTo(player.lyricIndex, anchor: .center)
                 }
             }
