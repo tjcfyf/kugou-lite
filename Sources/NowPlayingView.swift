@@ -22,6 +22,8 @@ struct NowPlayingView: View {
     @State private var lyricClockTime: Double = 0
     @State private var lyricClockDate = Date()
     @State private var dragOffset: CGFloat = 0
+    @State private var entranceOffset: CGFloat = 24
+    @State private var isClosing = false
     @State private var artworkPalette: [Color] = []
 
     private var qualityLabel: String {
@@ -69,13 +71,10 @@ struct NowPlayingView: View {
             VStack(spacing: 0) {
                 if showLyrics {
                     lyricsTopBar
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .transition(.opacity)
                     lyricView
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .transition(.asymmetric(
-                            insertion: .opacity.combined(with: .move(edge: .bottom)),
-                            removal: .opacity
-                        ))
+                        .transition(.opacity)
                 } else {
                     topBar
                         .transition(.opacity)
@@ -83,12 +82,12 @@ struct NowPlayingView: View {
                     Spacer(minLength: 14)
 
                     artwork
-                        .transition(.opacity.combined(with: .scale(scale: 0.94)))
+                        .transition(.opacity)
 
                     Spacer(minLength: 16)
 
                     titleBlock
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        .transition(.opacity)
                     progress
                         .padding(.horizontal, 24)
                         .padding(.top, 16)
@@ -98,13 +97,16 @@ struct NowPlayingView: View {
                 if !showLyrics {
                     controls
                         .padding(.top, 18)
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        .transition(.opacity)
                 }
 
                 Spacer(minLength: 8)
 
                 bottomActions
             }
+            .offset(y: dragOffset + entranceOffset)
+            .simultaneousGesture(dismissGesture)
+            .allowsHitTesting(!isClosing)
 
             GlassHalfSheet(isPresented: $showSleepSheet, heightRatio: 0.50) {
                 SleepTimerSheet(onClose: { showSleepSheet = false }).environmentObject(player)
@@ -124,11 +126,14 @@ struct NowPlayingView: View {
                 .zIndex(30)
             }
         }
-        .offset(y: dragOffset)
         .background(Theme.background.ignoresSafeArea())
-        .simultaneousGesture(dismissGesture)
-        .animation(.easeInOut(duration: 0.32), value: showLyrics)
+        .animation(.easeInOut(duration: 0.28), value: showLyrics)
         .animation(.easeOut(duration: 0.22), value: player.toast)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.26)) {
+                entranceOffset = 0
+            }
+        }
         .onChange(of: player.current?.FileHash) { _ in
             artworkPalette = []
         }
@@ -203,7 +208,7 @@ struct NowPlayingView: View {
     private var dismissGesture: some Gesture {
         DragGesture(minimumDistance: 24, coordinateSpace: .local)
             .onChanged { value in
-                guard activeSheet == nil, !showSleepSheet, !showKaraokeSheet else { return }
+                guard activeSheet == nil, !showSleepSheet, !showKaraokeSheet, !isClosing else { return }
                 guard !showLyrics || value.startLocation.y < 100 else { return }
                 let vertical = value.translation.height
                 let horizontal = abs(value.translation.width)
@@ -211,7 +216,7 @@ struct NowPlayingView: View {
                 dragOffset = min(vertical * 0.88, 280)
             }
             .onEnded { value in
-                guard activeSheet == nil, !showSleepSheet, !showKaraokeSheet else { return }
+                guard activeSheet == nil, !showSleepSheet, !showKaraokeSheet, !isClosing else { return }
                 guard !showLyrics || value.startLocation.y < 100 else {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { dragOffset = 0 }
                     return
@@ -509,7 +514,8 @@ struct NowPlayingView: View {
                     )
             }
         }
-        .animation(isScrubbing ? nil : .linear(duration: 0.25), value: displayedTime)
+        // 进度本身 0.25 秒刷新一次；再叠一层 0.25 秒动画会让播放页持续重绘。
+        .animation(nil, value: displayedTime)
     }
 
     private var controls: some View {
@@ -649,7 +655,7 @@ struct NowPlayingView: View {
                             VStack(alignment: .leading, spacing: 5) {
                                 Group {
                                     if index == player.lyricIndex, !line.words.isEmpty, player.isPlaying {
-                                        TimelineView(.periodic(from: .now, by: 0.05)) { context in
+                                        TimelineView(.periodic(from: .now, by: 0.08)) { context in
                                             lyricText(line, active: true, timeOverride: lyricClock(context.date))
                                         }
                                     } else {
@@ -680,8 +686,7 @@ struct NowPlayingView: View {
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .blur(radius: index == player.lyricIndex ? 0 : 2.2)
-                            .opacity(index == player.lyricIndex ? 1 : 0.48)
+                            .opacity(index == player.lyricIndex ? 1 : 0.42)
                             .animation(.easeInOut(duration: 0.28), value: player.lyricIndex)
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -772,10 +777,18 @@ struct NowPlayingView: View {
     }
 
     private func closePlayer() {
-        if let onClose = onClose {
-            onClose()
-        } else {
-            dismiss()
+        guard !isClosing else { return }
+        isClosing = true
+        // 只让前景内容下滑；背景磨砂保持静止，避免拖动整张 UIVisualEffectView。
+        withAnimation(.easeIn(duration: 0.24)) {
+            dragOffset = UIScreen.main.bounds.height
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
+            if let onClose = onClose {
+                onClose()
+            } else {
+                dismiss()
+            }
         }
     }
 

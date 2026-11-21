@@ -80,18 +80,18 @@ struct RootView: View {
             // 这样 tab 切换不会触发系统 presentation，也就不会闪一次播放页。
             if showPlayer {
                 NowPlayingView(onClose: {
-                    withAnimation(.easeInOut(duration: 0.32)) {
+                    withAnimation(.easeInOut(duration: 0.22)) {
                         showPlayer = false
                     }
                 })
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(.opacity)
                 .zIndex(30)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppBackground().ignoresSafeArea())
-        .animation(.easeInOut(duration: 0.32), value: showPlayer)
+        .animation(.easeInOut(duration: 0.24), value: showPlayer)
         .overlay(alignment: .top) {
             ToastOverlay()
         }
