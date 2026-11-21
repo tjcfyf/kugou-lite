@@ -159,6 +159,7 @@ struct SettingsView: View {
                     speedCard
                     qualityCard
                     audioCard
+                    aiCard
                     lyricCard
                     lyricSourceCard
                     lyricFilterCard
@@ -167,7 +168,7 @@ struct SettingsView: View {
                     storageCard
                     accountCard
 
-                    Text("Sonora · iOS 15 精简版")
+                    Text("Sonora · iOS 15 · v80")
                         .font(.system(size: 11))
                         .foregroundColor(Theme.secondaryText)
                         .padding(.top, 6)
@@ -336,6 +337,37 @@ struct SettingsView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(GlassPressButtonStyle())
+        }
+    }
+
+    private var aiCard: some View {
+        card(title: "AI 伴唱分离") {
+            Toggle(isOn: Binding(
+                get: { player.aiSeparationEnabled },
+                set: { player.setAISeparationEnabled($0) }
+            )) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("本地 MSS 人声/伴奏分离")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                    Text("4.9MB 模型随 App 内置；开启后覆盖官方双轨/中置声道")
+                        .font(.system(size: 10))
+                        .foregroundColor(Theme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .tint(Theme.accent)
+
+            HStack(spacing: 8) {
+                Image(systemName: player.aiSeparationEnabled ? "waveform" : "waveform.slash")
+                    .font(.system(size: 13))
+                    .foregroundColor(player.aiSeparationEnabled ? Theme.accent : Theme.tertiaryText)
+                Text(player.aiSeparationEnabled ? "当前使用 AI 本地分离" : "当前未开启；播放页「分离」里也能开关")
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.top, 2)
         }
     }
 
@@ -744,6 +776,37 @@ struct PlayerSettingsView: View {
                     .buttonStyle(GlassPressButtonStyle())
                 }
             }
+        }
+    }
+
+    private var aiCard: some View {
+        card(title: "AI 伴唱分离") {
+            Toggle(isOn: Binding(
+                get: { player.aiSeparationEnabled },
+                set: { player.setAISeparationEnabled($0) }
+            )) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("本地 MSS 人声/伴奏分离")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                    Text("4.9MB 模型随 App 内置；开启后覆盖官方双轨/中置声道")
+                        .font(.system(size: 10))
+                        .foregroundColor(Theme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .tint(Theme.accent)
+
+            HStack(spacing: 8) {
+                Image(systemName: player.aiSeparationEnabled ? "waveform" : "waveform.slash")
+                    .font(.system(size: 13))
+                    .foregroundColor(player.aiSeparationEnabled ? Theme.accent : Theme.tertiaryText)
+                Text(player.aiSeparationEnabled ? "当前使用 AI 本地分离" : "当前未开启；播放页「分离」里也能开关")
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.top, 2)
         }
     }
 
