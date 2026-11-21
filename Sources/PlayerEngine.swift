@@ -6,6 +6,7 @@ enum KaraokeMode: String {
     case unavailable
     case dualTrack
     case centerChannel
+    case aiModel
 }
 
 @MainActor
@@ -36,6 +37,8 @@ final class PlayerEngine: NSObject, ObservableObject {
     @Published private(set) var karaokeMode: KaraokeMode = .unavailable
     @Published private(set) var karaokeVocalVolume: Double = Preferences.karaokeVocalVolume
     @Published private(set) var karaokeAccompanimentVolume: Double = Preferences.karaokeAccompanimentVolume
+    @Published private(set) var aiSeparationEnabled: Bool = Preferences.aiSeparationEnabled
+    @Published private(set) var aiSeparationAvailable: Bool = false
 
     private let player = AVPlayer()
     private var timeObserver: Any?
@@ -291,6 +294,11 @@ final class PlayerEngine: NSObject, ObservableObject {
         guard karaokeEnabled != enabled else { return }
         karaokeEnabled = enabled
         Preferences.karaokeEnabled = enabled
+        if !enabled {
+            aiSeparationEnabled = false
+            Preferences.aiSeparationEnabled = false
+            AudioEnhancer.shared.setAI(active: false)
+        }
         if current == nil {
             karaokeMode = .unavailable
             AudioEnhancer.shared.setKaraoke(active: false,
@@ -300,6 +308,31 @@ final class PlayerEngine: NSObject, ObservableObject {
         }
         reloadForKaraoke()
         showToast(enabled ? "伴唱已开启" : "伴唱已关闭")
+    }
+
+    /// 本地 MSS 分离开关。开启时会先把模型加载到内存并校验张量形状，
+    /// 模型不可用则保持中置声道兼容模式。
+    func setAISeparationEnabled(_ enabled: Bool) {
+        guard aiSeparationEnabled != enabled else { return }
+        if enabled {
+            aiSeparationAvailable = MSSRuntime.shared.prepare()
+            guard aiSeparationAvailable else {
+                aiSeparationEnabled = false
+                Preferences.aiSeparationEnabled = false
+                showToast("AI 模型不可用，继续使用兼容分离")
+                return
+            }
+            if !karaokeEnabled {
+                karaokeEnabled = true
+                Preferences.karaokeEnabled = true
+            }
+        }
+        aiSeparationEnabled = enabled
+        Preferences.aiSeparationEnabled = enabled
+        AudioEnhancer.shared.setAI(active: enabled)
+        if current == nil { return }
+        reloadForKaraoke()
+        showToast(enabled ? "AI 本地分离已开启" : "已切回兼容分离")
     }
 
     func setKaraokeVolumes(vocal: Double, accompaniment: Double) {
@@ -328,6 +361,7 @@ final class PlayerEngine: NSObject, ObservableObject {
         let clamped = max(0, min(seconds, max(duration, 0.1)))
         player.seek(to: CMTime(seconds: clamped, preferredTimescale: 600))
         if isPlaying { player.rate = playbackRate }
+        if karaokeMode == .aiModel { AudioEnhancer.shared.resetAI() }
         currentTime = clamped
         updateLyricIndex(clamped)
         refreshNowPlayingPlayback()
@@ -385,7 +419,20 @@ final class PlayerEngine: NSObject, ObservableObject {
 
                 let item: AVPlayerItem
                 var mode: KaraokeMode = .unavailable
-                if self.karaokeEnabled {
+                if self.karaokeEnabled, self.aiSeparationEnabled, MSSRuntime.shared.prepare() {
+                    self.aiSeparationAvailable = true
+                    let result = await self.makeNormalItem(url: url, karaokeFallback: false, aiSeparation: true)
+                    if result.aiAttached {
+                        item = result.item
+                        mode = .aiModel
+                        AudioEnhancer.shared.setKaraoke(active: false,
+                                                        vocal: Float(self.karaokeVocalVolume),
+                                                        accompaniment: Float(self.karaokeAccompanimentVolume))
+                    } else {
+                        mode = .centerChannel
+                        item = (await self.makeNormalItem(url: url, karaokeFallback: true)).item
+                    }
+                } else if self.karaokeEnabled {
                     var karaokeURL: URL?
                     if let cached = self.karaokeURLCache[song.FileHash] {
                         karaokeURL = cached
@@ -414,17 +461,17 @@ final class PlayerEngine: NSObject, ObservableObject {
                                                             accompaniment: Float(self.karaokeAccompanimentVolume))
                         } else {
                             mode = .centerChannel
-                            item = await self.makeNormalItem(url: url, karaokeFallback: true)
+                            item = (await self.makeNormalItem(url: url, karaokeFallback: true)).item
                         }
                     } else {
                         mode = .centerChannel
-                        item = await self.makeNormalItem(url: url, karaokeFallback: true)
+                        item = (await self.makeNormalItem(url: url, karaokeFallback: true)).item
                     }
                 } else {
                     AudioEnhancer.shared.setKaraoke(active: false,
                                                     vocal: Float(self.karaokeVocalVolume),
                                                     accompaniment: Float(self.karaokeAccompanimentVolume))
-                    item = await self.makeNormalItem(url: url, karaokeFallback: false)
+                    item = (await self.makeNormalItem(url: url, karaokeFallback: false)).item
                 }
                 self.karaokeMode = mode
                 item.preferredForwardBufferDuration = 3
@@ -432,7 +479,7 @@ final class PlayerEngine: NSObject, ObservableObject {
                 self.player.replaceCurrentItem(with: item)
                 self.currentQuality = mode == .dualTrack
                     ? "伴唱双轨"
-                    : (mode == .centerChannel ? "伴唱·声道" : (KGService.quality(for: song.FileHash) ?? ""))
+                    : (mode == .aiModel ? "AI 分离" : (mode == .centerChannel ? "伴唱·声道" : (KGService.quality(for: song.FileHash) ?? "")))
                 let saved = resume ? PlaybackMemory.position(for: song.FileHash) : 0
                 let total = Double(song.Duration ?? 0)
                 if saved > 5, total <= 0 || saved < total - 5 {
@@ -562,10 +609,13 @@ final class PlayerEngine: NSObject, ObservableObject {
         return result
     }
 
-    private func makeNormalItem(url: URL, karaokeFallback: Bool) async -> AVPlayerItem {
-        let needsTap = karaokeFallback || AudioEnhancer.shared.isEnabled
-        guard needsTap else { return AVPlayerItem(url: url) }
+    private func makeNormalItem(url: URL,
+                                karaokeFallback: Bool,
+                                aiSeparation: Bool = false) async -> (item: AVPlayerItem, aiAttached: Bool) {
+        let needsTap = karaokeFallback || aiSeparation || AudioEnhancer.shared.isEnabled
+        guard needsTap else { return (AVPlayerItem(url: url), false) }
         if karaokeFallback {
+            AudioEnhancer.shared.setAI(active: false)
             AudioEnhancer.shared.setKaraoke(active: true,
                                             vocal: Float(karaokeVocalVolume),
                                             accompaniment: Float(karaokeAccompanimentVolume))
@@ -573,8 +623,8 @@ final class PlayerEngine: NSObject, ObservableObject {
         let asset = AVURLAsset(url: url)
         await waitForTracks(asset)
         let item = AVPlayerItem(asset: asset)
-        AudioEnhancer.shared.attachTap(to: item, asset: asset)
-        return item
+        let attached = AudioEnhancer.shared.attachTap(to: item, asset: asset, aiSeparation: aiSeparation)
+        return (item, attached && aiSeparation)
     }
 
     private func configureKaraokeMix(on item: AVPlayerItem, tracks: [AVAssetTrack]) {

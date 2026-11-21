@@ -117,6 +117,8 @@ final class AudioEnhancer: ObservableObject {
                                           gains: Array(repeating: 0, count: 10),
                                           version: 0)
     private var karaoke = KaraokeSnapshot(active: false, vocal: 1, accompaniment: 1)
+    private var aiActive = false
+    private var activeAIContext: DSPTapContext?
     private let lock = NSLock()
     private var version = 0
 
@@ -163,6 +165,23 @@ final class AudioEnhancer: ObservableObject {
         lock.unlock()
     }
 
+    func setAI(active: Bool) {
+        lock.lock()
+        aiActive = active
+        lock.unlock()
+    }
+
+    func aiValue() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return aiActive
+    }
+
+    /// seek / 换曲时清空 MSS 的流式状态，避免把上一段的频谱状态带进新位置。
+    func resetAI() {
+        activeAIContext?.requestReset()
+    }
+
     func setGain(_ value: Float, at index: Int) {
         guard gains.indices.contains(index) else { return }
         var next = gains
@@ -183,16 +202,26 @@ final class AudioEnhancer: ObservableObject {
         gains = preset.gains
     }
 
-    /// 只在开启增强时给 AVPlayerItem 挂处理 tap；关闭时完全不碰播放链路。
-    func attachTap(to item: AVPlayerItem, asset: AVURLAsset) {
-        guard isEnabled || karaokeValue().active else { return }
-        guard let track = asset.tracks(withMediaType: .audio).first else { return }
+    /// 只在开启增强 / 伴唱 / AI 分离时给 AVPlayerItem 挂处理 tap；关闭时完全不碰播放链路。
+    /// 返回 false 表示请求的 AI 引擎没有成功建立，调用方应回退到中置声道。
+    @discardableResult
+    func attachTap(to item: AVPlayerItem, asset: AVURLAsset, aiSeparation: Bool = false) -> Bool {
+        guard isEnabled || karaokeValue().active || aiSeparation else { return true }
+        guard let track = asset.tracks(withMediaType: .audio).first else { return !aiSeparation }
+
+        var engine: MSSEngine?
+        if aiSeparation {
+            guard let made = MSSRuntime.shared.makeEngine() else { return false }
+            engine = made
+        }
+
+        guard let tap = makeTap(aiEngine: engine) else { return !aiSeparation }
         let parameters = AVMutableAudioMixInputParameters(track: track)
-        guard let tap = makeTap() else { return }
         parameters.audioTapProcessor = tap
         let mix = AVMutableAudioMix()
         mix.inputParameters = [parameters]
         item.audioMix = mix
+        return true
     }
 
     private func persist() {
@@ -209,8 +238,8 @@ final class AudioEnhancer: ObservableObject {
         lock.unlock()
     }
 
-    private func makeTap() -> MTAudioProcessingTap? {
-        let context = DSPTapContext()
+    private func makeTap(aiEngine: MSSEngine?) -> MTAudioProcessingTap? {
+        let context = DSPTapContext(aiEngine: aiEngine)
         let clientInfo = Unmanaged.passRetained(context).toOpaque()
         var callbacks = MTAudioProcessingTapCallbacks(
             version: kMTAudioProcessingTapCallbacksVersion_0,
@@ -230,6 +259,7 @@ final class AudioEnhancer: ObservableObject {
             Unmanaged<DSPTapContext>.fromOpaque(clientInfo).release()
             return nil
         }
+        activeAIContext = context
         return tap
     }
 }
@@ -257,6 +287,9 @@ enum EQPreset: String, CaseIterable, Identifiable {
 }
 
 private final class DSPTapContext {
+    private let aiEngine: MSSEngine?
+    private let resetLock = NSLock()
+    private var resetRequested = false
     private var bands: [BiquadState] = []
     private var preamp: Float = 1
     private var version = -1
@@ -264,6 +297,24 @@ private final class DSPTapContext {
     private var channels = 2
     private var interleaved = true
     private var floatFormat = false
+
+    init(aiEngine: MSSEngine?) {
+        self.aiEngine = aiEngine
+    }
+
+    func requestReset() {
+        resetLock.lock()
+        resetRequested = true
+        resetLock.unlock()
+    }
+
+    private func consumeReset() -> Bool {
+        resetLock.lock()
+        defer { resetLock.unlock() }
+        let value = resetRequested
+        resetRequested = false
+        return value
+    }
 
     func prepare(format: AudioStreamBasicDescription) {
         sampleRate = format.mSampleRate > 0 ? format.mSampleRate : 44100
@@ -279,8 +330,19 @@ private final class DSPTapContext {
     func process(bufferList: UnsafeMutablePointer<AudioBufferList>, frameCount: CMItemCount) {
         let eq = AudioEnhancer.shared.snapshotValue()
         let karaoke = AudioEnhancer.shared.karaokeValue()
-        guard eq.enabled || karaoke.active else { return }
+        let aiActive = AudioEnhancer.shared.aiValue()
+        guard eq.enabled || karaoke.active || aiActive else { return }
         guard floatFormat else { return }
+
+        if aiActive, let aiEngine {
+            processAI(bufferList: bufferList,
+                      frameCount: frameCount,
+                      engine: aiEngine,
+                      eq: eq,
+                      karaoke: karaoke)
+            return
+        }
+        guard eq.enabled || karaoke.active else { return }
 
         var processEQ = eq.enabled
         if processEQ {
@@ -353,6 +415,118 @@ private final class DSPTapContext {
                     let side = (left - right) * 0.5
                     leftData[frame] = mid * karaoke.vocal + side * karaoke.accompaniment
                     rightData[frame] = mid * karaoke.vocal - side * karaoke.accompaniment
+                }
+            }
+        }
+    }
+
+    private func processAI(bufferList: UnsafeMutablePointer<AudioBufferList>,
+                           frameCount: CMItemCount,
+                           engine: MSSEngine,
+                           eq: AudioEQSnapshot,
+                           karaoke: KaraokeSnapshot) {
+        guard floatFormat, channels >= 1 else { return }
+        // 模型前端固定 44.1 kHz；48 kHz 音源先保持原音，避免变速/变调。
+        guard abs(sampleRate - 44100) < 1 else { return }
+        let n = Int(frameCount)
+        guard n > 0 else { return }
+        if consumeReset() { engine.reset() }
+
+        let abl = UnsafeMutableAudioBufferListPointer(bufferList)
+        var input = [Float](repeating: 0, count: n * 2)
+
+        if interleaved {
+            guard abl.count > 0, let raw = abl[0].mData else { return }
+            let data = raw.assumingMemoryBound(to: Float.self)
+            let available = min(Int(abl[0].mDataByteSize) / MemoryLayout<Float>.size, n * channels)
+            guard available >= n * channels else { return }
+            for f in 0..<n {
+                let base = f * channels
+                let left = data[base]
+                let right = channels >= 2 ? data[base + 1] : left
+                input[2 * f] = left
+                input[2 * f + 1] = right
+            }
+        } else {
+            guard abl.count >= 1, let leftRaw = abl[0].mData else { return }
+            let leftData = leftRaw.assumingMemoryBound(to: Float.self)
+            let rightData: UnsafeMutablePointer<Float>?
+            if channels >= 2, abl.count >= 2, let raw = abl[1].mData {
+                rightData = raw.assumingMemoryBound(to: Float.self)
+            } else {
+                rightData = nil
+            }
+            let available = min(Int(abl[0].mDataByteSize) / MemoryLayout<Float>.size, n)
+            guard available >= n else { return }
+            for f in 0..<n {
+                let left = leftData[f]
+                let right = rightData?[f] ?? left
+                input[2 * f] = left
+                input[2 * f + 1] = right
+            }
+        }
+
+        guard let separated = engine.process(interleaved: input, frames: n),
+              separated.producedFrames >= n else { return }
+
+        let vocalGain = karaoke.vocal
+        let accompanimentGain = karaoke.accompaniment
+        if interleaved {
+            guard abl.count > 0, let raw = abl[0].mData else { return }
+            let data = raw.assumingMemoryBound(to: Float.self)
+            for f in 0..<n {
+                let base = f * channels
+                let left = separated.vocal[2 * f] * vocalGain + separated.accompaniment[2 * f] * accompanimentGain
+                let right = separated.vocal[2 * f + 1] * vocalGain + separated.accompaniment[2 * f + 1] * accompanimentGain
+                data[base] = left
+                if channels >= 2 { data[base + 1] = right }
+            }
+        } else {
+            guard abl.count >= 1, let leftRaw = abl[0].mData else { return }
+            let leftData = leftRaw.assumingMemoryBound(to: Float.self)
+            let rightData: UnsafeMutablePointer<Float>?
+            if channels >= 2, abl.count >= 2, let raw = abl[1].mData {
+                rightData = raw.assumingMemoryBound(to: Float.self)
+            } else {
+                rightData = nil
+            }
+            for f in 0..<n {
+                let left = separated.vocal[2 * f] * vocalGain + separated.accompaniment[2 * f] * accompanimentGain
+                let right = separated.vocal[2 * f + 1] * vocalGain + separated.accompaniment[2 * f + 1] * accompanimentGain
+                leftData[f] = left
+                rightData?[f] = right
+            }
+        }
+
+        guard eq.enabled else { return }
+        if eq.version != version { apply(eq) }
+        guard preamp > 0, !bands.isEmpty else { return }
+        if interleaved {
+            guard abl.count > 0, let raw = abl[0].mData else { return }
+            let data = raw.assumingMemoryBound(to: Float.self)
+            for f in 0..<n {
+                for c in 0..<channels {
+                    let base = f * channels + c
+                    var value = data[base]
+                    for band in 0..<10 {
+                        let index = c * 10 + band
+                        if index < bands.count { value = bands[index].process(value) }
+                    }
+                    data[base] = value * preamp
+                }
+            }
+        } else {
+            for c in 0..<min(abl.count, channels) {
+                guard let raw = abl[c].mData else { continue }
+                let data = raw.assumingMemoryBound(to: Float.self)
+                let frames = min(Int(abl[c].mDataByteSize) / MemoryLayout<Float>.size, n)
+                for f in 0..<frames {
+                    var value = data[f]
+                    for band in 0..<10 {
+                        let index = c * 10 + band
+                        if index < bands.count { value = bands[index].process(value) }
+                    }
+                    data[f] = value * preamp
                 }
             }
         }

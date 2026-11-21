@@ -169,6 +169,7 @@ enum Preferences {
     static let karaokeEnabledKey = "kg.karaoke.enabled"
     static let karaokeVocalKey = "kg.karaoke.vocal"
     static let karaokeAccompanimentKey = "kg.karaoke.accompaniment"
+    static let aiSeparationKey = "kg.karaoke.ai"
 
     static var lyricOffsetMs: Int {
         get { UserDefaults.standard.integer(forKey: lyricOffsetKey) }
@@ -236,6 +237,11 @@ enum Preferences {
             return min(max(UserDefaults.standard.double(forKey: karaokeAccompanimentKey), 0), 1)
         }
         set { UserDefaults.standard.set(min(max(newValue, 0), 1), forKey: karaokeAccompanimentKey) }
+    }
+
+    static var aiSeparationEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: aiSeparationKey) }
+        set { UserDefaults.standard.set(newValue, forKey: aiSeparationKey) }
     }
 
     static var searchHistory: [String] {

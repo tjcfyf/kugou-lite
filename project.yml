@@ -23,6 +23,11 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+      - path: Resources/mss-model.tflite
+        buildPhase: resources
+    dependencies:
+      - framework: Vendor/TensorFlowLiteC.xcframework
+        embed: false
     info:
       path: Info.plist
       properties:
@@ -41,6 +46,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.tjcfyf.kugoulite
         PRODUCT_NAME: KugouLite
         TARGETED_DEVICE_FAMILY: "1,2"
+        OTHER_LDFLAGS: "$(inherited) -lc++"
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO
         CODE_SIGN_IDENTITY: ""

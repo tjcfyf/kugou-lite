@@ -579,7 +579,7 @@ struct NowPlayingView: View {
                 withAnimation(.easeInOut(duration: 0.32)) { showLyrics.toggle() }
             }
             Spacer(minLength: 0)
-            bottomAction(title: "伴唱", icon: "music.mic", active: player.karaokeEnabled,
+            bottomAction(title: "分离", icon: "music.mic", active: player.karaokeEnabled,
                          disabled: player.current == nil) {
                 activeSheet = .karaoke
             }
@@ -897,8 +897,9 @@ struct KaraokeSheet: View {
 
     private var modeTitle: String {
         switch player.karaokeMode {
-        case .dualTrack: return "双轨伴唱"
+        case .dualTrack: return "官方双轨"
         case .centerChannel: return "立体声兼容分离"
+        case .aiModel: return "AI 本地分离"
         case .unavailable: return player.karaokeEnabled ? "正在准备伴唱" : "未开启"
         }
     }
@@ -908,11 +909,13 @@ struct KaraokeSheet: View {
         case .dualTrack:
             return "已取到官方人声/伴奏双轨，可独立调节两条音轨音量。"
         case .centerChannel:
-            return "这首歌没有官方双轨，使用立体声中置声道估计分离：效果接近伴唱，但不是 AI 级分离。"
+            return "当前使用立体声中置声道估计分离：零延迟、零模型，但对单声道和复杂编混效果有限。"
+        case .aiModel:
+            return "4.9MB MSS 模型在 iPhone 本地实时分离人声与伴奏，约 0.1 秒延迟；不上传音频。"
         case .unavailable:
             return player.karaokeEnabled
-                ? "正在请求伴唱资源，若歌曲不支持会自动退回兼容分离。"
-                : "开启后优先请求官方双轨，取不到时使用兼容分离。"
+                ? "正在准备分离资源；模型不可用时会自动退回兼容分离。"
+                : "开启后优先本地 AI；模型不可用时用官方双轨或兼容分离。"
         }
     }
 
@@ -923,7 +926,7 @@ struct KaraokeSheet: View {
                     VStack(alignment: .leading, spacing: 14) {
                         HStack(alignment: .top, spacing: 12) {
                             VStack(alignment: .leading, spacing: 5) {
-                                Text("伴唱")
+                                Text("伴唱 / AI 分离")
                                     .font(.system(size: 20, weight: .semibold))
                                     .foregroundColor(Theme.text)
                                 Text(modeTitle)
@@ -947,6 +950,38 @@ struct KaraokeSheet: View {
                     .padding(16)
                     .background(Theme.card)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .top, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("AI 本地分离")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(Theme.text)
+                                Text(player.aiSeparationEnabled ? "MSS · 全曲库可用" : "4.9MB 流式模型")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Theme.secondaryText)
+                            }
+                            Spacer()
+                            Toggle("", isOn: Binding(
+                                get: { player.aiSeparationEnabled },
+                                set: { player.setAISeparationEnabled($0) }
+                            ))
+                            .labelsHidden()
+                            .tint(Theme.accent)
+                            .disabled(!player.karaokeEnabled)
+                        }
+
+                        Text(player.aiSeparationEnabled
+                             ? "人声/伴奏由本机模型实时拆分，可任意调音量；首次开启会加载模型，之后切歌不再等待。"
+                             : "不依赖官方 acappella 双轨；模型随 App 内置，完全离线。开启后会覆盖双轨/中置声道。")
+                            .font(.system(size: 11))
+                            .foregroundColor(Theme.tertiaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(16)
+                    .background(Theme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .padding(.top, 14)
 
                     VStack(alignment: .leading, spacing: 18) {
                         volumeRow(title: "人声", value: player.karaokeVocalVolume) { value in
