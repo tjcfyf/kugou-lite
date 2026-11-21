@@ -11,7 +11,7 @@ final class MSSRunner {
     private var model: OpaquePointer?
     private var options: OpaquePointer?
     private var interpreter: OpaquePointer?
-    private var delegate: OpaquePointer?
+    private var delegate: UnsafeMutablePointer<TfLiteDelegate>?
 
     private let spectrumInCount = 8 * 4 * 1024
     private let spectrumOutCount = 8 * 16 * 1024
