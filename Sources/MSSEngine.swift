@@ -96,6 +96,11 @@ final class MSSEngine {
         accRing = Array(repeating: [Float](repeating: 0, count: 2 * Constants.chunk), count: Constants.ring)
     }
 
+    /// 初始化后做一次最小推理，确认 TFLite 运行时能真正执行这个模型。
+    func validateRuntime() -> Bool {
+        runner.validateRuntime()
+    }
+
     func reset() {
         for i in states.indices {
             for j in states[i].indices { states[i][j] = 0 }

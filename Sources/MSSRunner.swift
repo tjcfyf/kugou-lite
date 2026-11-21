@@ -83,6 +83,15 @@ final class MSSRunner {
         if let model { TfLiteModelDelete(model) }
     }
 
+    /// 首次准备模型时跑一遍零输入，确认解释器不仅分配成功，而且真的能 invoke。
+    /// 有些模型 AllocateTensors 通过，但运行到 TRANSPOSE/转置卷积时才报错。
+    func validateRuntime() -> Bool {
+        var zeroStates = stateSizes.map { [Float](repeating: 0, count: $0) }
+        var spectrumIn = [Float](repeating: 0, count: spectrumInCount)
+        var spectrumOut = [Float](repeating: 0, count: spectrumOutCount)
+        return run(spectrumIn: spectrumIn, states: &zeroStates, spectrumOut: &spectrumOut)
+    }
+
     func run(spectrumIn: [Float], states: inout [[Float]], spectrumOut: inout [Float]) -> Bool {
         guard let interpreter else { return false }
         guard spectrumIn.count == spectrumInCount, spectrumOut.count == spectrumOutCount else { return false }

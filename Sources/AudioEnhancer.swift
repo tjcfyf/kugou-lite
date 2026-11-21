@@ -221,6 +221,9 @@ final class AudioEnhancer: ObservableObject {
         let mix = AVMutableAudioMix()
         mix.inputParameters = [parameters]
         item.audioMix = mix
+        // 关键：tap 只负责建链，真正的 AI 开关必须在这里同步打开。
+        // 否则 DSPTapContext 会在 eq/karaoke/ai 全部关闭时直接 return，AI 永远不跑。
+        setAI(active: aiSeparation)
         return true
     }
 

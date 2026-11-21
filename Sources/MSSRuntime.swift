@@ -27,8 +27,12 @@ final class MSSRuntime {
             isAvailable = false
             return false
         }
-        isAvailable = MSSEngine(path: url.path) != nil
-        return isAvailable
+        guard let engine = MSSEngine(path: url.path), engine.validateRuntime() else {
+            isAvailable = false
+            return false
+        }
+        isAvailable = true
+        return true
     }
 
     /// 异步准备模型。TFLite 分配张量和 XNNPACK 初始化可能耗时数百毫秒，

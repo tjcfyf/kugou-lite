@@ -410,6 +410,7 @@ final class PlayerEngine: NSObject, ObservableObject {
         errorMessage = nil
         karaokeMode = .unavailable
         karaokeTracks = []
+        AudioEnhancer.shared.setAI(active: false)
 
         guard NetworkStatus.shared.isConnected else {
             isLoading = false
