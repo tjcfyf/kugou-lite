@@ -675,7 +675,8 @@ struct GlassHalfSheet<Content: View>: View {
             Color.black.opacity(isPresented ? 0.18 : 0)
                 .ignoresSafeArea()
                 .onTapGesture { close() }
-                .animation(.easeInOut(duration: 0.22), value: isPresented)
+                .animation(isPresented ? M3Motion.panelExpand : M3Motion.panelCollapse,
+                           value: isPresented)
 
             VStack(spacing: 0) {
                 Button(action: close) {
@@ -709,10 +710,12 @@ struct GlassHalfSheet<Content: View>: View {
                     .fill(Theme.text.opacity(0.10))
                     .frame(height: 0.5)
             }
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.35 : 0.12),
-                    radius: 20, x: 0, y: -6)
+            // 不再给磨砂面板加大半径阴影：`UIVisualEffectView + radius 20 shadow`
+            // 在 iOS 15 上每帧都要离屏合成，是半屏面板关闭掉帧的主要来源。
+            // 顶部 0.5pt 分隔线已经足够把面板与背景分开。
             .offset(y: isPresented ? 0 : panelHeight + 20)
-            .animation(.spring(response: 0.40, dampingFraction: 0.92), value: isPresented)
+            .animation(isPresented ? M3Motion.panelExpand : M3Motion.panelCollapse,
+                       value: isPresented)
         }
         .ignoresSafeArea()
         .allowsHitTesting(isPresented)

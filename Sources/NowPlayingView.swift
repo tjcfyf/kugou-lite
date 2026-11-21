@@ -22,7 +22,6 @@ struct NowPlayingView: View {
     @State private var lyricClockTime: Double = 0
     @State private var lyricClockDate = Date()
     @State private var dragOffset: CGFloat = 0
-    @State private var entranceOffset: CGFloat = 24
     @State private var isClosing = false
     @State private var didCrossDismissThreshold = false
     @State private var artworkPalette: [Color] = []
@@ -116,7 +115,7 @@ struct NowPlayingView: View {
                 bottomActions
             }
             .contentShape(Rectangle())
-            .offset(y: dragOffset + entranceOffset)
+            .offset(y: dragOffset)
             .simultaneousGesture(dismissGesture)
             .allowsHitTesting(!isClosing)
 
@@ -139,13 +138,8 @@ struct NowPlayingView: View {
             }
         }
         .background(Theme.background.ignoresSafeArea())
-        .animation(.easeInOut(duration: 0.28), value: showLyrics)
+        .animation(M3Motion.expressive, value: showLyrics)
         .animation(.easeOut(duration: 0.22), value: player.toast)
-        .onAppear {
-            withAnimation(.easeOut(duration: 0.26)) {
-                entranceOffset = 0
-            }
-        }
         .onChange(of: player.current?.FileHash) { _ in
             artworkPalette = []
         }
@@ -238,7 +232,7 @@ struct NowPlayingView: View {
                 guard activeSheet == nil, !showSleepSheet, !showKaraokeSheet, !isClosing else { return }
                 didCrossDismissThreshold = false
                 guard !showLyrics || value.startLocation.y < 100 else {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { dragOffset = 0 }
+                    withAnimation(M3Motion.panelSettle) { dragOffset = 0 }
                     return
                 }
                 let vertical = value.translation.height
@@ -247,7 +241,7 @@ struct NowPlayingView: View {
                 if vertical > 110, vertical > horizontal, predicted > 120 {
                     closePlayer()
                 } else {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                    withAnimation(M3Motion.panelSettle) {
                         dragOffset = 0
                     }
                 }
@@ -598,7 +592,7 @@ struct NowPlayingView: View {
     private var bottomActions: some View {
         HStack(spacing: 0) {
             bottomAction(title: "歌词", icon: "music.note", active: showLyrics) {
-                withAnimation(.easeInOut(duration: 0.32)) { showLyrics.toggle() }
+                showLyrics.toggle()
             }
             Spacer(minLength: 0)
             bottomAction(title: "分离", icon: "music.mic", active: player.karaokeEnabled,
@@ -804,14 +798,18 @@ struct NowPlayingView: View {
     private func closePlayer() {
         guard !isClosing else { return }
         isClosing = true
-        // 只让前景内容下滑；背景磨砂保持静止，避免拖动整张 UIVisualEffectView。
-        withAnimation(.easeOut(duration: 0.24)) {
+
+        // 通知 Root 立刻开始 260ms 收场（Root 只做整页淡出 + 移除），
+        // 这里同步让前景从前任拖拽位置继续滑出屏幕，两边共用 panelCollapse。
+        let hasRoute = onClose != nil
+        onClose?()
+
+        withAnimation(M3Motion.panelCollapse) {
             dragOffset = UIScreen.main.bounds.height
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
-            if let onClose = onClose {
-                onClose()
-            } else {
+
+        if !hasRoute {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
                 dismiss()
             }
         }
