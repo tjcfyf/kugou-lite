@@ -490,7 +490,7 @@ private struct FloatingAlbumButton: View {
 private struct BottomArtwork: View {
     @EnvironmentObject private var player: PlayerEngine
     @State private var angle: Double = 0
-    private let rotationTimer = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
+    private let rotationTimer = Timer.publish(every: 0.10, on: .main, in: .common).autoconnect()
 
     var body: some View {
         Group {
@@ -504,7 +504,7 @@ private struct BottomArtwork: View {
         .rotationEffect(.degrees(angle))
         .onReceive(rotationTimer) { _ in
             guard player.isPlaying else { return }
-            angle += 2.25
+            angle += 4.5
             if angle >= 360 { angle -= 360 }
         }
     }

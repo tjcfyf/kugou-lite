@@ -24,6 +24,7 @@ struct NowPlayingView: View {
     @State private var dragOffset: CGFloat = 0
     @State private var entranceOffset: CGFloat = 24
     @State private var isClosing = false
+    @State private var didCrossDismissThreshold = false
     @State private var artworkPalette: [Color] = []
 
     private var qualityLabel: String {
@@ -42,6 +43,11 @@ struct NowPlayingView: View {
 
     private var artworkSize: CGFloat {
         min(UIScreen.main.bounds.width - 72, 330)
+    }
+
+    /// 下滑进度：背景只用一层纯色淡出，绝不对磨砂层做透明度动画。
+    private var dragProgress: CGFloat {
+        min(max(dragOffset / 260, 0), 1)
     }
 
     private enum PlayerSheet: Identifiable {
@@ -67,6 +73,11 @@ struct NowPlayingView: View {
     var body: some View {
         ZStack {
             background
+
+            Theme.background
+                .opacity(Double(dragProgress) * 0.94)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
 
             VStack(spacing: 0) {
                 if showLyrics {
@@ -104,6 +115,7 @@ struct NowPlayingView: View {
 
                 bottomActions
             }
+            .contentShape(Rectangle())
             .offset(y: dragOffset + entranceOffset)
             .simultaneousGesture(dismissGesture)
             .allowsHitTesting(!isClosing)
@@ -214,9 +226,17 @@ struct NowPlayingView: View {
                 let horizontal = abs(value.translation.width)
                 guard vertical > 0, vertical > horizontal * 1.25 else { return }
                 dragOffset = min(vertical * 0.88, 280)
+
+                if vertical > 110, !didCrossDismissThreshold {
+                    didCrossDismissThreshold = true
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } else if vertical < 88 {
+                    didCrossDismissThreshold = false
+                }
             }
             .onEnded { value in
                 guard activeSheet == nil, !showSleepSheet, !showKaraokeSheet, !isClosing else { return }
+                didCrossDismissThreshold = false
                 guard !showLyrics || value.startLocation.y < 100 else {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { dragOffset = 0 }
                     return
@@ -780,10 +800,10 @@ struct NowPlayingView: View {
         guard !isClosing else { return }
         isClosing = true
         // 只让前景内容下滑；背景磨砂保持静止，避免拖动整张 UIVisualEffectView。
-        withAnimation(.easeIn(duration: 0.24)) {
+        withAnimation(.easeOut(duration: 0.24)) {
             dragOffset = UIScreen.main.bounds.height
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
             if let onClose = onClose {
                 onClose()
             } else {
