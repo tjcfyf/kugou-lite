@@ -112,7 +112,7 @@ struct NowPlayingView: View {
             .zIndex(20)
 
             GlassHalfSheet(isPresented: $showKaraokeSheet, heightRatio: 0.60) {
-                KaraokeSheet(onClose: { showKaraokeSheet = false }).environmentObject(player)
+                KaraokeSheet().environmentObject(player)
             }
             .zIndex(21)
 
@@ -889,7 +889,6 @@ private struct CrossfadeArtwork: View {
 
 struct KaraokeSheet: View {
     @EnvironmentObject private var player: PlayerEngine
-    var onClose: () -> Void
 
     private var modeTitle: String {
         switch player.karaokeMode {
@@ -964,30 +963,14 @@ struct KaraokeSheet: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
-            Button {
-                onClose()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(Theme.secondaryText)
-                    .frame(width: 38, height: 38)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(GlassPressButtonStyle())
-
+        HStack {
             Spacer()
-
             Text("伴唱 / 分离")
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundColor(Theme.text)
-
             Spacer()
-
-            Color.clear.frame(width: 38, height: 38)
         }
-        .padding(.horizontal, 16)
-        .frame(height: 48)
+        .frame(height: 44)
     }
 
     private var modeCard: some View {

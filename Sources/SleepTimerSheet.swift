@@ -26,30 +26,14 @@ struct SleepTimerSheet: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
-            Button {
-                onClose()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(Theme.secondaryText)
-                    .frame(width: 38, height: 38)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(GlassPressButtonStyle())
-
+        HStack {
             Spacer()
-
             Text("睡眠模式")
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundColor(Theme.text)
-
             Spacer()
-
-            Color.clear.frame(width: 38, height: 38)
         }
-        .padding(.horizontal, 16)
-        .frame(height: 48)
+        .frame(height: 44)
     }
 
     private var statusCard: some View {

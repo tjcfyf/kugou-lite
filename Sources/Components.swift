@@ -666,28 +666,36 @@ struct GlassHalfSheet<Content: View>: View {
                 .animation(.easeInOut(duration: 0.26), value: isPresented)
 
             VStack(spacing: 0) {
-                Capsule()
-                    .fill(Theme.text.opacity(0.24))
-                    .frame(width: 36, height: 5)
-                    .padding(.top, 8)
-                    .padding(.bottom, 2)
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    .gesture(dragGesture)
+                VStack(spacing: 2) {
+                    Capsule()
+                        .fill(Theme.text.opacity(0.24))
+                        .frame(width: 36, height: 5)
+                    Text("下拉关闭")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(Theme.tertiaryText)
+                }
+                .padding(.top, 8)
+                .padding(.bottom, 2)
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+                .gesture(dragGesture)
 
                 content
             }
             .frame(width: screen.width, height: panelHeight, alignment: .top)
             .background(
                 ZStack {
-                    NativeFrostedGlass(style: colorScheme == .dark
-                                       ? .systemUltraThinMaterialDark
-                                       : .systemUltraThinMaterialLight)
-                        .frame(width: screen.width, height: panelHeight)
+                    Rectangle().fill(.ultraThinMaterial)
                     Theme.background.opacity(colorScheme == .dark ? 0.10 : 0.05)
                 }
             )
             .clipShape(TopRoundedRectangle(radius: 26))
+            .overlay(alignment: .top) {
+                Color.clear
+                    .frame(height: 72)
+                    .contentShape(Rectangle())
+                    .gesture(dragGesture)
+            }
             .overlay(alignment: .top) {
                 Rectangle()
                     .fill(Theme.text.opacity(0.10))
