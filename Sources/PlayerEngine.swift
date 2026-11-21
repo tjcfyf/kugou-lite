@@ -289,14 +289,12 @@ final class PlayerEngine: NSObject, ObservableObject {
         load(song, resume: true)
     }
 
-    /// 伴唱开关需要重新请求 acappella 双轨，取不到时退回立体声中置声道兼容模式。
+    /// 伴唱开关会重新请求官方 acappella 双轨；没有双轨时优先本地 AI，再退回中置声道。
     func setKaraokeEnabled(_ enabled: Bool) {
         guard karaokeEnabled != enabled else { return }
         karaokeEnabled = enabled
         Preferences.karaokeEnabled = enabled
         if !enabled {
-            aiSeparationEnabled = false
-            Preferences.aiSeparationEnabled = false
             AudioEnhancer.shared.setAI(active: false)
         }
         if current == nil {
@@ -419,20 +417,8 @@ final class PlayerEngine: NSObject, ObservableObject {
 
                 let item: AVPlayerItem
                 var mode: KaraokeMode = .unavailable
-                if self.karaokeEnabled, self.aiSeparationEnabled, MSSRuntime.shared.prepare() {
-                    self.aiSeparationAvailable = true
-                    let result = await self.makeNormalItem(url: url, karaokeFallback: false, aiSeparation: true)
-                    if result.aiAttached {
-                        item = result.item
-                        mode = .aiModel
-                        AudioEnhancer.shared.setKaraoke(active: false,
-                                                        vocal: Float(self.karaokeVocalVolume),
-                                                        accompaniment: Float(self.karaokeAccompanimentVolume))
-                    } else {
-                        mode = .centerChannel
-                        item = (await self.makeNormalItem(url: url, karaokeFallback: true)).item
-                    }
-                } else if self.karaokeEnabled {
+                if self.karaokeEnabled {
+                    // 1. 官方 acappella 双轨优先。
                     var karaokeURL: URL?
                     if let cached = self.karaokeURLCache[song.FileHash] {
                         karaokeURL = cached
@@ -447,6 +433,8 @@ final class PlayerEngine: NSObject, ObservableObject {
                             self.karaokeURLCache[song.FileHash] = karaokeURL
                         }
                     }
+
+                    var dualItem: AVPlayerItem?
                     if let karaokeURL {
                         let karaokeAsset = AVURLAsset(url: karaokeURL)
                         await self.waitForTracks(karaokeAsset)
@@ -454,18 +442,21 @@ final class PlayerEngine: NSObject, ObservableObject {
                         if karaokeAsset.isPlayable, tracks.count >= 2 {
                             let karaokeItem = AVPlayerItem(asset: karaokeAsset)
                             self.configureKaraokeMix(on: karaokeItem, tracks: tracks)
-                            item = karaokeItem
-                            mode = .dualTrack
-                            AudioEnhancer.shared.setKaraoke(active: false,
-                                                            vocal: Float(self.karaokeVocalVolume),
-                                                            accompaniment: Float(self.karaokeAccompanimentVolume))
-                        } else {
-                            mode = .centerChannel
-                            item = (await self.makeNormalItem(url: url, karaokeFallback: true)).item
+                            dualItem = karaokeItem
                         }
+                    }
+
+                    if let dualItem {
+                        item = dualItem
+                        mode = .dualTrack
+                        AudioEnhancer.shared.setKaraoke(active: false,
+                                                        vocal: Float(self.karaokeVocalVolume),
+                                                        accompaniment: Float(self.karaokeAccompanimentVolume))
                     } else {
-                        mode = .centerChannel
-                        item = (await self.makeNormalItem(url: url, karaokeFallback: true)).item
+                        // 2. 没有官方双轨才走 AI；3. AI 不可用再退中置声道。
+                        let fallback = await self.makeKaraokeFallbackItem(url: url)
+                        item = fallback.item
+                        mode = fallback.mode
                     }
                 } else {
                     AudioEnhancer.shared.setKaraoke(active: false,
@@ -607,6 +598,23 @@ final class PlayerEngine: NSObject, ObservableObject {
         let item = result.remove(at: index)
         result.insert(item, at: 0)
         return result
+    }
+
+    /// 官方双轨取不到时的兜底：先尝试本地 AI，失败再退立体声中置声道。
+    private func makeKaraokeFallbackItem(url: URL) async -> (item: AVPlayerItem, mode: KaraokeMode) {
+        if aiSeparationEnabled, MSSRuntime.shared.prepare() {
+            aiSeparationAvailable = true
+            let result = await makeNormalItem(url: url, karaokeFallback: false, aiSeparation: true)
+            if result.aiAttached {
+                AudioEnhancer.shared.setKaraoke(active: false,
+                                                vocal: Float(karaokeVocalVolume),
+                                                accompaniment: Float(karaokeAccompanimentVolume))
+                return (result.item, .aiModel)
+            }
+        }
+        aiSeparationAvailable = false
+        let normal = await makeNormalItem(url: url, karaokeFallback: true)
+        return (normal.item, .centerChannel)
     }
 
     private func makeNormalItem(url: URL,

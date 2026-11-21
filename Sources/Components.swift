@@ -621,3 +621,105 @@ struct SongRow: View {
         }
     }
 }
+
+
+/// 只圆上面两角的形状，用于底部半屏面板。
+struct TopRoundedRectangle: Shape {
+    var radius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(
+            roundedRect: rect,
+            byRoundingCorners: [.topLeft, .topRight],
+            cornerRadii: CGSize(width: radius, height: radius)
+        )
+        return Path(path.cgPath)
+    }
+}
+
+/// iOS 15 没有 presentationDetents，用原生 UIVisualEffectView 自己搭半屏玻璃。
+/// 背景保留透出能力，播放页歌词会从磨砂玻璃后面隐约透出来。
+struct GlassHalfSheet<Content: View>: View {
+    @Binding var isPresented: Bool
+    var heightRatio: CGFloat
+    private let content: Content
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var dragOffset: CGFloat = 0
+
+    init(isPresented: Binding<Bool>,
+         heightRatio: CGFloat = 0.52,
+         @ViewBuilder content: () -> Content) {
+        self._isPresented = isPresented
+        self.heightRatio = heightRatio
+        self.content = content()
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .bottom) {
+                Color.black.opacity(0.16)
+                    .ignoresSafeArea()
+                    .onTapGesture { close() }
+
+                VStack(spacing: 0) {
+                    Capsule()
+                        .fill(Theme.text.opacity(0.24))
+                        .frame(width: 36, height: 5)
+                        .padding(.top, 8)
+                        .padding(.bottom, 2)
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
+                        .gesture(dragGesture)
+
+                    content
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: max(300, geo.size.height * heightRatio), alignment: .top)
+                .background(
+                    ZStack {
+                        NativeFrostedGlass(style: colorScheme == .dark
+                                           ? .systemUltraThinMaterialDark
+                                           : .systemUltraThinMaterialLight)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        Theme.background.opacity(colorScheme == .dark ? 0.10 : 0.05)
+                    }
+                )
+                .clipShape(TopRoundedRectangle(radius: 26))
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Theme.text.opacity(0.10))
+                        .frame(height: 0.5)
+                }
+                .shadow(color: .black.opacity(colorScheme == .dark ? 0.35 : 0.12),
+                        radius: 24, x: 0, y: -8)
+                .offset(y: dragOffset)
+            }
+            .ignoresSafeArea()
+        }
+        .transition(.opacity)
+    }
+
+    private var dragGesture: some Gesture {
+        DragGesture(minimumDistance: 4)
+            .onChanged { value in
+                dragOffset = max(0, value.translation.height)
+            }
+            .onEnded { value in
+                if value.translation.height > 80 || value.predictedEndTranslation.height > 120 {
+                    close()
+                } else {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                        dragOffset = 0
+                    }
+                }
+            }
+    }
+
+    private func close() {
+        withAnimation(.easeInOut(duration: 0.24)) {
+            isPresented = false
+        }
+        dragOffset = 0
+    }
+}

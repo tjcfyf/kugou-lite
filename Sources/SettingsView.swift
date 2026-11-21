@@ -159,16 +159,16 @@ struct SettingsView: View {
                     speedCard
                     qualityCard
                     audioCard
+                    karaokeCard
                     aiCard
                     lyricCard
                     lyricSourceCard
                     lyricFilterCard
                     LyricOffsetSettingsCard()
-                    sleepCard
                     storageCard
                     accountCard
 
-                    Text("Sonora · iOS 15 · v80")
+                    Text("Sonora · iOS 15 · v81")
                         .font(.system(size: 11))
                         .foregroundColor(Theme.secondaryText)
                         .padding(.top, 6)
@@ -340,6 +340,37 @@ struct SettingsView: View {
         }
     }
 
+    private var karaokeCard: some View {
+        card(title: "伴唱") {
+            Toggle(isOn: Binding(
+                get: { player.karaokeEnabled },
+                set: { player.setKaraokeEnabled($0) }
+            )) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("开启伴唱分离")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                    Text("官方双轨优先；没有官方双轨时才使用 AI 本地分离")
+                        .font(.system(size: 10))
+                        .foregroundColor(Theme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .tint(Theme.accent)
+
+            HStack(spacing: 8) {
+                Image(systemName: player.karaokeEnabled ? "music.mic" : "music.mic")
+                    .font(.system(size: 13))
+                    .foregroundColor(player.karaokeEnabled ? Theme.accent : Theme.tertiaryText)
+                Text(player.karaokeEnabled ? "伴唱已开启，播放页「分离」里调音量" : "开启后播放页出现人声/伴奏音量控制")
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.top, 2)
+        }
+    }
+
     private var aiCard: some View {
         card(title: "AI 伴唱分离") {
             Toggle(isOn: Binding(
@@ -350,7 +381,7 @@ struct SettingsView: View {
                     Text("本地 MSS 人声/伴奏分离")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(Theme.text)
-                    Text("4.9MB 模型随 App 内置；开启后覆盖官方双轨/中置声道")
+                    Text("官方双轨的兜底；仅在取不到官方双轨时启用")
                         .font(.system(size: 10))
                         .foregroundColor(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -362,7 +393,7 @@ struct SettingsView: View {
                 Image(systemName: player.aiSeparationEnabled ? "waveform" : "waveform.slash")
                     .font(.system(size: 13))
                     .foregroundColor(player.aiSeparationEnabled ? Theme.accent : Theme.tertiaryText)
-                Text(player.aiSeparationEnabled ? "当前使用 AI 本地分离" : "当前未开启；播放页「分离」里也能开关")
+                Text(player.aiSeparationEnabled ? "AI 已开启；官方双轨仍然优先" : "当前未开启；没有官方双轨时退回中置声道")
                     .font(.system(size: 11))
                     .foregroundColor(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -657,7 +688,6 @@ struct PlayerSettingsView: View {
             ScrollView {
                 LazyVStack(spacing: 16) {
                     playModeCard
-                    sleepCard
                     speedCard
                     lyricCard
                     LyricOffsetSettingsCard()

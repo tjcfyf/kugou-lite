@@ -1,26 +1,26 @@
 import SwiftUI
 
 /// 播放页右上角菜单里的睡眠模式；复用 PlayerEngine 已有的睡眠定时。
+/// 现在由 GlassHalfSheet 承载，背景是 iOS 15 原生磨砂玻璃，能透出后面的歌词页。
 struct SleepTimerSheet: View {
     @EnvironmentObject private var player: PlayerEngine
-    @Environment(\.dismiss) private var dismiss
+    var onClose: () -> Void
 
     private let options = [15, 30, 60]
 
     var body: some View {
-        ZStack {
-            AppBackground()
+        VStack(spacing: 0) {
+            header
 
-            VStack(spacing: 0) {
-                header
-
-                VStack(spacing: 18) {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 14) {
                     statusCard
                     quickOptions
                     waitCard
-                    Spacer(minLength: 0)
                 }
-                .padding(18)
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 30)
             }
         }
     }
@@ -28,12 +28,12 @@ struct SleepTimerSheet: View {
     private var header: some View {
         HStack(spacing: 10) {
             Button {
-                dismiss()
+                onClose()
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(Theme.secondaryText)
-                    .frame(width: 40, height: 40)
+                    .frame(width: 38, height: 38)
                     .contentShape(Rectangle())
             }
             .buttonStyle(GlassPressButtonStyle())
@@ -46,10 +46,10 @@ struct SleepTimerSheet: View {
 
             Spacer()
 
-            Color.clear.frame(width: 40, height: 40)
+            Color.clear.frame(width: 38, height: 38)
         }
         .padding(.horizontal, 16)
-        .frame(height: 54)
+        .frame(height: 48)
     }
 
     private var statusCard: some View {
@@ -62,7 +62,7 @@ struct SleepTimerSheet: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 22)
+        .padding(.vertical, 18)
         .appSurface(cornerRadius: 12)
     }
 
@@ -83,7 +83,7 @@ struct SleepTimerSheet: View {
                     Button {
                         player.setSleepTimer(minutes: minutes)
                         player.showToast("已设置 \(minutes) 分钟睡眠定时")
-                        dismiss()
+                        onClose()
                     } label: {
                         Text("\(minutes) 分钟")
                             .font(.system(size: 12, weight: .medium))
@@ -100,7 +100,7 @@ struct SleepTimerSheet: View {
             Button {
                 player.setSleepTimer(minutes: nil)
                 player.showToast("已关闭睡眠定时")
-                dismiss()
+                onClose()
             } label: {
                 Text("关闭睡眠定时")
                     .font(.system(size: 12, weight: .medium))

@@ -8,6 +8,8 @@ struct NowPlayingView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     @State private var activeSheet: PlayerSheet?
+    @State private var showSleepSheet = false
+    @State private var showKaraokeSheet = false
     @State private var lyricSize: LyricTextSize = Preferences.lyricSize
     @State private var showRemaining = true
     @State private var showLyrics = false
@@ -46,9 +48,7 @@ struct NowPlayingView: View {
         case artist(ArtistTarget)
         case addToPlaylist(Song)
         case comments(Song)
-        case sleep
         case lyricSources
-        case karaoke
 
         var id: String {
             switch self {
@@ -57,9 +57,7 @@ struct NowPlayingView: View {
             case .artist(let target): return "artist-\(target.id)"
             case .addToPlaylist(let song): return "add-\(song.FileHash)"
             case .comments(let song): return "comments-\(song.FileHash)"
-            case .sleep: return "sleep"
             case .lyricSources: return "lyric-sources"
-            case .karaoke: return "karaoke"
             }
         }
     }
@@ -108,12 +106,26 @@ struct NowPlayingView: View {
                 bottomActions
             }
 
+            if showSleepSheet {
+                GlassHalfSheet(isPresented: $showSleepSheet, heightRatio: 0.50) {
+                    SleepTimerSheet(onClose: { showSleepSheet = false }).environmentObject(player)
+                }
+                .zIndex(20)
+            }
+
+            if showKaraokeSheet {
+                GlassHalfSheet(isPresented: $showKaraokeSheet, heightRatio: 0.60) {
+                    KaraokeSheet(onClose: { showKaraokeSheet = false }).environmentObject(player)
+                }
+                .zIndex(20)
+            }
+
             if let toast = player.toast {
                 VStack {
                     ToastView(text: toast)
                     Spacer()
                 }
-                .zIndex(11)
+                .zIndex(30)
             }
         }
         .offset(y: dragOffset)
@@ -121,6 +133,8 @@ struct NowPlayingView: View {
         .simultaneousGesture(dismissGesture)
         .animation(.easeInOut(duration: 0.32), value: showLyrics)
         .animation(.easeOut(duration: 0.22), value: player.toast)
+        .animation(.spring(response: 0.38, dampingFraction: 0.88), value: showSleepSheet)
+        .animation(.spring(response: 0.38, dampingFraction: 0.88), value: showKaraokeSheet)
         .onChange(of: player.current?.FileHash) { _ in
             artworkPalette = []
         }
@@ -138,12 +152,8 @@ struct NowPlayingView: View {
                 ArtistDetailSheet(target: target).environmentObject(player)
             case .comments(let song):
                 CommentsView(song: song)
-            case .sleep:
-                SleepTimerSheet().environmentObject(player)
             case .lyricSources:
                 LyricSourceSheet().environmentObject(player)
-            case .karaoke:
-                KaraokeSheet().environmentObject(player)
             }
         }
     }
@@ -199,7 +209,7 @@ struct NowPlayingView: View {
     private var dismissGesture: some Gesture {
         DragGesture(minimumDistance: 24, coordinateSpace: .local)
             .onChanged { value in
-                guard activeSheet == nil else { return }
+                guard activeSheet == nil, !showSleepSheet, !showKaraokeSheet else { return }
                 guard !showLyrics || value.startLocation.y < 100 else { return }
                 let vertical = value.translation.height
                 let horizontal = abs(value.translation.width)
@@ -207,7 +217,7 @@ struct NowPlayingView: View {
                 dragOffset = min(vertical * 0.88, 280)
             }
             .onEnded { value in
-                guard activeSheet == nil else { return }
+                guard activeSheet == nil, !showSleepSheet, !showKaraokeSheet else { return }
                 guard !showLyrics || value.startLocation.y < 100 else {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { dragOffset = 0 }
                     return
@@ -366,16 +376,8 @@ struct NowPlayingView: View {
                 }
             }
 
-            if !showLyrics {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.24)) { showLyrics = true }
-                } label: {
-                    Label("全屏歌词", systemImage: "arrow.up.left.and.arrow.down.right")
-                }
-            }
-
             Button {
-                activeSheet = .sleep
+                showSleepSheet = true
             } label: {
                 Label("睡眠模式", systemImage: "moon.zzz")
             }
@@ -581,7 +583,7 @@ struct NowPlayingView: View {
             Spacer(minLength: 0)
             bottomAction(title: "分离", icon: "music.mic", active: player.karaokeEnabled,
                          disabled: player.current == nil) {
-                activeSheet = .karaoke
+                showKaraokeSheet = true
             }
             Spacer(minLength: 0)
             bottomAction(title: "评论", icon: "text.bubble", disabled: player.current == nil) {
@@ -893,14 +895,14 @@ private struct CrossfadeArtwork: View {
 
 struct KaraokeSheet: View {
     @EnvironmentObject private var player: PlayerEngine
-    @Environment(\.dismiss) private var dismiss
+    var onClose: () -> Void
 
     private var modeTitle: String {
         switch player.karaokeMode {
         case .dualTrack: return "官方双轨"
         case .centerChannel: return "立体声兼容分离"
         case .aiModel: return "AI 本地分离"
-        case .unavailable: return player.karaokeEnabled ? "正在准备伴唱" : "未开启"
+        case .unavailable: return player.karaokeEnabled ? "正在准备分离资源" : "未开启"
         }
     }
 
@@ -909,78 +911,23 @@ struct KaraokeSheet: View {
         case .dualTrack:
             return "已取到官方人声/伴奏双轨，可独立调节两条音轨音量。"
         case .centerChannel:
-            return "当前使用立体声中置声道估计分离：零延迟、零模型，但对单声道和复杂编混效果有限。"
+            return "官方双轨和 AI 都不可用，临时使用立体声中置声道估计分离。"
         case .aiModel:
-            return "4.9MB MSS 模型在 iPhone 本地实时分离人声与伴奏，约 0.1 秒延迟；不上传音频。"
+            return "官方没有双轨，已自动切到本地 MSS 模型；4.9MB，完全离线，约 0.1 秒延迟。"
         case .unavailable:
             return player.karaokeEnabled
-                ? "正在准备分离资源；模型不可用时会自动退回兼容分离。"
-                : "开启后优先本地 AI；模型不可用时用官方双轨或兼容分离。"
+                ? "正在请求官方双轨；取不到时会自动尝试 AI 本地分离。"
+                : "伴唱已在设置里关闭；开启后优先官方双轨，没有双轨才用 AI。"
         }
     }
 
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 0) {
-                    VStack(alignment: .leading, spacing: 14) {
-                        HStack(alignment: .top, spacing: 12) {
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text("伴唱 / AI 分离")
-                                    .font(.system(size: 20, weight: .semibold))
-                                    .foregroundColor(Theme.text)
-                                Text(modeTitle)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(Theme.secondaryText)
-                            }
-                            Spacer()
-                            Toggle("", isOn: Binding(
-                                get: { player.karaokeEnabled },
-                                set: { player.setKaraokeEnabled($0) }
-                            ))
-                            .labelsHidden()
-                            .tint(Theme.accent)
-                        }
+        VStack(spacing: 0) {
+            header
 
-                        Text(modeDetail)
-                            .font(.system(size: 12))
-                            .foregroundColor(Theme.tertiaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(16)
-                    .background(Theme.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(alignment: .top, spacing: 12) {
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text("AI 本地分离")
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundColor(Theme.text)
-                                Text(player.aiSeparationEnabled ? "MSS · 全曲库可用" : "4.9MB 流式模型")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(Theme.secondaryText)
-                            }
-                            Spacer()
-                            Toggle("", isOn: Binding(
-                                get: { player.aiSeparationEnabled },
-                                set: { player.setAISeparationEnabled($0) }
-                            ))
-                            .labelsHidden()
-                            .tint(Theme.accent)
-                        }
-
-                        Text(player.aiSeparationEnabled
-                             ? "人声/伴奏由本机模型实时拆分，可任意调音量；首次开启会加载模型，之后切歌不再等待。"
-                             : "不依赖官方 acappella 双轨；模型随 App 内置，完全离线。开启后会覆盖双轨/中置声道。")
-                            .font(.system(size: 11))
-                            .foregroundColor(Theme.tertiaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(16)
-                    .background(Theme.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .padding(.top, 14)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 14) {
+                    modeCard
 
                     VStack(alignment: .leading, spacing: 18) {
                         volumeRow(title: "人声", value: player.karaokeVocalVolume) { value in
@@ -995,7 +942,6 @@ struct KaraokeSheet: View {
                     .padding(16)
                     .background(Theme.card)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .padding(.top, 14)
 
                     HStack(spacing: 10) {
                         presetButton("纯伴奏") {
@@ -1008,28 +954,68 @@ struct KaraokeSheet: View {
                             player.setKaraokeVolumes(vocal: 1, accompaniment: 1)
                         }
                     }
-                    .padding(.top, 14)
 
-                    Text("人声/伴奏音量只影响当前播放，不会改变歌曲本身的音质。")
+                    Text(player.karaokeEnabled
+                         ? "人声/伴奏音量只影响当前播放，不会改变歌曲本身的音质。"
+                         : "到「我的 → 设置 → 伴唱」打开开关。")
                         .font(.system(size: 11))
                         .foregroundColor(Theme.tertiaryText)
-                        .padding(.top, 14)
                         .frame(maxWidth: .infinity, alignment: .leading)
-
-                    Spacer(minLength: 24)
                 }
-                .padding(16)
-            }
-            .background(Theme.background.ignoresSafeArea())
-            .navigationTitle("伴唱")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("完成") { dismiss() }
-                        .foregroundColor(Theme.accent)
-                }
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 30)
             }
         }
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            Button {
+                onClose()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Theme.secondaryText)
+                    .frame(width: 38, height: 38)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(GlassPressButtonStyle())
+
+            Spacer()
+
+            Text("伴唱 / 分离")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(Theme.text)
+
+            Spacer()
+
+            Color.clear.frame(width: 38, height: 38)
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 48)
+    }
+
+    private var modeCard: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(player.karaokeEnabled ? Theme.accent : Theme.tertiaryText)
+                    .frame(width: 6, height: 6)
+                Text(modeTitle)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Theme.text)
+                Spacer()
+            }
+            Text(modeDetail)
+                .font(.system(size: 11))
+                .foregroundColor(Theme.tertiaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private func volumeRow(title: String, value: Double, onChange: @escaping (Double) -> Void) -> some View {
