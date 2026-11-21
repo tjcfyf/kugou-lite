@@ -339,6 +339,7 @@ private final class DSPTapContext {
     private var channels = 2
     private var interleaved = true
     private var floatFormat = false
+    private var pcm16 = false
 
     init(aiEngine: MSSEngine?) {
         self.aiEngine = aiEngine
