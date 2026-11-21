@@ -968,7 +968,6 @@ struct KaraokeSheet: View {
                             ))
                             .labelsHidden()
                             .tint(Theme.accent)
-                            .disabled(!player.karaokeEnabled)
                         }
 
                         Text(player.aiSeparationEnabled
