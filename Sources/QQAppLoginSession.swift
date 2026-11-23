@@ -35,7 +35,7 @@ final class QQAppLoginSession: NSObject, ASWebAuthenticationPresentationContextP
         ]
 
         guard let url = components.url else {
-            finish(.failure(QQLoginError("QQ 授权地址生成失败")))
+            finish(.failure(QQAppAuthError("QQ 授权地址生成失败")))
             return
         }
 
@@ -44,14 +44,14 @@ final class QQAppLoginSession: NSObject, ASWebAuthenticationPresentationContextP
             if let error {
                 let ns = error as NSError
                 if ns.code == ASWebAuthenticationSessionError.canceledLogin.rawValue {
-                    self.finish(.failure(QQLoginError("你取消了 QQ 授权")))
+                    self.finish(.failure(QQAppAuthError("你取消了 QQ 授权")))
                 } else {
-                    self.finish(.failure(QQLoginError("QQ 授权失败：\(error.localizedDescription)")))
+                    self.finish(.failure(QQAppAuthError("QQ 授权失败：\(error.localizedDescription)")))
                 }
                 return
             }
             guard let callback, let auth = Self.parse(callback) else {
-                self.finish(.failure(QQLoginError("QQ 没有返回 access_token 或 openid")))
+                self.finish(.failure(QQAppAuthError("QQ 没有返回 access_token 或 openid")))
                 return
             }
             self.finish(.success(auth))
@@ -60,7 +60,7 @@ final class QQAppLoginSession: NSObject, ASWebAuthenticationPresentationContextP
         session.prefersEphemeralWebBrowserSession = false
         self.session = session
         if !session.start() {
-            finish(.failure(QQLoginError("无法打开 QQ 授权页")))
+            finish(.failure(QQAppAuthError("无法打开 QQ 授权页")))
         }
     }
 
@@ -95,7 +95,7 @@ final class QQAppLoginSession: NSObject, ASWebAuthenticationPresentationContextP
     }
 }
 
-struct QQLoginError: LocalizedError {
+struct QQAppAuthError: LocalizedError {
     let message: String
     init(_ message: String) { self.message = message }
     var errorDescription: String? { message }
