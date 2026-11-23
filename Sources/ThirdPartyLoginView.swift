@@ -140,6 +140,16 @@ private struct ThirdPartyWebView: UIViewRepresentable {
         configuration.websiteDataStore = .default()
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = true
 
+        // 部分第三方页面会同时看 UA 和 navigator.platform。只改 UA 有时仍被
+        // 判成手机，QQ 会退回“一键登录”；这里把平台信息也伪装成桌面 Mac。
+        let desktopScript = """
+        Object.defineProperty(navigator, 'platform', { get: function() { return 'MacIntel'; } });
+        Object.defineProperty(navigator, 'maxTouchPoints', { get: function() { return 0; } });
+        """
+        configuration.userContentController.addUserScript(
+            WKUserScript(source: desktopScript, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+        )
+
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.customUserAgent = userAgent
         webView.navigationDelegate = context.coordinator
@@ -166,7 +176,7 @@ private struct ThirdPartyWebView: UIViewRepresentable {
         private var timer: Timer?
         private var completed = false
         private var checking = false
-        private var started = false
+        private var failureWorkItem: DispatchWorkItem?
 
         init(parent: ThirdPartyWebView) {
             self.parent = parent
@@ -197,6 +207,8 @@ private struct ThirdPartyWebView: UIViewRepresentable {
         func stop() {
             timer?.invalidate()
             timer = nil
+            failureWorkItem?.cancel()
+            failureWorkItem = nil
         }
 
         private func startPolling() {
@@ -275,6 +287,27 @@ private struct ThirdPartyWebView: UIViewRepresentable {
             }
         }
 
+        /// 不在导航失败时立刻报错：qq_callback / wechat_callback 的 302 响应
+        /// 可能已经先写好了 KuGoo，只是后面的 cross.*/callmsg 页面打不开。
+        /// 所以先等一拍读 cookie，读不到再显示错误。
+        private func scheduleFailure(_ message: String, delay: TimeInterval) {
+            guard !completed, failureWorkItem == nil else { return }
+            let work = DispatchWorkItem { [weak self] in
+                guard let self = self, !self.completed else { return }
+                self.checkCookies()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
+                    guard let self = self, !self.completed else { return }
+                    self.checkCookies()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                        guard let self = self, !self.completed else { return }
+                        self.finishWithError(message)
+                    }
+                }
+            }
+            failureWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+        }
+
         private func handleNavigation(_ url: URL?) {
             guard let url = url else { return }
             let host = url.host?.lowercased() ?? ""
@@ -286,17 +319,14 @@ private struct ThirdPartyWebView: UIViewRepresentable {
                 }
             }
 
-            if host.contains("cross.kugou.com") && path.contains("callmsg") {
+            if host.hasPrefix("cross.") && host.hasSuffix("kugou.com") && path.contains("callmsg") {
                 let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
                 let code = items.first(where: { $0.name == "errcode" })?.value
                 let message = items.first(where: { $0.name == "msg" })?.value
 
                 if let code = code, code != "0" {
                     let detail = message?.isEmpty == false ? message! : "第三方登录未完成"
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
-                        guard let self = self, !self.completed else { return }
-                        self.finishWithError("\(detail)（\(code)）")
-                    }
+                    scheduleFailure("\(detail)（\(code)）", delay: 1.2)
                 } else {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
                         self?.checkCookies()
@@ -321,7 +351,7 @@ private struct ThirdPartyWebView: UIViewRepresentable {
         private func handleFailure(_ error: Error) {
             let nsError = error as NSError
             if nsError.code == NSURLErrorCancelled { return }
-            finishWithError(nsError.localizedDescription)
+            scheduleFailure(nsError.localizedDescription, delay: 0.8)
         }
 
         func webView(_ webView: WKWebView,
