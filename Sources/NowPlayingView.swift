@@ -37,6 +37,9 @@ struct NowPlayingView: View {
     @Binding var panelProgress: CGFloat
     var panelOrigin: CGRect = .zero
     var onClose: (() -> Void)? = nil
+    var onInteractiveDismissBegan: (() -> Bool)? = nil
+    var onInteractiveDismissChanged: ((CGFloat) -> Void)? = nil
+    var onInteractiveDismissEnded: ((Bool) -> Void)? = nil
     @ObservedObject private var library = LibraryStore.shared
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
@@ -56,6 +59,7 @@ struct NowPlayingView: View {
     @State private var lyricClockTime: Double = 0
     @State private var lyricClockDate = Date()
     @State private var isClosing = false
+    @State private var interactiveDismiss = false
     @State private var didCrossDismissThreshold = false
     @State private var artworkPalette: [Color] = []
     @State private var coverFrame: CGRect = .zero
@@ -330,7 +334,22 @@ struct NowPlayingView: View {
                 let horizontal = abs(value.translation.width)
                 guard vertical > 0, vertical > horizontal * 1.25 else { return }
                 let collapseDistance = max(UIScreen.main.bounds.height * 0.2, 1)
-                panelProgress = max(0, min(1, 1 - vertical / collapseDistance))
+                let progress = max(0, min(1, 1 - vertical / collapseDistance))
+                var snapshotDriven = interactiveDismiss
+
+                // 第一次达到有效竖向拖动时，切到静态快照跟手。
+                // 失败则保留原来的实时面板路径，功能不会丢。
+                if !snapshotDriven, let begin = onInteractiveDismissBegan, begin() {
+                    interactiveDismiss = true
+                    snapshotDriven = true
+                }
+
+                if snapshotDriven {
+                    // 只改 UIKit 快照 frame，不触发整页 SwiftUI 重新布局。
+                    onInteractiveDismissChanged?(progress)
+                } else {
+                    panelProgress = progress
+                }
 
                 if vertical > 110, !didCrossDismissThreshold {
                     didCrossDismissThreshold = true
@@ -349,8 +368,23 @@ struct NowPlayingView: View {
                 let vertical = value.translation.height
                 let horizontal = abs(value.translation.width)
                 let predicted = value.predictedEndTranslation.height
-                if panelProgress < 0.55
-                    || (vertical > 110 && vertical > horizontal && predicted > 120) {
+                let collapseDistance = max(UIScreen.main.bounds.height * 0.2, 1)
+                let progress = max(0, min(1, 1 - vertical / collapseDistance))
+                let shouldClose = progress < 0.55
+                    || (vertical > 110 && vertical > horizontal && predicted > 120)
+
+                if interactiveDismiss {
+                    // 快照已经接管画面；通知 Root 继续把它送到全屏或迷你播放器。
+                    isClosing = true
+                    onInteractiveDismissEnded?(shouldClose)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
+                        isClosing = false
+                        interactiveDismiss = false
+                    }
+                    return
+                }
+
+                if shouldClose {
                     closePlayer()
                 } else {
                     withAnimation(M3Motion.panelSettle) {

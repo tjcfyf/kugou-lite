@@ -1,7 +1,7 @@
 import UIKit
 
-/// 播放页窗口形变的几何计算。`PlayerPanelFrame` 和收起快照必须使用同一套
-/// 公式，否则快照的第一帧会和真实面板错位。
+/// 播放页窗口形变的几何计算。`PlayerPanelFrame`、交互拖动和收起快照必须使用
+/// 同一套公式，否则第一帧会和真实面板错位。
 enum PlayerPanelGeometry {
     static func rect(progress: CGFloat, origin: CGRect, screen: CGSize) -> CGRect {
         let p = min(max(progress, 0), 1)
@@ -22,72 +22,102 @@ enum PlayerPanelGeometry {
     }
 }
 
-/// 收起播放页时不再逐帧重排 SwiftUI 页面：
-/// 1. 从当前窗口裁一张播放页快照；
-/// 2. 用 UIViewPropertyAnimator 只改变快照的 frame / cornerRadius；
-/// 3. 动画结束后再移除快照，露出底栏的迷你播放器。
+/// 播放页收起/取消时的快照动画。
 ///
-/// 这样收起过程只有一张静态图层在动，避免每帧重新计算歌词、材质和裁切，
-/// iOS 15 上也能稳定跑满 60fps。
+/// 这条路径完全不碰 SwiftUI 页面树：
+/// 1. 从窗口裁一张当前播放页快照；
+/// 2. 跟手阶段只改快照的 frame / cornerRadius；
+/// 3. 松手后用 UIViewPropertyAnimator 把快照继续送到迷你播放器或送回全屏。
+///
+/// 这样 iOS 15 上不会出现「每一帧重新排版整页 → 只跳几帧」的 PPT 式收起。
 final class PlayerCollapseTransition {
     static let shared = PlayerCollapseTransition()
 
     private var snapshot: UIView?
     private var animator: UIViewPropertyAnimator?
 
-    /// - Parameters:
-    ///   - panelRect: 当前面板在窗口中的真实矩形（可能已经跟手拖到一半）。
-    ///   - targetRect: 底栏迷你播放器封面的矩形。
-    ///   - startRadius: 当前面板圆角；收起目标是 28pt 圆盘。
-    /// - Returns: 快照是否成功建立。失败时调用方应回退到普通 SwiftUI 动画。
+    // 交互拖动期间使用的目标几何。
+    private var interactiveOrigin: CGRect = .zero
+    private var interactiveScreen: CGSize = .zero
+    private var isInteractive = false
+
+    var isInteractiveActive: Bool { isInteractive }
+
+    /// 点击关闭按钮 / 非交互收起。
     @discardableResult
     func begin(from panelRect: CGRect,
                to targetRect: CGRect,
                startRadius: CGFloat,
                duration: TimeInterval,
                completion: @escaping () -> Void) -> Bool {
-        guard let window = keyWindow,
-              panelRect.width > 1, panelRect.height > 1,
-              targetRect.width > 1, targetRect.height > 1 else { return false }
+        guard snapshot == nil, !isInteractive,
+              let shot = makeSnapshot(from: panelRect) else { return false }
 
-        // 已经在收起中就不要叠第二张快照。
-        guard snapshot == nil else { return false }
-
-        guard let shot = window.resizableSnapshotView(
-            from: panelRect,
-            afterScreenUpdates: false,
-            withCapInsets: .zero
-        ) else { return false }
-
-        shot.frame = panelRect
-        shot.isUserInteractionEnabled = true
-        shot.layer.masksToBounds = true
-        shot.layer.cornerRadius = startRadius
-        shot.layer.cornerCurve = .continuous
-        shot.accessibilityElementsHidden = true
-        window.addSubview(shot)
-        snapshot = shot
-
-        let target = clamped(targetRect, in: window.bounds)
-        let animator = UIViewPropertyAnimator(
-            duration: duration,
-            timingParameters: UICubicTimingParameters(
-                controlPoint1: CGPoint(x: 0.3, y: 0.2),
-                controlPoint2: CGPoint(x: 0.3, y: 1.0)
-            )
-        )
-        animator.addAnimations {
+        let target = clamped(targetRect, in: shot.superview?.bounds ?? shot.frame)
+        let animator = makeAnimator(duration: duration) {
             shot.frame = target
             shot.layer.cornerRadius = 28
-        }
-        animator.addCompletion { [weak self, weak shot] _ in
+        } completion: { [weak self, weak shot] _ in
             shot?.removeFromSuperview()
             if self?.snapshot === shot { self?.snapshot = nil }
             self?.animator = nil
             completion()
         }
-        self.animator = animator
-        animator.startAnimation()
+        start(animator, startRadius: startRadius, on: shot)
+        return true
+    }
+
+    /// 开始跟手收起。此时播放页仍然是全屏，所以从全屏矩形裁图。
+    @discardableResult
+    func beginInteractive(from panelRect: CGRect,
+                          origin: CGRect,
+                          screen: CGSize,
+                          startRadius: CGFloat) -> Bool {
+        guard snapshot == nil, !isInteractive, !panelRect.isEmpty,
+              let shot = makeSnapshot(from: panelRect) else { return false }
+        interactiveOrigin = origin
+        interactiveScreen = screen
+        isInteractive = true
+        shot.layer.cornerRadius = startRadius
+        return true
+    }
+
+    /// 跟手阶段每一帧只改快照 frame；不触发 SwiftUI 布局。
+    func updateInteractive(progress: CGFloat) {
+        guard isInteractive, let shot = snapshot else { return }
+        let rect = PlayerPanelGeometry.rect(progress: progress,
+                                            origin: interactiveOrigin,
+                                            screen: interactiveScreen)
+        let radius = max(0, 28 * (1 - min(max(progress, 0), 1)))
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        shot.frame = rect
+        shot.layer.cornerRadius = radius
+        CATransaction.commit()
+    }
+
+    /// 松手：progress=0 收进迷你播放器，progress=1 回到全屏。
+    @discardableResult
+    func finishInteractive(to progress: CGFloat,
+                           duration: TimeInterval,
+                           completion: @escaping () -> Void) -> Bool {
+        guard isInteractive, let shot = snapshot else { return false }
+        isInteractive = false
+
+        let target = PlayerPanelGeometry.rect(progress: progress,
+                                              origin: interactiveOrigin,
+                                              screen: interactiveScreen)
+        let radius = max(0, 28 * (1 - min(max(progress, 0), 1)))
+        let animator = makeAnimator(duration: duration) {
+            shot.frame = target
+            shot.layer.cornerRadius = radius
+        } completion: { [weak self, weak shot] _ in
+            shot?.removeFromSuperview()
+            if self?.snapshot === shot { self?.snapshot = nil }
+            self?.animator = nil
+            completion()
+        }
+        start(animator, startRadius: shot.layer.cornerRadius, on: shot)
         return true
     }
 
@@ -96,6 +126,48 @@ final class PlayerCollapseTransition {
         animator = nil
         snapshot?.removeFromSuperview()
         snapshot = nil
+        isInteractive = false
+    }
+
+    // MARK: - Snapshot
+
+    private func makeSnapshot(from rect: CGRect) -> UIView? {
+        guard let window = keyWindow, rect.width > 1, rect.height > 1 else { return nil }
+        guard let shot = window.resizableSnapshotView(
+            from: rect,
+            afterScreenUpdates: false,
+            withCapInsets: .zero
+        ) else { return nil }
+
+        shot.frame = rect
+        shot.isUserInteractionEnabled = true
+        shot.layer.masksToBounds = true
+        shot.layer.cornerCurve = .continuous
+        shot.accessibilityElementsHidden = true
+        window.addSubview(shot)
+        snapshot = shot
+        return shot
+    }
+
+    private func makeAnimator(duration: TimeInterval,
+                              animations: @escaping () -> Void,
+                              completion: @escaping (UIViewAnimatingPosition) -> Void) -> UIViewPropertyAnimator {
+        let animator = UIViewPropertyAnimator(
+            duration: duration,
+            timingParameters: UICubicTimingParameters(
+                controlPoint1: CGPoint(x: 0.3, y: 0.2),
+                controlPoint2: CGPoint(x: 0.3, y: 1.0)
+            )
+        )
+        animator.addAnimations(animations)
+        animator.addCompletion(completion)
+        return animator
+    }
+
+    private func start(_ animator: UIViewPropertyAnimator, startRadius: CGFloat, on shot: UIView) {
+        shot.layer.cornerRadius = startRadius
+        self.animator = animator
+        animator.startAnimation()
     }
 
     private func clamped(_ rect: CGRect, in bounds: CGRect) -> CGRect {

@@ -101,7 +101,14 @@ struct RootView: View {
                     NowPlayingView(
                         panelProgress: $playerProgress,
                         panelOrigin: playerOrigin,
-                        onClose: { closePlayer() }
+                        onClose: { closePlayer() },
+                        onInteractiveDismissBegan: { self.beginInteractiveDismiss() },
+                        onInteractiveDismissChanged: { progress in
+                            self.updateInteractiveDismiss(progress)
+                        },
+                        onInteractiveDismissEnded: { shouldClose in
+                            self.endInteractiveDismiss(shouldClose)
+                        }
                     )
                 }
                 .opacity(hidePlayerForCollapse ? 0 : 1)
@@ -184,6 +191,70 @@ struct RootView: View {
         DispatchQueue.main.async {
             withAnimation(M3Motion.panelExpand) {
                 playerProgress = 1
+            }
+        }
+    }
+
+    /// 跟手拖动开始：用当前播放页的快照接管画面，SwiftUI 页面只隐藏不销毁。
+    private func beginInteractiveDismiss() -> Bool {
+        guard showPlayer, !isPlayerClosing else { return false }
+        let screen = UIScreen.main.bounds
+        let origin = (playerOrigin.width > 1 && playerOrigin.height > 1)
+            ? playerOrigin
+            : CGRect(x: screen.midX - 28,
+                     y: screen.maxY - 92,
+                     width: 56,
+                     height: 56)
+        let fullRect = PlayerPanelGeometry.rect(progress: 1, origin: origin, screen: screen.size)
+        guard PlayerCollapseTransition.shared.beginInteractive(
+            from: fullRect,
+            origin: origin,
+            screen: screen.size,
+            startRadius: 0
+        ) else { return false }
+        hidePlayerForCollapse = true
+        return true
+    }
+
+    private func updateInteractiveDismiss(_ progress: CGFloat) {
+        PlayerCollapseTransition.shared.updateInteractive(progress: progress)
+    }
+
+    /// 松手：shouldClose=true 送到迷你播放器；false 送回全屏并恢复实时页面。
+    private func endInteractiveDismiss(_ shouldClose: Bool) {
+        isPlayerClosing = true
+        if shouldClose {
+            let handled = PlayerCollapseTransition.shared.finishInteractive(
+                to: 0,
+                duration: 0.28,
+                completion: {
+                    self.showPlayer = false
+                    self.playerProgress = 0
+                    self.hidePlayerForCollapse = false
+                    self.isPlayerClosing = false
+                }
+            )
+            if !handled {
+                PlayerCollapseTransition.shared.cancel()
+                hidePlayerForCollapse = false
+                isPlayerClosing = false
+                closePlayer()
+            }
+        } else {
+            let handled = PlayerCollapseTransition.shared.finishInteractive(
+                to: 1,
+                duration: 0.28,
+                completion: {
+                    self.hidePlayerForCollapse = false
+                    self.playerProgress = 1
+                    self.isPlayerClosing = false
+                }
+            )
+            if !handled {
+                PlayerCollapseTransition.shared.cancel()
+                hidePlayerForCollapse = false
+                playerProgress = 1
+                isPlayerClosing = false
             }
         }
     }
