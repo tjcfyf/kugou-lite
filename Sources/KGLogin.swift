@@ -190,6 +190,113 @@ extension KGLogin {
         return PhoneLoginResult(userid: userid, token: token, vipToken: vipToken)
     }
 
+    /// 概念版开放平台登录：QQ App 授权拿到 access_token/openid 后，
+    /// 由 /v6/login_by_openplat 直接换酷狗 token，不再依赖网页 qq_callback 的 Cookie。
+    static func loginByOpenPlat(accessToken: String, openid: String) async throws -> PhoneLoginResult {
+        guard !accessToken.isEmpty, !openid.isEmpty else {
+            throw KGError.server("QQ 没有返回完整的授权信息")
+        }
+
+        let clientTime = Int64(Date().timeIntervalSince1970 * 1000)
+        let randomKey = KGLoginCrypto.randomKey()
+        let paramsJSON = "{\"access_token\":\"\(accessToken)\"}"
+        guard let params = KGLoginCrypto.aesParamsHex(paramsJSON, randomKey: randomKey) else {
+            throw KGError.server("登录参数加密失败")
+        }
+        let pkJSON = "{\"clienttime_ms\":\(clientTime),\"key\":\"\(randomKey)\"}"
+        guard let pk = KGRSA.encryptRawNoPadding(Data(pkJSON.utf8), key: .lite) else {
+            throw KGError.server("登录密钥加密失败")
+        }
+
+        let dev = "android\(clientTime)"
+        guard let t1 = KGLoginCrypto.aesHex("|\(clientTime)",
+                                           key: KGLoginCrypto.t1Key,
+                                           iv: KGLoginCrypto.t1IV),
+              let t2 = KGLoginCrypto.aesHex(
+                [
+                    KGLoginCrypto.guid(),
+                    KGLoginCrypto.t2DeviceSalt,
+                    "02:00:00:00:00:00",
+                    dev,
+                    String(clientTime),
+                ].joined(separator: "|"),
+                key: KGLoginCrypto.t2Key,
+                iv: KGLoginCrypto.t2IV
+              ) else {
+            throw KGError.server("设备参数加密失败")
+        }
+
+        let body: [String: Any] = [
+            "dev": dev,
+            "force_login": 1,
+            "partnerid": 1,
+            "clienttime_ms": Int(clientTime),
+            "t1": t1,
+            "t2": t2,
+            "t3": "MCwwLDAsMCwwLDAsMCwwLDA=",
+            "openid": openid,
+            "params": params,
+            "pk": pk,
+        ]
+
+        let data = try await KGApi.shared.post(
+            path: "/v6/login_by_openplat",
+            host: "http://login.user.kugou.com",
+            params: [
+                "plat": "1",
+                "userid": "0",
+                "token": "",
+                "t_mid": KGApi.shared.mid,
+                "t": KGLoginCrypto.guid(),
+                "t_appid": "3116",
+                "t_clientver": "10597",
+                "srcappid": "2919",
+            ],
+            body: body,
+            headers: [
+                "x-router": "login.user.kugou.com",
+                "SUPPORT-CALM": "1",
+                "User-Agent": "Android15-1070-11083-46-0-DiscoveryDRADProtocol-wifi",
+            ],
+            lite: true
+        )
+
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw KGError.server("登录接口返回异常")
+        }
+        let status = Song.intValue(root["status"]) ?? 0
+        guard status == 1, let payload = root["data"] as? [String: Any] else {
+            throw KGError.server(serverMessage(root, fallback: "QQ 登录失败"))
+        }
+
+        var decrypted: [String: Any]?
+        if let secured = payload["secu_params"] as? String, !secured.isEmpty,
+           let text = KGLoginCrypto.aesParamsString(hex: secured, randomKey: randomKey),
+           let data = text.data(using: .utf8) {
+            decrypted = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        }
+
+        let userid = Song.intValue(decrypted?["userid"])
+            ?? Song.intValue(payload["userid"])
+            ?? 0
+        guard userid > 0 else {
+            throw KGError.server(serverMessage(root, fallback: "登录成功但没有拿到用户 ID"))
+        }
+
+        let token = (decrypted?["token"] as? String)
+            ?? (payload["token"] as? String)
+            ?? ""
+        guard !token.isEmpty else {
+            throw KGError.server("登录成功但没有拿到 token")
+        }
+
+        let vipToken = (decrypted?["vip_token"] as? String)
+            ?? (payload["vip_token"] as? String)
+            ?? (payload["vipToken"] as? String)
+
+        return PhoneLoginResult(userid: userid, token: token, vipToken: vipToken)
+    }
+
     private static func isValidPhone(_ phone: String) -> Bool {
         phone.range(of: "^1[3-9]\\d{9}$", options: .regularExpression) != nil
     }

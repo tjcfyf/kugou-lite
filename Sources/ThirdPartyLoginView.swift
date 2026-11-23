@@ -143,12 +143,10 @@ struct ThirdPartyLoginView: View {
                 Theme.background.ignoresSafeArea()
 
                 if provider == .qq {
-                    // QQ 不再走 WKWebView 的第三方 iframe：iOS 对 iframe 的
-                    // Cookie 隔离会让 QQ 扫码成功后授权会话接不上，表现成
-                    // “手机 QQ 已登录，网页又刷新二维码”。这里直接跑原生
-                    // ptqrshow / ptqrlogin 协议。
-                    QQNativeLoginView(
-                        reloadID: qqReloadID,
+                    // 不再扫码：走 QQ 互联 iOS SDK，直接拉起手机 QQ 的
+                    // 授权确认页。QQ 返回 access_token/openid 后交给
+                    // 酷狗概念版 login_by_openplat 换登录态。
+                    QQAppLoginView(
                         onLogin: { token, userid, vipToken in
                             onLogin(token, userid, vipToken)
                             dismiss()
@@ -199,11 +197,7 @@ struct ThirdPartyLoginView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if provider == .qq {
-                        Button("刷新") {
-                            qqReloadID += 1
-                        }
-                        .font(.system(size: 12))
-                        .foregroundColor(Theme.secondaryText)
+                        EmptyView()
                     } else {
                         Button(directMode ? "酷狗页" : "直连") {
                             directMode.toggle()

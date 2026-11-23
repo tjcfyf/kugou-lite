@@ -29,8 +29,8 @@ targets:
       path: Info.plist
       properties:
         CFBundleDisplayName: Sonora
-        CFBundleShortVersionString: "1.0.99"
-        CFBundleVersion: "99"
+        CFBundleShortVersionString: "1.0.100"
+        CFBundleVersion: "100"
         UILaunchScreen: {}
         UIBackgroundModes:
           - audio
@@ -38,13 +38,24 @@ targets:
           - UIInterfaceOrientationPortrait
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
+        CFBundleURLTypes:
+          - CFBundleURLName: tencent205141
+            CFBundleURLSchemes:
+              - tencent205141
+        LSApplicationQueriesSchemes:
+          - mqq
+          - mqqapi
+          - mqqopensdkapiV3
+          - mqqOpensdkSSoLogin
+          - mqqbrowser
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tjcfyf.kugoulite
         PRODUCT_NAME: KugouLite
         TARGETED_DEVICE_FAMILY: "1,2"
         FRAMEWORK_SEARCH_PATHS: "$(inherited) $(SRCROOT)/Vendor"
-        OTHER_LDFLAGS: "$(inherited) -framework TensorFlowLiteC -lc++"
+        OTHER_LDFLAGS: "$(inherited) -framework TensorFlowLiteC -lc++ -framework TencentOpenAPI -ObjC"
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/Sonora-Bridging-Header.h
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO
         CODE_SIGN_IDENTITY: ""
