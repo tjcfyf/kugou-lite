@@ -5,7 +5,7 @@ permissions:
   contents: read
 jobs:
   bench:
-    runs-on: macos-15-intel
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Fetch model
