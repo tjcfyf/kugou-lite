@@ -46,6 +46,23 @@ struct RecommendView: View {
         return formatter.string(from: Date())
     }
 
+    /// 从每日推荐歌曲里提取真实专辑：按 AlbumID 去重，只保留有专辑名的条目。
+    private var recommendedAlbums: [AlbumRecommendation] {
+        var seen = Set<Int>()
+        var albums: [AlbumRecommendation] = []
+        for song in model.songs {
+            guard let albumID = song.AlbumID, albumID > 0 else { continue }
+            let name = (song.AlbumName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty, !seen.contains(albumID) else { continue }
+            seen.insert(albumID)
+            albums.append(AlbumRecommendation(id: albumID,
+                                              name: name,
+                                              artist: song.artist,
+                                              coverURL: song.coverURL))
+        }
+        return Array(albums.prefix(7))
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if isSearching {
@@ -94,6 +111,9 @@ struct RecommendView: View {
                     onSelect(song, list)
                     onOpenPlayer()
                 }
+            case .album(let album):
+                AlbumDetailSheet(target: album)
+                    .environmentObject(PlayerEngine.shared)
             }
         }
     }
@@ -170,13 +190,16 @@ struct RecommendView: View {
                         .padding(.top, 20)
                 }
 
-                if !model.songs.isEmpty {
-                    SectionTitle(title: "为你推荐", subtitle: nil)
+                if !recommendedAlbums.isEmpty {
+                    SectionTitle(title: "为你推荐", subtitle: "专辑")
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 14) {
-                            ForEach(model.songs.prefix(7), id: \.recommendRowID) { song in
-                                AppleMusicFeatureCard(song: song) {
-                                    onSelect(song, model.songs)
+                            ForEach(recommendedAlbums) { album in
+                                AppleMusicAlbumCard(album: album) {
+                                    sheetTarget = .album(AlbumTarget(id: album.id,
+                                                                     name: album.name,
+                                                                     cover: album.coverURL,
+                                                                     artist: album.artist))
                                 }
                             }
                         }
@@ -447,11 +470,13 @@ enum LibraryKind: String, Identifiable {
 enum DiscoverSheet: Identifiable {
     case playlist(CloudPlaylist)
     case rank(RankItem)
+    case album(AlbumTarget)
 
     var id: String {
         switch self {
         case .playlist(let playlist): return "playlist-\(playlist.id)"
         case .rank(let rank): return "rank-\(rank.id)"
+        case .album(let album): return "album-\(album.id)"
         }
     }
 }

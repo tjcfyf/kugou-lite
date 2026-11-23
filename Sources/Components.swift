@@ -40,8 +40,7 @@ enum Theme {
 /// 全局背景：只保留底色，不再做全站专辑色染色；唯一的色彩来自播放页的封面磨砂玻璃。
 struct AppBackground: View {
     var body: some View {
-        Theme.background
-            .ignoresSafeArea()
+        AppBackgroundGradient()
     }
 }
 
