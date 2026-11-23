@@ -411,10 +411,10 @@ struct SettingsView: View {
                 set: { player.setAISeparationEnabled($0) }
             )) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("本地 MSS 人声/伴奏分离")
+                    Text("本地 UVR-MDX-Net 人声/伴奏分离")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(Theme.text)
-                    Text("官方双轨的兜底；仅在取不到官方双轨时启用")
+                    Text("UVR-MDX-NET-Voc_FT；官方双轨的兜底，首次分离会缓存")
                         .font(.system(size: 10))
                         .foregroundColor(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -852,10 +852,10 @@ struct PlayerSettingsView: View {
                 set: { player.setAISeparationEnabled($0) }
             )) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("本地 MSS 人声/伴奏分离")
+                    Text("本地 UVR-MDX-Net 人声/伴奏分离")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(Theme.text)
-                    Text("4.9MB 模型随 App 内置；开启后覆盖官方双轨/中置声道")
+                    Text("UVR-MDX-NET-Voc_FT；首次处理当前歌曲需要几十秒到几分钟")
                         .font(.system(size: 10))
                         .foregroundColor(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -867,7 +867,11 @@ struct PlayerSettingsView: View {
                 Image(systemName: player.aiSeparationEnabled ? "waveform" : "waveform.slash")
                     .font(.system(size: 13))
                     .foregroundColor(player.aiSeparationEnabled ? Theme.accent : Theme.tertiaryText)
-                Text(player.aiSeparationEnabled ? "当前使用 AI 本地分离" : "当前未开启；播放页「分离」里也能开关")
+                Text(player.aiSeparationEnabled
+                     ? (player.aiSeparationProgress != nil
+                        ? (player.aiSeparationStatus ?? "MDX 分离中…")
+                        : "当前使用 UVR-MDX-Net 本地分离")
+                     : "当前未开启；播放页「分离」里也能开关")
                     .font(.system(size: 11))
                     .foregroundColor(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)

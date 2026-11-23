@@ -23,7 +23,7 @@ targets:
     platform: iOS
     sources:
       - path: Sources
-      - path: Resources/mss-model.tflite
+      - path: Resources/mdx-voc-ft.tflite
         buildPhase: resources
       - path: Vendor/TencentOpenApi_IOS_Bundle.bundle
         buildPhase: resources

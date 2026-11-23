@@ -40,6 +40,8 @@ final class PlayerEngine: NSObject, ObservableObject {
     @Published private(set) var karaokeAccompanimentVolume: Double = Preferences.karaokeAccompanimentVolume
     @Published private(set) var aiSeparationEnabled: Bool = Preferences.aiSeparationEnabled
     @Published private(set) var aiSeparationAvailable: Bool = false
+    @Published private(set) var aiSeparationProgress: Double?
+    @Published private(set) var aiSeparationStatus: String?
 
     private let player = AVPlayer()
     private var timeObserver: Any?
@@ -339,15 +341,15 @@ final class PlayerEngine: NSObject, ObservableObject {
 
             aiPreparationTask = Task { [weak self] in
                 guard let self else { return }
-                let available = await MSSRuntime.shared.prepareAsync()
+                let available = await AIOfflineSeparator.shared.prepareModelAsync()
                 guard !Task.isCancelled, self.aiSeparationEnabled else { return }
                 self.aiSeparationAvailable = available
                 if !available {
                     self.aiSeparationEnabled = false
                     Preferences.aiSeparationEnabled = false
-                    self.showToast("AI 模型加载失败：\(MSSRuntime.shared.lastError ?? "未知原因")")
+                    self.showToast("MDX 模型加载失败：\(AIOfflineSeparator.shared.lastError ?? "未知原因")")
                 } else {
-                    self.showToast("AI 本地分离已就绪；官方双轨仍优先")
+                    self.showToast("UVR-MDX-Net 已就绪；首次分离需要一点时间")
                 }
                 if self.karaokeEnabled, self.current != nil {
                     self.reloadForKaraoke()
@@ -359,6 +361,8 @@ final class PlayerEngine: NSObject, ObservableObject {
         aiSeparationEnabled = false
         Preferences.aiSeparationEnabled = false
         AudioEnhancer.shared.setAI(active: false)
+        aiSeparationProgress = nil
+        aiSeparationStatus = nil
         if current == nil { return }
         reloadForKaraoke()
         showToast("已关闭 AI 分离；有官方双轨时继续用官方双轨")
@@ -371,7 +375,7 @@ final class PlayerEngine: NSObject, ObservableObject {
         karaokeAccompanimentVolume = a
         Preferences.karaokeVocalVolume = v
         Preferences.karaokeAccompanimentVolume = a
-        if karaokeMode == .dualTrack {
+        if karaokeMode == .dualTrack || karaokeMode == .aiModel {
             updateKaraokeMix()
         }
         AudioEnhancer.shared.setKaraoke(active: karaokeEnabled && karaokeMode == .centerChannel,
@@ -486,7 +490,7 @@ final class PlayerEngine: NSObject, ObservableObject {
                                                         accompaniment: Float(self.karaokeAccompanimentVolume))
                     } else {
                         // 2. 没有官方双轨才走 AI；3. AI 不可用再退中置声道。
-                        let fallback = await self.makeKaraokeFallbackItem(url: url)
+                        let fallback = await self.makeKaraokeFallbackItem(song: song, url: url)
                         item = fallback.item
                         mode = fallback.mode
                     }
@@ -502,7 +506,7 @@ final class PlayerEngine: NSObject, ObservableObject {
                 self.player.replaceCurrentItem(with: item)
                 self.currentQuality = mode == .dualTrack
                     ? "伴唱双轨"
-                    : (mode == .aiModel ? "AI 分离" : (mode == .centerChannel ? "伴唱·声道" : (KGService.quality(for: song.FileHash) ?? "")))
+                    : (mode == .aiModel ? "AI·MDX 双轨" : (mode == .centerChannel ? "伴唱·声道" : (KGService.quality(for: song.FileHash) ?? "")))
                 let saved = resume ? PlaybackMemory.position(for: song.FileHash) : 0
                 let total = Double(song.Duration ?? 0)
                 if saved > 5, total <= 0 || saved < total - 5 {
@@ -632,18 +636,35 @@ final class PlayerEngine: NSObject, ObservableObject {
         return result
     }
 
-    /// 官方双轨取不到时的兜底：先尝试本地 AI，失败再退立体声中置声道。
-    private func makeKaraokeFallbackItem(url: URL) async -> (item: AVPlayerItem, mode: KaraokeMode) {
+    /// 官方双轨取不到时的兜底：先尝试本地 UVR-MDX-Net 离线分离，
+    /// 失败再退立体声中置声道。MDX 是离线模型，首次会阻塞在当前歌曲的加载里，
+    /// 进度通过 aiSeparationProgress / aiSeparationStatus 暴露给播放页。
+    private func makeKaraokeFallbackItem(song: Song, url: URL) async -> (item: AVPlayerItem, mode: KaraokeMode) {
         if aiSeparationEnabled {
-            let available = await MSSRuntime.shared.prepareAsync()
+            let available = await AIOfflineSeparator.shared.prepareModelAsync()
             aiSeparationAvailable = available
             if available {
-                let result = await makeNormalItem(url: url, karaokeFallback: false, aiSeparation: true)
-                if result.aiAttached {
+                do {
+                    aiSeparationProgress = 0
+                    aiSeparationStatus = "准备 MDX 分离"
+                    let playback = try await AIOfflineSeparator.shared.prepare(song: song, sourceURL: url) { [weak self] value, text in
+                        DispatchQueue.main.async {
+                            self?.aiSeparationProgress = value
+                            self?.aiSeparationStatus = text
+                        }
+                    }
+                    let item = AVPlayerItem(asset: playback.composition)
+                    configureKaraokeMix(on: item, tracks: [playback.vocalTrack, playback.accompanimentTrack])
                     AudioEnhancer.shared.setKaraoke(active: false,
                                                     vocal: Float(karaokeVocalVolume),
                                                     accompaniment: Float(karaokeAccompanimentVolume))
-                    return (result.item, .aiModel)
+                    aiSeparationProgress = nil
+                    aiSeparationStatus = nil
+                    return (item, .aiModel)
+                } catch {
+                    aiSeparationProgress = nil
+                    aiSeparationStatus = nil
+                    showToast("MDX 分离失败，已退回声道模式")
                 }
             }
         }
@@ -690,7 +711,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     }
 
     private func updateKaraokeMix() {
-        guard karaokeMode == .dualTrack, let item = player.currentItem else { return }
+        guard karaokeMode == .dualTrack || karaokeMode == .aiModel, let item = player.currentItem else { return }
         item.audioMix = makeKaraokeMix()
     }
 

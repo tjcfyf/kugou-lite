@@ -1146,7 +1146,7 @@ struct KaraokeSheet: View {
         case .centerChannel:
             return "没有走 AI：官方双轨和本地模型都不可用，实际用立体声中置声道估计；鼓点和居中低频会明显保留。"
         case .aiModel:
-            return "本地 4.9MB MSS 模型，完全离线；轻量模型做不到 Demucs 级，纯人声偶尔会残留少量鼓点/齿音。"
+            return "本地 UVR-MDX-Net（UVR-MDX-NET-Voc_FT）离线分离，和电脑端 UVR 同款模型；第一次处理当前歌曲需要几十秒到几分钟，结果会缓存。"
         case .unavailable:
             return player.karaokeEnabled
                 ? "正在请求官方双轨；取不到时会自动尝试 AI 本地分离。"
@@ -1228,12 +1228,13 @@ struct KaraokeSheet: View {
                 .font(.system(size: 11))
                 .foregroundColor(Theme.tertiaryText)
                 .fixedSize(horizontal: false, vertical: true)
-            if player.karaokeMode == .aiModel {
-                TimelineView(.periodic(from: .now, by: 0.5)) { _ in
-                    Text("AI 运行状态：\(AudioEnhancer.shared.aiStatusText())")
+            if let progress = player.aiSeparationProgress {
+                VStack(alignment: .leading, spacing: 5) {
+                    ProgressView(value: progress)
+                        .progressViewStyle(LinearProgressViewStyle(tint: Theme.accent))
+                    Text(player.aiSeparationStatus ?? "MDX 分离中…")
                         .font(.system(size: 10))
                         .foregroundColor(Theme.tertiaryText)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }

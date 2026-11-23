@@ -244,7 +244,7 @@ struct CommentsView: View {
     }
 }
 
-private struct CommentAvatar: View {
+struct CommentAvatar: View {
     let url: URL?
     let name: String
 
