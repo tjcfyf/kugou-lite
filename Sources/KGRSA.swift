@@ -31,6 +31,29 @@ enum KGRSA {
         return (encrypted as Data).map { String(format: "%02X", $0) }.joined()
     }
 
+    /// 登录接口的 `pk` 字段用的是 RSA/ECB/NoPadding：明文补零到 128 字节，
+    /// 再直接做模幂。SecKeyCreateEncryptedData 不支持 raw，改用 SecKeyEncrypt(.None)。
+    static func encryptRawNoPadding(_ plaintext: Data, key: Key) -> String? {
+        guard let publicKey = publicKey(for: key) else { return nil }
+        let blockSize = SecKeyGetBlockSize(publicKey)
+        var block = [UInt8](repeating: 0, count: blockSize)
+        let prefix = [UInt8](plaintext.prefix(blockSize))
+        block.replaceSubrange(0..<prefix.count, with: prefix)
+
+        var cipher = [UInt8](repeating: 0, count: blockSize)
+        var cipherLength = blockSize
+        let status = block.withUnsafeBufferPointer { pointer in
+            SecKeyEncrypt(publicKey,
+                          SecPadding(rawValue: 0),
+                          pointer.baseAddress!,
+                          block.count,
+                          &cipher,
+                          &cipherLength)
+        }
+        guard status == errSecSuccess, cipherLength > 0 else { return nil }
+        return cipher.prefix(cipherLength).map { String(format: "%02X", $0) }.joined()
+    }
+
     private static func publicKey(for key: Key) -> SecKey? {
         let cacheKey = key.modulusBase64URL
         if let cached = keyCache[cacheKey] { return cached }
