@@ -18,12 +18,17 @@ final class AIOfflineSeparator {
     }
 
     private let queue = DispatchQueue(label: "sonora.aioffline", qos: .userInitiated)
-    private var model: MDXRunner?
+    private var engine: MDXEngine?
     private(set) var lastError: String?
 
     private init() {}
 
-    var isModelLoaded: Bool { model != nil }
+    var isModelLoaded: Bool { engine != nil }
+    var engineName: String {
+        if engine is MDXCoreMLRunner { return "UVR-MDX-Net · Core ML" }
+        if engine is MDXRunner { return "UVR-MDX-Net · XNNPACK" }
+        return "未加载"
+    }
 
     var modelURL: URL? {
         Bundle.main.url(forResource: "mdx-voc-ft", withExtension: "tflite")
@@ -40,16 +45,19 @@ final class AIOfflineSeparator {
     }
 
     private func loadModel() -> Bool {
-        if model != nil { return true }
-        guard let url = modelURL else {
-            lastError = "MDX 模型文件缺失"
+        if engine != nil { return true }
+        // 优先 Core ML：iPhone 12 的 Neural Engine / GPU 比 TFLite CPU 快得多，
+        // 而且这个模型就是从同一份 UVR-MDX-NET-Voc_FT 转出来的 iOS 15 CoreML5。
+        if let coreml = MDXCoreMLRunner() {
+            engine = coreml
+            lastError = nil
+            return true
+        }
+        guard let url = modelURL, let tflite = MDXRunner(path: url.path) else {
+            lastError = "MDX 模型文件缺失或张量形状不匹配"
             return false
         }
-        guard let loaded = MDXRunner(path: url.path) else {
-            lastError = "MDX 模型加载失败（张量形状不匹配）"
-            return false
-        }
-        model = loaded
+        engine = tflite
         lastError = nil
         return true
     }
@@ -88,8 +96,9 @@ final class AIOfflineSeparator {
         let decoded = try decode(url: localAudio)
         progress(0.06, "解码完成，准备分离")
 
+        guard let engine else { throw Failure.model }
         let stems = try MDXSeparator.separate(left: decoded.left, right: decoded.right,
-                                              model: model!, progress: progress)
+                                              model: engine, progress: progress)
         progress(0.96, "写入双轨")
         try writeWav(left: stems.instrumentalLeft, right: stems.instrumentalRight, gain: 1, to: instURL)
         try writeWav(left: stems.vocalLeft, right: stems.vocalRight, gain: 1, to: vocalURL)

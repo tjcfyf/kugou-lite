@@ -6,7 +6,11 @@ import TensorFlowLiteC
 /// `[L-real, L-imag, R-real, R-imag]`，44.1 kHz / 6144 点 FFT / hop 1024。
 /// 只跑 CPU + XNNPACK；MDX 全是卷积和矩阵乘，XNNPACK 已足够，
 /// 且 iOS 15 的 TFLite Metal delegate 对这个图并不稳定。
-final class MDXRunner {
+protocol MDXEngine {
+    func run(input: [Float], output: inout [Float]) -> Bool
+}
+
+final class MDXRunner: MDXEngine {
     static let inputCount = 1 * 4 * 3072 * 256
 
     private var model: OpaquePointer?

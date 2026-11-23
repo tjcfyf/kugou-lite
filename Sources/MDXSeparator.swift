@@ -37,7 +37,7 @@ enum MDXSeparator {
     }
 
     /// 只做分离，不写文件。progress 的第一个参数是 0...1，第二个参数是给 UI 的短文案。
-    static func separate(left: [Float], right: [Float], model: MDXRunner,
+    static func separate(left: [Float], right: [Float], model: MDXEngine,
                          progress: (Double, String) -> Void) throws -> Stems {
         guard !left.isEmpty, left.count == right.count else { throw Failure.emptyAudio }
 
