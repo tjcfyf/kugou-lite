@@ -33,6 +33,7 @@ final class PlayerEngine: NSObject, ObservableObject {
     @Published private(set) var currentQuality: String = ""
     @Published private(set) var playMode: PlayMode = Preferences.playMode
     @Published private(set) var playbackRate: Float = Preferences.playbackRate
+    @Published private(set) var mixWithOtherApps: Bool = Preferences.mixWithOtherApps
     @Published private(set) var karaokeEnabled: Bool = Preferences.karaokeEnabled
     @Published private(set) var karaokeMode: KaraokeMode = .unavailable
     @Published private(set) var karaokeVocalVolume: Double = Preferences.karaokeVocalVolume
@@ -136,6 +137,16 @@ final class PlayerEngine: NSObject, ObservableObject {
         let title = PlaybackSpeed.allCases.first(where: { abs($0.rawValue - clamped) < 0.01 })?.title
             ?? String(format: "%.2gx", clamped)
         showToast("播放速度：\(title)")
+    }
+
+    /// 切换「与其他 App 同时播放」。改 AVAudioSession 的 mixWithOthers 后立即重新激活，
+    /// 正在播放的 AVPlayer 不会因此重载或中断。
+    func setMixWithOtherApps(_ enabled: Bool) {
+        guard mixWithOtherApps != enabled else { return }
+        mixWithOtherApps = enabled
+        Preferences.mixWithOtherApps = enabled
+        configureAudioSession()
+        showToast(enabled ? "已允许与其他 App 同时播放" : "已关闭同时播放")
     }
 
     private func advance(automatic: Bool) {
@@ -821,7 +832,8 @@ final class PlayerEngine: NSObject, ObservableObject {
 
     private func configureAudioSession() {
         let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, mode: .default, options: [])
+        let options: AVAudioSession.CategoryOptions = mixWithOtherApps ? [.mixWithOthers] : []
+        try? session.setCategory(.playback, mode: .default, options: options)
         try? session.setActive(true)
     }
 

@@ -170,6 +170,7 @@ enum Preferences {
     static let karaokeVocalKey = "kg.karaoke.vocal"
     static let karaokeAccompanimentKey = "kg.karaoke.accompaniment"
     static let aiSeparationKey = "kg.karaoke.ai"
+    static let mixWithOtherAppsKey = "kg.audio.mix"
 
     static var lyricOffsetMs: Int {
         get { UserDefaults.standard.integer(forKey: lyricOffsetKey) }
@@ -242,6 +243,15 @@ enum Preferences {
     static var aiSeparationEnabled: Bool {
         get { UserDefaults.standard.bool(forKey: aiSeparationKey) }
         set { UserDefaults.standard.set(newValue, forKey: aiSeparationKey) }
+    }
+
+    /// 默认开启：播放时允许其它 App 同时出声；关闭后恢复系统独占音频行为。
+    static var mixWithOtherApps: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: mixWithOtherAppsKey) == nil { return true }
+            return UserDefaults.standard.bool(forKey: mixWithOtherAppsKey)
+        }
+        set { UserDefaults.standard.set(newValue, forKey: mixWithOtherAppsKey) }
     }
 
     static var searchHistory: [String] {

@@ -134,6 +134,28 @@ struct LyricOffsetSettingsCard: View {
     }
 }
 
+struct AudioMixingToggleRow: View {
+    @EnvironmentObject private var player: PlayerEngine
+
+    var body: some View {
+        Toggle(isOn: Binding(
+            get: { player.mixWithOtherApps },
+            set: { player.setMixWithOtherApps($0) }
+        )) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("允许与其他 App 同时播放")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Theme.text)
+                Text("开启后 Sonora 播放时，其它 App 也可以同时出声")
+                    .font(.system(size: 10))
+                    .foregroundColor(Theme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .tint(Theme.accent)
+    }
+}
+
 struct SettingsView: View {
     @EnvironmentObject private var player: PlayerEngine
     @EnvironmentObject private var auth: AuthStore
@@ -158,6 +180,7 @@ struct SettingsView: View {
                     playModeCard
                     speedCard
                     qualityCard
+                    mixingCard
                     audioCard
                     karaokeCard
                     aiCard
@@ -168,7 +191,7 @@ struct SettingsView: View {
                     storageCard
                     accountCard
 
-                    Text("Sonora · iOS 15 · v99")
+                    Text("Sonora · iOS 15 · v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
                         .font(.system(size: 11))
                         .foregroundColor(Theme.secondaryText)
                         .padding(.top, 6)
@@ -296,6 +319,16 @@ struct SettingsView: View {
             Text("取不到高音质时会自动降到下一档")
                 .font(.system(size: 11))
                 .foregroundColor(Theme.secondaryText)
+        }
+    }
+
+    private var mixingCard: some View {
+        card(title: "同时播放") {
+            AudioMixingToggleRow()
+            Text("开启后不会抢占音频，其他 App 也能同时出声；关闭则恢复系统默认行为。部分强制独占音频的 App 仍可能让 Sonora 暂停，这是 iOS 的限制。")
+                .font(.system(size: 10))
+                .foregroundColor(Theme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -691,6 +724,7 @@ struct PlayerSettingsView: View {
                 LazyVStack(spacing: 16) {
                     playModeCard
                     speedCard
+                    mixingCard
                     lyricCard
                     LyricOffsetSettingsCard()
                     qualityCard
@@ -891,6 +925,16 @@ struct PlayerSettingsView: View {
                 }
                 .buttonStyle(GlassPressButtonStyle())
             }
+        }
+    }
+
+    private var mixingCard: some View {
+        card(title: "同时播放") {
+            AudioMixingToggleRow()
+            Text("开启后不会抢占音频，其他 App 也能同时出声；关闭则恢复系统默认行为。部分强制独占音频的 App 仍可能让 Sonora 暂停，这是 iOS 的限制。")
+                .font(.system(size: 10))
+                .foregroundColor(Theme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
