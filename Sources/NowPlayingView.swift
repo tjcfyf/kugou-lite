@@ -73,6 +73,7 @@ struct NowPlayingView: View {
     @State private var interactiveDismiss = false
     @State private var didCrossDismissThreshold = false
     @State private var artworkPalette: [Color] = []
+    @State private var artworkImage: UIImage?
     @State private var coverFrame: CGRect = .zero
 
     private var qualityLabel: String {
@@ -153,7 +154,10 @@ struct NowPlayingView: View {
             activeSheet = nil
         }
         .onChange(of: player.current?.FileHash) { _ in
-            artworkPalette = []
+            withAnimation(.easeInOut(duration: 0.28)) {
+                artworkPalette = []
+                artworkImage = nil
+            }
         }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
@@ -298,8 +302,7 @@ struct NowPlayingView: View {
     private var background: some View {
         GeometryReader { geo in
             ZStack {
-                // 专辑图取三色 → 纯色渐变铺底 → iOS 原生磨砂玻璃。
-                // 不再用封面图直接铺底，也不叠任何颜色遮罩。
+                // 底层兜底：封面还没下载完时先用取色渐变，避免黑屏。
                 if artworkPalette.count >= 3 {
                     LinearGradient(gradient: Gradient(colors: artworkPalette),
                                    startPoint: .topLeading,
@@ -311,9 +314,27 @@ struct NowPlayingView: View {
                         .frame(width: geo.size.width, height: geo.size.height)
                 }
 
-                if !isPanelMoving {
-                    NativeFrostedGlass(style: colorScheme == .dark ? .systemThinMaterialDark : .systemThinMaterialLight)
+                // 背景主体：当前专辑图放大到铺满整页；不是取色块，也不是模糊缩略图。
+                if let image = artworkImage {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
                         .frame(width: geo.size.width, height: geo.size.height)
+                        .scaleEffect(1.20)
+                        .clipped()
+                        .transition(.opacity)
+                }
+
+                // Apple Music 式的原生磨砂：深色下用深色 ultra thin material，
+                // 保留专辑图色相；浅色下用浅色 material。加一层极轻的压暗，
+                // 保证白色标题/控制按钮在亮色封面上也能读。
+                if !isPanelMoving {
+                    NativeFrostedGlass(style: colorScheme == .dark ? .systemUltraThinMaterialDark : .systemUltraThinMaterialLight)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                    Color.black
+                        .opacity(colorScheme == .dark ? 0.22 : 0.05)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .allowsHitTesting(false)
                 }
 
                 if showLyrics && lyricPhotoMode, let url = player.current?.coverURL {
@@ -322,13 +343,17 @@ struct NowPlayingView: View {
                         .scaleEffect(1.02)
                 }
 
-                // 只负责下载封面并提取三色，本身不显示。
+                // 只负责下载封面、缓存 UIImage 并提取三色，本身不显示。
                 if let url = player.current?.coverURL {
                     CoverImage(url: url, size: 2, radius: 0, showsBorder: false) { _, image in
                         guard let image else {
-                            withAnimation(.easeInOut(duration: 0.35)) { artworkPalette = [] }
+                            withAnimation(.easeInOut(duration: 0.35)) {
+                                artworkPalette = []
+                                artworkImage = nil
+                            }
                             return
                         }
+                        withAnimation(.easeInOut(duration: 0.35)) { artworkImage = image }
                         let colors = ArtworkPalette.colors(from: image)
                         withAnimation(.easeInOut(duration: 0.45)) { artworkPalette = colors }
                     }
