@@ -1267,10 +1267,6 @@ struct ProfileView: View {
                 favoritesCard
                 playlistsSection
 
-                Text("Sonora · iOS 15 精简版")
-                    .font(.system(size: 11))
-                    .foregroundColor(Theme.tertiaryText)
-                    .padding(.top, 8)
             }
             .padding(16)
             .padding(.bottom, 136)

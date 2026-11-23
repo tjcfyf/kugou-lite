@@ -122,11 +122,11 @@ struct RootView: View {
         .onAppear { applyInterfaceStyle() }
         .onChange(of: tab) { value in
             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            if value == 2 {
-                isSearching = true
-            } else if value != 0 {
-                isSearching = false
-            }
+            isSearching = (value == 2)
+        }
+        .onChange(of: isSearching) { value in
+            if value, tab == 0 { tab = 2 }
+            if !value, tab == 2 { tab = 0 }
         }
         .onChange(of: themeRaw) { _ in applyInterfaceStyle() }
         .onOpenURL { url in

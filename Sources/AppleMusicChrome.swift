@@ -28,8 +28,8 @@ struct AppleMusicBottomBar: View {
 
             HStack(spacing: 0) {
                 tabButton(title: "现在就听", icon: "play.rectangle", tag: 0)
-                tabButton(title: "搜索", icon: "magnifyingglass", tag: 2)
                 tabButton(title: "资料库", icon: "music.note.list", tag: 1)
+                tabButton(title: "搜索", icon: "magnifyingglass", tag: 2)
             }
             .frame(height: 54)
         }

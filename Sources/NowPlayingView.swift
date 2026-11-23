@@ -257,6 +257,11 @@ struct NowPlayingView: View {
 
     private var lyricsContent: some View {
         VStack(spacing: 0) {
+            Capsule()
+                .fill(playerPrimary.opacity(0.28))
+                .frame(width: 36, height: 5)
+                .padding(.top, 4)
+                .padding(.bottom, 2)
             lyricsTopBar
             lyricView
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
