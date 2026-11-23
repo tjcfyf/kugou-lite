@@ -43,6 +43,8 @@ struct RootView: View {
     // 按 MD3Music 的 PlayerPanelFrame 几何展开/收回。
     @State private var miniPlayerFrame: CGRect = .zero
     @State private var playerOrigin: CGRect = .zero
+    // 播放页大封面在窗口里的矩形；收起时只让这张封面缩向底栏。
+    @State private var artworkFrame: CGRect = .zero
     @State private var playerProgress: CGFloat = 0
     @State private var isPlayerClosing = false
     // 快照收起期间只把播放页隐藏，不立即销毁；否则 SwiftUI 在动画第一帧
@@ -129,6 +131,11 @@ struct RootView: View {
         .onPreferenceChange(MiniPlayerFramePreferenceKey.self) { rect in
             if rect.width > 1, rect.height > 1 {
                 miniPlayerFrame = rect
+            }
+        }
+        .onPreferenceChange(PlayerArtworkGlobalFrameKey.self) { rect in
+            if rect.width > 1, rect.height > 1 {
+                artworkFrame = rect
             }
         }
         .preferredColorScheme(resolvedScheme)
@@ -219,6 +226,7 @@ struct RootView: View {
             from: fullRect,
             origin: origin,
             screen: screen.size,
+            coverRect: artworkFrame,
             startRadius: 0
         ) else { return false }
         hidePlayerForCollapse = true
@@ -295,6 +303,7 @@ struct RootView: View {
         if PlayerCollapseTransition.shared.begin(
             from: startRect,
             to: origin,
+            coverRect: artworkFrame,
             startRadius: startRadius,
             duration: 0.28,
             completion: {

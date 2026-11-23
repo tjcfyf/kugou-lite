@@ -22,22 +22,26 @@ enum PlayerPanelGeometry {
     }
 }
 
-/// 播放页收起/取消时的快照动画。
+/// 播放页收起：页面只做轻微下移 + 淡出，真正缩向底栏的是「专辑图」。
 ///
-/// 这条路径完全不碰 SwiftUI 页面树：
-/// 1. 从窗口裁一张当前播放页快照；
-/// 2. 跟手阶段只改快照的 frame / cornerRadius；
-/// 3. 松手后用 UIViewPropertyAnimator 把快照继续送到迷你播放器或送回全屏。
+/// 之前直接把整页快照 frame 缩到 56pt，视觉上就是一张完整播放页被压成
+/// 窄条；现在拆成两层：
+/// 1. pageShot：整页快照，保持原始尺寸，只下移和淡出；
+/// 2. coverShot：从大封面矩形裁出的封面快照，单独按封面→迷你圆盘的路径缩小。
 ///
-/// 这样 iOS 15 上不会出现「每一帧重新排版整页 → 只跳几帧」的 PPT 式收起。
+/// 两层都只改 UIKit 的 frame/alpha，不触发 SwiftUI 每帧 reflow，iOS 15
+/// 上能稳定贴着手指走。最后 coverShot 落到迷你封面后再做 0.16s 交叉淡化，
+/// 交给下面已经在旋转的 BottomArtwork。
 final class PlayerCollapseTransition {
     static let shared = PlayerCollapseTransition()
 
-    private var snapshot: UIView?
+    private var pageShot: UIView?
+    private var coverShot: UIView?
     private var animator: UIViewPropertyAnimator?
 
-    // 交互拖动期间使用的目标几何。
-    private var interactiveOrigin: CGRect = .zero
+    private var interactivePageRect: CGRect = .zero
+    private var interactiveCoverStart: CGRect = .zero
+    private var interactiveCoverTarget: CGRect = .zero
     private var interactiveScreen: CGSize = .zero
     private var isInteractive = false
 
@@ -47,52 +51,100 @@ final class PlayerCollapseTransition {
     @discardableResult
     func begin(from panelRect: CGRect,
                to targetRect: CGRect,
+               coverRect: CGRect?,
                startRadius: CGFloat,
                duration: TimeInterval,
                completion: @escaping () -> Void) -> Bool {
-        guard snapshot == nil, !isInteractive,
-              let shot = makeSnapshot(from: panelRect) else { return false }
+        guard pageShot == nil, coverShot == nil, !isInteractive,
+              let page = makePageSnapshot(from: panelRect) else { return false }
 
-        let target = clamped(targetRect, in: shot.superview?.bounds ?? shot.frame)
-        let endRadius = min(28, min(target.width, target.height) / 2)
+        let startCover = normalizedCoverRect(coverRect, in: page.bounds)
+        let targetCover = clamped(targetRect, in: page.superview?.bounds ?? page.frame)
+        attach(page: page, coverRect: startCover)
+
+        interactivePageRect = page.frame
+        interactiveCoverStart = startCover ?? .zero
+        interactiveCoverTarget = targetCover
+        interactiveScreen = page.frame.size
+        isInteractive = false
+
+        let endPage = pageEndFrame(screen: interactiveScreen, travel: 0.10)
         let animator = makeAnimator(duration: duration) {
-            shot.frame = target
-            shot.layer.cornerRadius = endRadius
-        } completion: { [weak self, weak shot] _ in
-            guard let self, let shot else { return }
+            page.frame = endPage
+            if let cover = self.coverShot, startCover != nil {
+                cover.frame = targetCover
+                cover.layer.cornerRadius = targetCover.width / 2
+            }
+        } completion: { [weak self, weak page, weak cover = self.coverShot] _ in
+            guard let self, let page else { return }
             self.animator = nil
-            self.finishSnapshot(shot, fadeOut: true, completion: completion)
+            page.removeFromSuperview()
+            if self.pageShot === page { self.pageShot = nil }
+            guard let cover, cover.superview != nil else {
+                self.coverShot = nil
+                completion()
+                return
+            }
+            self.finishCover(cover, completion: completion)
         }
-        start(animator, startRadius: startRadius, on: shot)
+        // page 的 alpha 在 UIViewPropertyAnimator 里是线性 1→0；为了让页面
+        // 尽早让位给封面，另起一个更短的淡出，主 animator 仍然负责封面路径。
+        page.alpha = 1
+        self.animator = animator
+        UIView.animate(withDuration: min(0.16, duration * 0.62),
+                       delay: 0,
+                       options: [.curveEaseOut, .beginFromCurrentState]) {
+            page.alpha = 0
+        }
+        animator.startAnimation()
         return true
     }
 
-    /// 开始跟手收起。此时播放页仍然是全屏，所以从全屏矩形裁图。
+    /// 开始跟手收起。页面仍然是全屏，封面快照必须从窗口里单独裁出来。
     @discardableResult
     func beginInteractive(from panelRect: CGRect,
                           origin: CGRect,
                           screen: CGSize,
+                          coverRect: CGRect?,
                           startRadius: CGFloat) -> Bool {
-        guard snapshot == nil, !isInteractive, !panelRect.isEmpty,
-              let shot = makeSnapshot(from: panelRect) else { return false }
-        interactiveOrigin = origin
+        guard pageShot == nil, coverShot == nil, !isInteractive, !panelRect.isEmpty,
+              let page = makePageSnapshot(from: panelRect) else { return false }
+
+        let startCover = normalizedCoverRect(coverRect, in: page.bounds)
+        let targetCover = clamped(origin, in: page.superview?.bounds ?? page.frame)
+        attach(page: page, coverRect: startCover)
+
+        interactivePageRect = page.frame
+        interactiveCoverStart = startCover ?? .zero
+        interactiveCoverTarget = targetCover
         interactiveScreen = screen
         isInteractive = true
-        shot.layer.cornerRadius = startRadius
+
+        page.alpha = 1
+        if let cover = coverShot, startCover != nil {
+            cover.layer.cornerRadius = min(12, startCover!.width / 2)
+        }
         return true
     }
 
-    /// 跟手阶段每一帧只改快照 frame；不触发 SwiftUI 布局。
+    /// 跟手阶段每一帧只改快照 frame/alpha；不触发 SwiftUI 布局。
     func updateInteractive(progress: CGFloat) {
-        guard isInteractive, let shot = snapshot else { return }
-        let rect = PlayerPanelGeometry.rect(progress: progress,
-                                            origin: interactiveOrigin,
-                                            screen: interactiveScreen)
-        let radius = max(0, 28 * (1 - min(max(progress, 0), 1)))
+        guard isInteractive, let page = pageShot else { return }
+        let p = min(max(progress, 0), 1)
+
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        shot.frame = rect
-        shot.layer.cornerRadius = radius
+
+        page.frame = pageFrame(progress: p)
+        // 页面尽早淡出；它不再缩小，只下移，避免出现「小号播放页」。
+        page.alpha = p * p * p
+
+        if let cover = coverShot, !interactiveCoverStart.isEmpty {
+            let rect = coverFrame(progress: p)
+            cover.frame = rect
+            cover.layer.cornerRadius = min(28, rect.width / 2)
+        }
+
         CATransaction.commit()
     }
 
@@ -101,36 +153,80 @@ final class PlayerCollapseTransition {
     func finishInteractive(to progress: CGFloat,
                            duration: TimeInterval,
                            completion: @escaping () -> Void) -> Bool {
-        guard isInteractive, let shot = snapshot else { return false }
+        guard isInteractive, let page = pageShot else { return false }
         isInteractive = false
 
-        let target = PlayerPanelGeometry.rect(progress: progress,
-                                              origin: interactiveOrigin,
-                                              screen: interactiveScreen)
-        let radius = max(0, 28 * (1 - min(max(progress, 0), 1)))
-        let animator = makeAnimator(duration: duration) {
-            shot.frame = target
-            shot.layer.cornerRadius = radius
-        } completion: { [weak self, weak shot] _ in
-            guard let self, let shot else { return }
-            self.animator = nil
-            self.finishSnapshot(shot, fadeOut: progress < 0.01, completion: completion)
+        let p = min(max(progress, 0), 1)
+        let closing = p < 0.999
+        let endPage = closing
+            ? pageEndFrame(screen: interactiveScreen, travel: 0.10)
+            : interactivePageRect
+        let endPageAlpha: CGFloat = closing ? 0 : 1
+
+        let endCover: CGRect
+        if closing {
+            endCover = interactiveCoverTarget
+        } else {
+            endCover = interactiveCoverStart
         }
-        start(animator, startRadius: shot.layer.cornerRadius, on: shot)
+
+        let animator = makeAnimator(duration: duration) {
+            page.frame = endPage
+            if !closing {
+                page.alpha = endPageAlpha
+            }
+            if let cover = self.coverShot, !self.interactiveCoverStart.isEmpty {
+                cover.frame = endCover
+                cover.layer.cornerRadius = min(28, endCover.width / 2)
+            }
+        } completion: { [weak self, weak page, weak cover = self.coverShot] _ in
+            guard let self, let page else { return }
+            self.animator = nil
+            if closing {
+                page.removeFromSuperview()
+                if self.pageShot === page { self.pageShot = nil }
+                guard let cover, cover.superview != nil else {
+                    self.coverShot = nil
+                    completion()
+                    return
+                }
+                self.finishCover(cover, completion: completion)
+            } else {
+                page.removeFromSuperview()
+                if self.pageShot === page { self.pageShot = nil }
+                cover?.removeFromSuperview()
+                if self.coverShot === cover { self.coverShot = nil }
+                completion()
+            }
+        }
+        self.animator = animator
+        if closing {
+            page.alpha = max(0, min(1, page.alpha))
+            // 收尾阶段页面已经淡得差不多，这里直接把剩余部分压到 0，
+            // 封面继续走完 0.28s，避免页面残影拖到最后。
+            UIView.animate(withDuration: min(0.12, duration * 0.5),
+                           delay: 0,
+                           options: [.curveEaseOut, .beginFromCurrentState]) {
+                page.alpha = 0
+            }
+        }
+        animator.startAnimation()
         return true
     }
 
     func cancel() {
         animator?.stopAnimation(true)
         animator = nil
-        snapshot?.removeFromSuperview()
-        snapshot = nil
+        pageShot?.removeFromSuperview()
+        coverShot?.removeFromSuperview()
+        pageShot = nil
+        coverShot = nil
         isInteractive = false
     }
 
     // MARK: - Snapshot
 
-    private func makeSnapshot(from rect: CGRect) -> UIView? {
+    private func makePageSnapshot(from rect: CGRect) -> UIView? {
         guard let window = keyWindow, rect.width > 1, rect.height > 1 else { return nil }
         guard let shot = window.resizableSnapshotView(
             from: rect,
@@ -144,36 +240,77 @@ final class PlayerCollapseTransition {
         shot.layer.masksToBounds = true
         shot.layer.cornerCurve = .continuous
         shot.accessibilityElementsHidden = true
-        window.addSubview(shot)
-        snapshot = shot
         return shot
     }
 
-    /// 快照落到迷你封面后不要瞬间移除。最后一帧如果用硬切，视觉上就是
+    private func makeCoverSnapshot(from rect: CGRect) -> UIView? {
+        guard let window = keyWindow, rect.width > 1, rect.height > 1 else { return nil }
+        guard let shot = window.resizableSnapshotView(
+            from: rect,
+            afterScreenUpdates: false,
+            withCapInsets: .zero
+        ) else { return nil }
+
+        shot.frame = rect
+        shot.isUserInteractionEnabled = false
+        shot.layer.masksToBounds = true
+        shot.layer.cornerCurve = .continuous
+        shot.layer.cornerRadius = min(12, min(rect.width, rect.height) / 2)
+        shot.accessibilityElementsHidden = true
+        return shot
+    }
+
+    private func attach(page: UIView, coverRect: CGRect?) {
+        guard let window = page.superview ?? keyWindow else { return }
+        if page.superview == nil {
+            window.addSubview(page)
+        }
+        pageShot = page
+
+        if let coverRect, let cover = makeCoverSnapshot(from: coverRect) {
+            window.addSubview(cover)
+            coverShot = cover
+        }
+    }
+
+    /// page 快照的起点是全屏；cover 快照的起点是播放页大封面。
+    private func pageFrame(progress p: CGFloat) -> CGRect {
+        let travel = min(interactivePageRect.height * 0.10, 90)
+        return interactivePageRect.offsetBy(dx: 0, dy: (1 - p) * travel)
+    }
+
+    private func pageEndFrame(screen: CGSize, travel: CGFloat) -> CGRect {
+        interactivePageRect.offsetBy(dx: 0, dy: min(screen.height * travel, 90))
+    }
+
+    private func coverFrame(progress p: CGFloat) -> CGRect {
+        let start = interactiveCoverStart
+        let end = interactiveCoverTarget
+        return CGRect(
+            x: start.minX + (end.minX - start.minX) * p,
+            y: start.minY + (end.minY - start.minY) * p,
+            width: start.width + (end.width - start.width) * p,
+            height: start.height + (end.height - start.height) * p
+        )
+    }
+
+    /// 快照落到迷你封面后不要瞬间移除。最后一帧如果硬切，视觉上就是
     /// 「卡一下，然后才出现圆形旋转封面」。这里用 0.16s 的轻微缩小 +
-    /// 淡出，把静态快照交给下面已经在旋转的 BottomArtwork。
-    private func finishSnapshot(_ shot: UIView,
-                                fadeOut: Bool,
-                                completion: @escaping () -> Void) {
-        let finish = { [weak self, weak shot] in
-            guard let self, let shot, self.snapshot === shot else { return }
-            shot.removeFromSuperview()
-            self.snapshot = nil
-            completion()
-        }
-        guard fadeOut, shot.superview != nil else {
-            finish()
-            return
-        }
+    /// 淡出，把静态封面交给下面已经在旋转的 BottomArtwork。
+    private func finishCover(_ cover: UIView, completion: @escaping () -> Void) {
         UIView.animate(
             withDuration: 0.16,
             delay: 0,
             options: [.curveEaseOut, .beginFromCurrentState, .allowUserInteraction],
             animations: {
-                shot.alpha = 0
-                shot.transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
+                cover.alpha = 0
+                cover.transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
             },
-            completion: { _ in finish() }
+            completion: { [weak self, weak cover] _ in
+                cover?.removeFromSuperview()
+                if self?.coverShot === cover { self?.coverShot = nil }
+                completion()
+            }
         )
     }
 
@@ -192,10 +329,14 @@ final class PlayerCollapseTransition {
         return animator
     }
 
-    private func start(_ animator: UIViewPropertyAnimator, startRadius: CGFloat, on shot: UIView) {
-        shot.layer.cornerRadius = startRadius
-        self.animator = animator
-        animator.startAnimation()
+    private func normalizedCoverRect(_ rect: CGRect?, in bounds: CGRect) -> CGRect? {
+        guard let rect, rect.width > 1, rect.height > 1 else { return nil }
+        let x = max(bounds.minX, min(rect.minX, bounds.maxX))
+        let y = max(bounds.minY, min(rect.minY, bounds.maxY))
+        let w = min(rect.width, bounds.maxX - x)
+        let h = min(rect.height, bounds.maxY - y)
+        guard w > 1, h > 1 else { return nil }
+        return CGRect(x: x, y: y, width: w, height: h)
     }
 
     private func clamped(_ rect: CGRect, in bounds: CGRect) -> CGRect {

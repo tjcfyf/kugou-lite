@@ -32,6 +32,17 @@ struct PlayerCoverFramePreferenceKey: PreferenceKey {
     }
 }
 
+/// 播放页大封面在窗口坐标系里的位置；Root 用它裁“只缩专辑图”的收起快照。
+struct PlayerArtworkGlobalFrameKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next.width > 0, next.height > 0 {
+            value = next
+        }
+    }
+}
+
 struct NowPlayingView: View {
     @EnvironmentObject private var player: PlayerEngine
     @Binding var panelProgress: CGFloat
@@ -579,10 +590,15 @@ struct NowPlayingView: View {
         CrossfadeArtwork(url: player.current?.coverURL, size: artworkSize)
             .background(
                 GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: PlayerCoverFramePreferenceKey.self,
-                        value: proxy.frame(in: .named("playerPage"))
-                    )
+                    Color.clear
+                        .preference(
+                            key: PlayerCoverFramePreferenceKey.self,
+                            value: proxy.frame(in: .named("playerPage"))
+                        )
+                        .preference(
+                            key: PlayerArtworkGlobalFrameKey.self,
+                            value: proxy.frame(in: .global)
+                        )
                 }
             )
             .shadow(color: .black.opacity(colorScheme == .dark ? 0.30 : 0.10),
