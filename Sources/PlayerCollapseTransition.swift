@@ -3,7 +3,7 @@ import UIKit
 /// 播放页窗口形变的几何计算。`PlayerPanelFrame` 和收起快照必须使用同一套
 /// 公式，否则快照的第一帧会和真实面板错位。
 enum PlayerPanelGeometry {
-    static func rect(progress: CGFloat, origin: CGRect, screen: CGRect) -> CGRect {
+    static func rect(progress: CGFloat, origin: CGRect, screen: CGSize) -> CGRect {
         let p = min(max(progress, 0), 1)
         let w = max(screen.width, 1)
         let h = max(screen.height, 1)

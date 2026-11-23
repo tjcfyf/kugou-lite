@@ -197,7 +197,7 @@ struct RootView: View {
                      width: 56,
                      height: 56)
         let progress = min(max(playerProgress, 0), 1)
-        let startRect = PlayerPanelGeometry.rect(progress: progress, origin: origin, screen: screen)
+        let startRect = PlayerPanelGeometry.rect(progress: progress, origin: origin, screen: screen.size)
         let startRadius = max(0, 28 * (1 - progress))
 
         // 关键：收起不再让 SwiftUI 逐帧重排整页。先裁一张当前面板快照，
