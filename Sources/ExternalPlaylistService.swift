@@ -200,8 +200,13 @@ enum ExternalPlaylistService {
             throw PlaylistImportError.invalidInput
         }
 
-        // 酷狗移动站公开的 plist 接口可以直接按 specialid 读取公开歌单，
-        // 不需要登录态，优先走这个；失败再退回 Meting。
+        // 酷狗网页版歌单页把完整曲目写在 var data=[...] 里，优先读这个，
+        // 它不受移动站 plist 接口「只返回前 10 首」的限制。
+        if let playlist = try? await fetchKugouWeb(id: id), !playlist.tracks.isEmpty {
+            return playlist
+        }
+
+        // 网页结构变化时退回移动站公开 plist 接口；它不需要登录态。
         if let playlist = try? await fetchKugouMobile(id: id), !playlist.tracks.isEmpty {
             return playlist
         }
@@ -226,6 +231,74 @@ enum ExternalPlaylistService {
         return ExternalPlaylist(name: "酷狗歌单", coverURL: cover, tracks: tracks)
     }
 
+    private static func fetchKugouWeb(id: String) async throws -> ExternalPlaylist? {
+        guard let url = URL(string: "https://www.kugou.com/yy/special/single/\(id).html") else { return nil }
+        var request = URLRequest(url: url)
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        let data = try await requestData(request)
+        guard let html = String(data: data, encoding: .utf8) else { return nil }
+
+        var name = "酷狗歌单"
+        if let titleStart = html.range(of: "<title>"), let titleEnd = html.range(of: "</title>", range: titleStart.upperBound..<html.endIndex) {
+            let title = String(html[titleStart.upperBound..<titleEnd.lowerBound])
+            if let underscore = title.range(of: "_精选集") {
+                name = String(title[..<underscore.lowerBound])
+            }
+        }
+        if name == "酷狗歌单", let descStart = html.range(of: "《"), let descEnd = html.range(of: "》", range: descStart.upperBound..<html.endIndex) {
+            name = String(html[descStart.upperBound..<descEnd.lowerBound])
+        }
+
+        guard let marker = html.range(of: "var data=") else { return nil }
+        let start = marker.upperBound
+        var depth = 0
+        var inString = false
+        var escaped = false
+        var end = start
+        var found = false
+        for index in html.indices[start...] {
+            let ch = html[index]
+            if inString {
+                if escaped { escaped = false }
+                else if ch == "\\" { escaped = true }
+                else if ch == "\"" { inString = false }
+            } else {
+                if ch == "\"" { inString = true }
+                else if ch == "[" { depth += 1 }
+                else if ch == "]" {
+                    depth -= 1
+                    if depth == 0 {
+                        end = html.index(after: index)
+                        found = true
+                        break
+                    }
+                }
+            }
+        }
+        guard found,
+              let rawSongs = try? JSONSerialization.jsonObject(with: Data(html[start..<end].utf8)) as? [[String: Any]] else {
+            return nil
+        }
+
+        let tracks = rawSongs.compactMap { item -> ExternalTrack? in
+            if let songName = item["songname"] as? String, !songName.isEmpty {
+                let artist = (item["singername"] as? String) ?? ""
+                return ExternalTrack(name: songName, artist: artist, album: item["album_name"] as? String)
+            }
+            guard let filename = item["filename"] as? String, !filename.isEmpty else { return nil }
+            let pieces = filename.components(separatedBy: " - ")
+            if pieces.count >= 2 {
+                return ExternalTrack(
+                    name: pieces.dropFirst().joined(separator: " - ").trimmingCharacters(in: .whitespacesAndNewlines),
+                    artist: pieces[0].trimmingCharacters(in: .whitespacesAndNewlines),
+                    album: nil
+                )
+            }
+            return ExternalTrack(name: filename, artist: "", album: nil)
+        }
+        return ExternalPlaylist(name: name, coverURL: nil, tracks: tracks)
+    }
+
     private static func fetchKugouMobile(id: String) async throws -> ExternalPlaylist? {
         guard let url = URL(string: "https://m.kugou.com/plist/list/\(id)?json=true") else { return nil }
         var request = URLRequest(url: url)
@@ -237,9 +310,10 @@ enum ExternalPlaylistService {
             return nil
         }
 
-        let info = json["info"] as? [String: Any]
+        let infoContainer = json["info"] as? [String: Any]
+        let info = (infoContainer?["list"] as? [String: Any]) ?? infoContainer
         let name = (info?["specialname"] as? String) ?? (info?["name"] as? String) ?? "酷狗歌单"
-        let coverRaw = (info?["img"] as? String) ?? (info?["cover"] as? String)
+        let coverRaw = (info?["imgurl"] as? String) ?? (info?["img"] as? String) ?? (info?["cover"] as? String)
         let cover = coverRaw.flatMap(URL.init(string:))
 
         let tracks = rawSongs.compactMap { item -> ExternalTrack? in
