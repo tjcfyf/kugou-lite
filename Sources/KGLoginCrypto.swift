@@ -107,8 +107,8 @@ enum KGLoginCrypto {
     }
 
     /// `key` 参数：md5(appid + liteSalt + clientver + clienttime_ms)
-    static func loginKey(clientTime: Int64) -> String {
-        KGSign.md5("3116" + liteSalt + "11440" + String(clientTime))
+    static func loginKey(clientTime: Int64, clientver: String = "11440") -> String {
+        KGSign.md5("3116" + liteSalt + clientver + String(clientTime))
     }
 
     /// 手机号掩码，和概念版客户端一致：前两位 + 五个星号 + 最后一位。

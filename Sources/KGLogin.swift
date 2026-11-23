@@ -229,7 +229,7 @@ extension KGLogin {
         // UserLogin$g 的 h0.c 最终由 f.e(map) 序列化成 JSON body，
         // 再由 ParamGenerator 生成 query 与 signature。这里按它的字段集补齐，
         // 不再把 params/openid 放到 query（query-only 会被判 20008 参数非法）。
-        let loginKey = KGLoginCrypto.loginKey(clientTime: clientTime)
+        let loginKey = KGLoginCrypto.loginKey(clientTime: clientTime, clientver: "11621")
         let body: [String: Any] = [
             "dfid": KGApi.shared.dfid,
             "plat": 1,
@@ -237,12 +237,12 @@ extension KGLogin {
             "params": params,
             "clienttime_ms": Int(clientTime),
             "appid": 3116,
-            "clientver": 11440,
+            "clientver": 11621,
             "mid": KGApi.shared.mid,
             "key": loginKey,
             "uuid": "-",
             "t1": "",
-            "t2": "",
+            "t2": KGApi.shared.mid,
             "t3": "MCwwLDAsMCwwLDAsMCwwLDA=",
             "dev": dev,
             "force_login": 1,
@@ -267,6 +267,7 @@ extension KGLogin {
                 "t_appid": "3116",
                 "t_clientver": "10597",
                 "srcappid": "2919",
+                "clientver": "11621",
             ],
             body: body,
             headers: [
