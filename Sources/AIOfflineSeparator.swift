@@ -100,7 +100,7 @@ final class AIOfflineSeparator {
     private func localAudio(sourceURL: URL, song: Song) async throws -> URL {
         if sourceURL.isFileURL { return sourceURL }
         let dir = try audioCacheDirectory()
-        let ext = audioExtension(for: sourceURL)
+        let ext = audioExtension(for: sourceURL, mimeType: nil)
         let target = dir.appendingPathComponent(safeName(song.FileHash) + "." + ext)
         if FileManager.default.fileExists(atPath: target.path),
            (try? FileManager.default.attributesOfItem(atPath: target.path)[.size] as? NSNumber)?.intValue ?? 0 > 65_536,

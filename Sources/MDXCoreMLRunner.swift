@@ -17,7 +17,7 @@ final class MDXCoreMLRunner: MDXEngine {
             ?? Bundle.main.url(forResource: bundleName, withExtension: "mlmodelc", subdirectory: "Resources") else {
             return nil
         }
-        let units: [MLComputeUnits] = onlyCPU ? [.cpuOnly] : [.cpuAndNeuralEngine, .all, .cpuOnly]
+        let units: [MLComputeUnits] = onlyCPU ? [.cpuOnly] : [.all, .cpuOnly]
         var loaded: MLModel?
         for unit in units {
             let configuration = MLModelConfiguration()
