@@ -208,8 +208,6 @@ extension KGLogin {
             throw KGError.server("登录密钥加密失败")
         }
 
-        // 概念版 f.c(appid, dev, clientver, clienttime_ms) 生成 key；
-        // 不是 Dart 里的 appid+salt+clientver 那套。
         let dev = KGApi.shared.dev
         guard let t1 = KGLoginCrypto.aesHex("|\(clientTime)",
                                            key: KGLoginCrypto.t1Key,
@@ -231,31 +229,25 @@ extension KGLogin {
         // UserLogin$g 的 h0.c 最终由 f.e(map) 序列化成 JSON body，
         // 再由 ParamGenerator 生成 query 与 signature。这里按它的字段集补齐，
         // 不再把 params/openid 放到 query（query-only 会被判 20008 参数非法）。
-        // h0.g 实际取 SystemUtils.e0()：配置为空时回落到 liteSalt。
-        // 所以 key 仍是 md5(appid + liteSalt + clientver + clienttime_ms)。
-        let loginKey = KGLoginCrypto.loginKey(clientTime: clientTime, clientver: "11621")
+        // h0(ZZ) 在概念版 openplat 构造里传的是 (true, true)：
+        // 第二个 true 会跳过 appid/clientver/mid/key/uuid 的 body 注入，
+        // 这些字段只由 ParamGenerator 放进 query。body 里多塞它们会被判参数错误。
         let body: [String: Any] = [
             "dfid": KGApi.shared.dfid,
             "plat": 1,
             "pk": pk,
             "params": params,
-            "clienttime_ms": Int(clientTime),
-            "appid": 3116,
-            "clientver": 11621,
-            "mid": KGApi.shared.mid,
-            "key": loginKey,
-            "uuid": "-",
+            "clienttime_ms": String(clientTime),
             "t1": "",
             "t2": KGApi.shared.mid,
-            "t3": "MCwwLDAsMCwwLDAsMCwwLDA=",
-            "dev": dev,
-            "force_login": 1,
             "force_bind": 1,
-            "partnerid": 1,
-            "third_appid": "101706348",
-            "openid": openid,
+            "force_login": 1,
             "support_third": "3",
             "support_verify": 1,
+            "third_appid": "101706348",
+            "openid": openid,
+            "dev": dev,
+            "gitversion": "5f0b7c4",
             "busi_type": "concept",
         ]
 
@@ -269,14 +261,6 @@ extension KGLogin {
             path: "/v6/login_by_openplat",
             host: "http://login.user.kugou.com",
             params: [
-                "plat": "1",
-                "userid": "0",
-                "token": "",
-                "t_mid": KGApi.shared.mid,
-                "t": KGLoginCrypto.guid(),
-                "t_appid": "3116",
-                "t_clientver": "10597",
-                "srcappid": "2919",
                 "clientver": "11621",
             ],
             body: body,
