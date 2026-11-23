@@ -32,6 +32,11 @@ struct KugouLiteApp: App {
 struct RootView: View {
     @EnvironmentObject private var auth: AuthStore
     @State private var showPlayer = false
+    // 播放页首次打开后常驻在视图树里，收起只隐藏不销毁。
+    // 否则 snapshot 刚好落到迷你封面那一帧时，SwiftUI 会同步拆掉整页
+    // 歌词/材质并重算 Root 布局，主线程被占住一帧，表现就是「卡一下，
+    // 然后才变成圆形旋转」。常驻后收起结束不再有这次拆除。
+    @State private var isPlayerOpen = false
     @State private var showSettings = false
     @State private var tab = 0
     // 播放页转场由 Root 统一驱动：以底栏播放封面圆盘为起点，
@@ -112,7 +117,7 @@ struct RootView: View {
                     )
                 }
                 .opacity(hidePlayerForCollapse ? 0 : 1)
-                .allowsHitTesting(!isPlayerClosing)
+                .allowsHitTesting(isPlayerOpen && !isPlayerClosing)
                 .zIndex(30)
             }
         }
@@ -173,7 +178,7 @@ struct RootView: View {
     /// 不叠加 15% 位移/根层淡入；几何、页面淡入、封面飞行全部由
     /// PlayerPanelFrame + NowPlayingView 按同一 progress 驱动。
     private func openPlayer() {
-        guard !showPlayer, !isPlayerClosing else { return }
+        guard !isPlayerOpen, !isPlayerClosing else { return }
         let screen = UIScreen.main.bounds
         let fallback = CGRect(
             x: screen.midX - 28,
@@ -185,8 +190,12 @@ struct RootView: View {
             ? miniPlayerFrame
             : fallback
         playerProgress = 0
+        isPlayerOpen = true
+        // 首次打开才创建视图；之后的打开直接复用已经挂载的 NowPlayingView。
+        if !showPlayer {
+            showPlayer = true
+        }
         hidePlayerForCollapse = false
-        showPlayer = true
 
         DispatchQueue.main.async {
             withAnimation(M3Motion.panelExpand) {
@@ -197,7 +206,7 @@ struct RootView: View {
 
     /// 跟手拖动开始：用当前播放页的快照接管画面，SwiftUI 页面只隐藏不销毁。
     private func beginInteractiveDismiss() -> Bool {
-        guard showPlayer, !isPlayerClosing else { return false }
+        guard isPlayerOpen, showPlayer, !isPlayerClosing else { return false }
         let screen = UIScreen.main.bounds
         let origin = (playerOrigin.width > 1 && playerOrigin.height > 1)
             ? playerOrigin
@@ -228,17 +237,20 @@ struct RootView: View {
                 to: 0,
                 duration: 0.28,
                 completion: {
-                    self.showPlayer = false
+                    // 常驻视图：只把播放页藏起来，不销毁视图树。
+                    // 这样落到底栏封面时不会因为 Root 拆除整页而卡一帧。
                     self.playerProgress = 0
-                    self.hidePlayerForCollapse = false
+                    self.hidePlayerForCollapse = true
+                    self.isPlayerOpen = false
                     self.isPlayerClosing = false
                 }
             )
             if !handled {
                 PlayerCollapseTransition.shared.cancel()
-                hidePlayerForCollapse = false
+                hidePlayerForCollapse = true
                 isPlayerClosing = false
-                closePlayer()
+                isPlayerOpen = false
+                playerProgress = 0
             }
         } else {
             let handled = PlayerCollapseTransition.shared.finishInteractive(
@@ -247,6 +259,7 @@ struct RootView: View {
                 completion: {
                     self.hidePlayerForCollapse = false
                     self.playerProgress = 1
+                    self.isPlayerOpen = true
                     self.isPlayerClosing = false
                 }
             )
@@ -254,6 +267,7 @@ struct RootView: View {
                 PlayerCollapseTransition.shared.cancel()
                 hidePlayerForCollapse = false
                 playerProgress = 1
+                isPlayerOpen = true
                 isPlayerClosing = false
             }
         }
@@ -262,7 +276,7 @@ struct RootView: View {
     /// 播放页收起：260ms panelCollapse，反向缩回底栏圆盘。
     /// NowPlaying 不再自己滑整页，Root 的窗口形变就是唯一的收起动画。
     private func closePlayer() {
-        guard showPlayer, !isPlayerClosing else { return }
+        guard isPlayerOpen, showPlayer, !isPlayerClosing else { return }
         isPlayerClosing = true
 
         let screen = UIScreen.main.bounds
@@ -284,16 +298,14 @@ struct RootView: View {
             startRadius: startRadius,
             duration: 0.28,
             completion: {
-                // 快照动画已经结束，这时才拆播放页；拆除发生在动画之后，
-                // 不会阻塞刚才那 280ms 的帧。
-                self.showPlayer = false
+                // 播放页常驻视图树，收起结束只隐藏，不做同步销毁。
                 self.playerProgress = 0
-                self.hidePlayerForCollapse = false
+                self.hidePlayerForCollapse = true
+                self.isPlayerOpen = false
                 self.isPlayerClosing = false
             }
         ) {
-            // 不要在这里 showPlayer = false。先把整页隐藏，让 SwiftUI 保留
-            // 视图树和已经渲染好的图层；快照动画结束后再销毁。
+            // 快照期间先把整页隐藏，SwiftUI 保留视图树和已渲染图层。
             hidePlayerForCollapse = true
             return
         }
@@ -303,8 +315,9 @@ struct RootView: View {
             playerProgress = 0
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
-            showPlayer = false
             playerProgress = 0
+            hidePlayerForCollapse = true
+            isPlayerOpen = false
             isPlayerClosing = false
         }
     }

@@ -54,14 +54,14 @@ final class PlayerCollapseTransition {
               let shot = makeSnapshot(from: panelRect) else { return false }
 
         let target = clamped(targetRect, in: shot.superview?.bounds ?? shot.frame)
+        let endRadius = min(28, min(target.width, target.height) / 2)
         let animator = makeAnimator(duration: duration) {
             shot.frame = target
-            shot.layer.cornerRadius = 28
+            shot.layer.cornerRadius = endRadius
         } completion: { [weak self, weak shot] _ in
-            shot?.removeFromSuperview()
-            if self?.snapshot === shot { self?.snapshot = nil }
-            self?.animator = nil
-            completion()
+            guard let self, let shot else { return }
+            self.animator = nil
+            self.finishSnapshot(shot, fadeOut: true, completion: completion)
         }
         start(animator, startRadius: startRadius, on: shot)
         return true
@@ -112,10 +112,9 @@ final class PlayerCollapseTransition {
             shot.frame = target
             shot.layer.cornerRadius = radius
         } completion: { [weak self, weak shot] _ in
-            shot?.removeFromSuperview()
-            if self?.snapshot === shot { self?.snapshot = nil }
-            self?.animator = nil
-            completion()
+            guard let self, let shot else { return }
+            self.animator = nil
+            self.finishSnapshot(shot, fadeOut: progress < 0.01, completion: completion)
         }
         start(animator, startRadius: shot.layer.cornerRadius, on: shot)
         return true
@@ -140,13 +139,42 @@ final class PlayerCollapseTransition {
         ) else { return nil }
 
         shot.frame = rect
-        shot.isUserInteractionEnabled = true
+        // 只做视觉层，触摸必须穿透到底栏/迷你播放器。
+        shot.isUserInteractionEnabled = false
         shot.layer.masksToBounds = true
         shot.layer.cornerCurve = .continuous
         shot.accessibilityElementsHidden = true
         window.addSubview(shot)
         snapshot = shot
         return shot
+    }
+
+    /// 快照落到迷你封面后不要瞬间移除。最后一帧如果用硬切，视觉上就是
+    /// 「卡一下，然后才出现圆形旋转封面」。这里用 0.16s 的轻微缩小 +
+    /// 淡出，把静态快照交给下面已经在旋转的 BottomArtwork。
+    private func finishSnapshot(_ shot: UIView,
+                                fadeOut: Bool,
+                                completion: @escaping () -> Void) {
+        let finish = { [weak self, weak shot] in
+            guard let self, let shot, self.snapshot === shot else { return }
+            shot.removeFromSuperview()
+            self.snapshot = nil
+            completion()
+        }
+        guard fadeOut, shot.superview != nil else {
+            finish()
+            return
+        }
+        UIView.animate(
+            withDuration: 0.16,
+            delay: 0,
+            options: [.curveEaseOut, .beginFromCurrentState, .allowUserInteraction],
+            animations: {
+                shot.alpha = 0
+                shot.transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
+            },
+            completion: { _ in finish() }
+        )
     }
 
     private func makeAnimator(duration: TimeInterval,

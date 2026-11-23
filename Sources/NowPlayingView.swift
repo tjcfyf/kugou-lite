@@ -132,6 +132,15 @@ struct NowPlayingView: View {
         .animation(.easeInOut(duration: 0.22), value: showLyrics)
         .animation(.easeOut(duration: 0.22), value: player.toast)
         .onPreferenceChange(PlayerCoverFramePreferenceKey.self) { coverFrame = $0 }
+        .onChange(of: visualProgress) { value in
+            // 播放页现在会常驻视图树，收起结束时把页内状态复位，
+            // 下次打开不会还停留在歌词页或半开的 sheet。
+            guard value <= 0.001 else { return }
+            showLyrics = false
+            showSleepSheet = false
+            showKaraokeSheet = false
+            activeSheet = nil
+        }
         .onChange(of: player.current?.FileHash) { _ in
             artworkPalette = []
         }
