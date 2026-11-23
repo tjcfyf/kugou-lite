@@ -40,6 +40,9 @@ struct RootView: View {
     @State private var playerOrigin: CGRect = .zero
     @State private var playerProgress: CGFloat = 0
     @State private var isPlayerClosing = false
+    // 快照收起期间只把播放页隐藏，不立即销毁；否则 SwiftUI 在动画第一帧
+    // 同步拆除整页歌词/材质，会阻塞主线程，表现就是只跳几帧的 PPT 式收起。
+    @State private var hidePlayerForCollapse = false
     @State private var isSearching = false
     @AppStorage(Preferences.themeModeKey) private var themeRaw = AppTheme.system.rawValue
     @State private var systemScheme: ColorScheme = UITraitCollection.current.userInterfaceStyle == .dark ? .dark : .light
@@ -101,6 +104,7 @@ struct RootView: View {
                         onClose: { closePlayer() }
                     )
                 }
+                .opacity(hidePlayerForCollapse ? 0 : 1)
                 .allowsHitTesting(!isPlayerClosing)
                 .zIndex(30)
             }
@@ -174,6 +178,7 @@ struct RootView: View {
             ? miniPlayerFrame
             : fallback
         playerProgress = 0
+        hidePlayerForCollapse = false
         showPlayer = true
 
         DispatchQueue.main.async {
@@ -208,11 +213,17 @@ struct RootView: View {
             startRadius: startRadius,
             duration: 0.28,
             completion: {
+                // 快照动画已经结束，这时才拆播放页；拆除发生在动画之后，
+                // 不会阻塞刚才那 280ms 的帧。
+                self.showPlayer = false
+                self.playerProgress = 0
+                self.hidePlayerForCollapse = false
                 self.isPlayerClosing = false
             }
         ) {
-            showPlayer = false
-            playerProgress = 0
+            // 不要在这里 showPlayer = false。先把整页隐藏，让 SwiftUI 保留
+            // 视图树和已经渲染好的图层；快照动画结束后再销毁。
+            hidePlayerForCollapse = true
             return
         }
 
