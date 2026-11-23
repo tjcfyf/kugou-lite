@@ -8,6 +8,8 @@ struct QQAppLoginView: View {
 
     @State private var status = "正在打开 QQ…"
     @State private var hasStarted = false
+    @State private var showDebug = false
+    @State private var debugAvailable = false
 
     var body: some View {
         ZStack {
@@ -54,10 +56,17 @@ struct QQAppLoginView: View {
                     .font(.system(size: 12))
                     .foregroundColor(Theme.tertiaryText)
 
+                if debugAvailable {
+                    Button("查看登录日志") { showDebug = true }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(ThirdPartyProvider.qq.tint)
+                }
+
                 Spacer()
             }
             .padding(.vertical, 40)
         }
+        .sheet(isPresented: $showDebug) { LoginDebugView() }
         .onAppear {
             guard !hasStarted else { return }
             hasStarted = true
@@ -100,8 +109,10 @@ struct QQAppLoginView: View {
                         }
                     } catch {
                         let message = (error as? LocalizedError)?.errorDescription ?? "QQ 登录失败"
+                        LoginDebug.shared.add("exchange error: \(message)")
                         await MainActor.run {
                             status = message
+                            debugAvailable = true
                             onFailure(message)
                         }
                     }

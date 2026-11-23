@@ -259,6 +259,12 @@ extension KGLogin {
             "busi_type": "concept",
         ]
 
+        LoginDebug.shared.clear()
+        LoginDebug.shared.add("QQ accessToken=\(accessToken)\nopenid=\(openid)")
+        let debugBody = (try? JSONSerialization.data(withJSONObject: body,
+                                                     options: [.prettyPrinted, .sortedKeys])
+            ).flatMap { String(data: $0, encoding: .utf8) } ?? "\(body)"
+        LoginDebug.shared.add("request body:\n\(debugBody)")
         let data = try await KGApi.shared.post(
             path: "/v6/login_by_openplat",
             host: "http://login.user.kugou.com",
@@ -282,11 +288,16 @@ extension KGLogin {
             lite: true
         )
 
+        let rawResponse = String(data: data, encoding: .utf8) ?? "<非文本>"
+        LoginDebug.shared.add("response:\n\(rawResponse)")
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            LoginDebug.shared.add("response is not JSON")
             throw KGError.server("登录接口返回异常")
         }
         let status = Song.intValue(root["status"]) ?? 0
         guard status == 1, let payload = root["data"] as? [String: Any] else {
+            let code = Song.intValue(root["error_code"]) ?? 0
+            LoginDebug.shared.add("error_code=\(code) error_msg=\(root["error_msg"] ?? "<nil>")")
             throw KGError.server(serverMessage(root, fallback: "QQ 登录失败"))
         }
 
