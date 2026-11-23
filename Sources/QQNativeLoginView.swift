@@ -582,7 +582,7 @@ private struct QQAuthWebView: UIViewRepresentable {
 
             store.getAllCookies { [weak self] existing in
                 let group = DispatchGroup()
-                for cookie in existing where cookie.name == "KuGoo" {
+                for cookie in existing where cookie.name == "KuGoo" || cookie.domain.lowercased().contains("qq.com") {
                     group.enter()
                     store.delete(cookie) { group.leave() }
                 }
