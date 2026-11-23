@@ -12,11 +12,15 @@ final class MDXCoreMLRunner: MDXEngine {
     private let outputName = "vocals"
     private var outputBuffer: [Float]
 
-    init?(bundleName: String = MDXModel.bundleName, onlyCPU: Bool = false) {
+    convenience init?(bundleName: String = MDXModel.bundleName, onlyCPU: Bool = false) {
         guard let url = Bundle.main.url(forResource: bundleName, withExtension: "mlmodelc")
             ?? Bundle.main.url(forResource: bundleName, withExtension: "mlmodelc", subdirectory: "Resources") else {
             return nil
         }
+        self.init(modelURL: url, onlyCPU: onlyCPU)
+    }
+
+    init?(modelURL url: URL, onlyCPU: Bool = false) {
         let units: [MLComputeUnits] = onlyCPU ? [.cpuOnly] : [.all, .cpuOnly]
         var loaded: MLModel?
         for unit in units {

@@ -1,0 +1,21 @@
+name: Separator Probe
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo xcode-select -s /Applications/Xcode_26.3.app
+      - name: Fetch model
+        run: |
+          curl -fsSL -o /tmp/mdx.tar "https://github.com/tjcfyf/kugou-lite/releases/download/models-v3/MdxNetFast9703_iOS15.mlpackage.tar"
+          mkdir -p /tmp/mdx && tar -xf /tmp/mdx.tar -C /tmp/mdx
+          xcrun coremlc compile /tmp/mdx/MdxNetFast9703_iOS15.mlpackage /tmp/compiled
+      - name: Fetch audio
+        run: curl -fsSL -o /tmp/test.mp3 "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+      - name: Compile probe
+        run: |
+          xcrun swiftc -O -o /tmp/probe tools/probe/main.swift Sources/MDXModel.swift Sources/MDXSeparator.swift Sources/MDXCoreMLRunner.swift -framework AVFoundation -framework CoreML -framework Accelerate
+      - name: Run probe
+        run: /tmp/probe /tmp/compiled/MdxNetFast9703_iOS15.mlmodelc /tmp/test.mp3
