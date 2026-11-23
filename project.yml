@@ -25,6 +25,8 @@ targets:
       - path: Sources
       - path: Resources/mdx-voc-ft.tflite
         buildPhase: resources
+      - path: Resources/CoreML/MdxNetVocFT_iOS15.mlmodelc
+        buildPhase: resources
       - path: Vendor/TencentOpenApi_IOS_Bundle.bundle
         buildPhase: resources
     info:

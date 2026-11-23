@@ -20,6 +20,16 @@ jobs:
           if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
           xcodegen --version
 
+      - name: Fetch and compile Core ML MDX model
+        run: |
+          mkdir -p Resources/CoreML
+          curl -fsSL --retry 3 -o /tmp/mdx-coreml.tar \
+            "https://github.com/tjcfyf/kugou-lite/releases/download/models-v2/mdx_net_voc_ft_iOS15.mlpackage.tar"
+          mkdir -p /tmp/mdx-coreml
+          tar -xf /tmp/mdx-coreml.tar -C /tmp/mdx-coreml
+          xcrun coremlc compile /tmp/mdx-coreml/MdxNetVocFT_iOS15.mlpackage Resources/CoreML
+          ls -lh Resources/CoreML
+
       - name: Generate Xcode project
         run: xcodegen generate
 
