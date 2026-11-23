@@ -181,6 +181,24 @@ struct RootView: View {
         }
     }
 
+    /// 底栏里真正可见的封面是 43pt，外层 56pt 只是点击热区。
+    /// 收起时专辑图必须落到 43pt 圆盘中心，否则最后会先缩到 56pt 再跳成 43pt。
+    private var miniArtworkFrame: CGRect {
+        let f = miniPlayerFrame
+        guard f.width > 1, f.height > 1 else {
+            let screen = UIScreen.main.bounds
+            return CGRect(x: screen.midX - 21.5,
+                          y: screen.maxY - 87.5,
+                          width: 43,
+                          height: 43)
+        }
+        let side: CGFloat = 43
+        return CGRect(x: f.midX - side / 2,
+                      y: f.midY - side / 2,
+                      width: side,
+                      height: side)
+    }
+
     /// 播放页展开：以底栏播放封面圆盘为起点，400ms 强 S 型曲线长到全屏。
     /// 不叠加 15% 位移/根层淡入；几何、页面淡入、封面飞行全部由
     /// PlayerPanelFrame + NowPlayingView 按同一 progress 驱动。
@@ -215,16 +233,16 @@ struct RootView: View {
     private func beginInteractiveDismiss() -> Bool {
         guard isPlayerOpen, showPlayer, !isPlayerClosing else { return false }
         let screen = UIScreen.main.bounds
-        let origin = (playerOrigin.width > 1 && playerOrigin.height > 1)
+        let panelOrigin = (playerOrigin.width > 1 && playerOrigin.height > 1)
             ? playerOrigin
             : CGRect(x: screen.midX - 28,
                      y: screen.maxY - 92,
                      width: 56,
                      height: 56)
-        let fullRect = PlayerPanelGeometry.rect(progress: 1, origin: origin, screen: screen.size)
+        let fullRect = PlayerPanelGeometry.rect(progress: 1, origin: panelOrigin, screen: screen.size)
         guard PlayerCollapseTransition.shared.beginInteractive(
             from: fullRect,
-            origin: origin,
+            origin: miniArtworkFrame,
             screen: screen.size,
             coverRect: artworkFrame,
             startRadius: 0
@@ -288,21 +306,21 @@ struct RootView: View {
         isPlayerClosing = true
 
         let screen = UIScreen.main.bounds
-        let origin = (playerOrigin.width > 1 && playerOrigin.height > 1)
+        let panelOrigin = (playerOrigin.width > 1 && playerOrigin.height > 1)
             ? playerOrigin
             : CGRect(x: screen.midX - 28,
                      y: screen.maxY - 92,
                      width: 56,
                      height: 56)
         let progress = min(max(playerProgress, 0), 1)
-        let startRect = PlayerPanelGeometry.rect(progress: progress, origin: origin, screen: screen.size)
+        let startRect = PlayerPanelGeometry.rect(progress: progress, origin: panelOrigin, screen: screen.size)
         let startRadius = max(0, 28 * (1 - progress))
 
         // 关键：收起不再让 SwiftUI 逐帧重排整页。先裁一张当前面板快照，
         // 用 UIViewPropertyAnimator 只动这一层静态图片；SwiftUI 页面立即摘除。
         if PlayerCollapseTransition.shared.begin(
             from: startRect,
-            to: origin,
+            to: miniArtworkFrame,
             coverRect: artworkFrame,
             startRadius: startRadius,
             duration: 0.28,
