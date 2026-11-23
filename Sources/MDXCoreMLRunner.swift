@@ -12,29 +12,33 @@ final class MDXCoreMLRunner: MDXEngine {
     private let outputName = "vocals"
     private var outputBuffer: [Float]
 
-    init?(bundleName: String = MDXModel.bundleName) {
+    init?(bundleName: String = MDXModel.bundleName, onlyCPU: Bool = false) {
         guard let url = Bundle.main.url(forResource: bundleName, withExtension: "mlmodelc")
             ?? Bundle.main.url(forResource: bundleName, withExtension: "mlmodelc", subdirectory: "Resources") else {
             return nil
         }
-        let configuration = MLModelConfiguration()
-        configuration.computeUnits = .all
-        guard let loaded = try? MLModel(contentsOf: url, configuration: configuration) else {
-            let cpu = MLModelConfiguration()
-            cpu.computeUnits = .cpuOnly
-            guard let fallback = try? MLModel(contentsOf: url, configuration: cpu) else {
-                return nil
+        let units: [MLComputeUnits] = onlyCPU ? [.cpuOnly] : [.cpuAndNeuralEngine, .all, .cpuOnly]
+        var loaded: MLModel?
+        for unit in units {
+            let configuration = MLModelConfiguration()
+            configuration.computeUnits = unit
+            if let made = try? MLModel(contentsOf: url, configuration: configuration) {
+                loaded = made
+                break
             }
-            model = fallback
-            guard let input = try? MLMultiArray(shape: [1, 4, 2048, 256], dataType: .float32) else { return nil }
-            inputArray = input
-            outputBuffer = [Float](repeating: 0, count: MDXModel.inputCount)
-            return
         }
+        guard let loaded else { return nil }
         model = loaded
         guard let input = try? MLMultiArray(shape: [1, 4, 2048, 256], dataType: .float32) else { return nil }
         inputArray = input
         outputBuffer = [Float](repeating: 0, count: MDXModel.inputCount)
+    }
+
+    /// 用一帧全零频谱做自检：模型能 load 不代表能在当前设备上真正推理。
+    func warmUp() -> Bool {
+        var probeIn = [Float](repeating: 0, count: MDXModel.inputCount)
+        var probeOut = [Float](repeating: 0, count: MDXModel.inputCount)
+        return run(input: probeIn, output: &probeOut)
     }
 
     func run(input: [Float], output: inout [Float]) -> Bool {

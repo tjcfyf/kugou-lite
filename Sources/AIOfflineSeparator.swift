@@ -39,12 +39,17 @@ final class AIOfflineSeparator {
 
     private func loadModel() -> Bool {
         if engine != nil { return true }
-        if let coreml = MDXCoreMLRunner() {
+        if let coreml = MDXCoreMLRunner(), coreml.warmUp() {
             engine = coreml
             lastError = nil
             return true
         }
-        lastError = "Core ML 模型加载失败（\(MDXModel.bundleName)）"
+        if let cpu = MDXCoreMLRunner(onlyCPU: true), cpu.warmUp() {
+            engine = cpu
+            lastError = "Neural Engine 自检失败，已切到 CPU 模式（速度会慢一些）"
+            return true
+        }
+        lastError = "Core ML 模型加载或自检失败（\(MDXModel.bundleName)）"
         return false
     }
 
@@ -116,16 +121,27 @@ final class AIOfflineSeparator {
         }
         let size = (try? FileManager.default.attributesOfItem(atPath: temporary.path)[.size] as? NSNumber)?.intValue ?? 0
         guard size > 65_536 else { throw Failure.download("音频下载不完整（\(size) 字节）") }
-        let asset = AVURLAsset(url: temporary)
+
+        // URLSession 的临时文件没有扩展名，AVURLAsset 对本地文件很依赖扩展名；
+        // 先按 Content-Type/URL 改成 .mp3/.m4a/.flac，再判断是否能解出音轨。
+        let ext = audioExtension(for: sourceURL, mimeType: http.mimeType)
+        let finalURL = dir.appendingPathComponent(safeName(song.FileHash) + "." + ext)
+        try? FileManager.default.removeItem(at: finalURL)
+        try FileManager.default.moveItem(at: temporary, to: finalURL)
+        let asset = AVURLAsset(url: finalURL)
         guard asset.tracks(withMediaType: .audio).first != nil else {
-            throw Failure.download("下载到的文件不是可解码音频")
+            try? FileManager.default.removeItem(at: finalURL)
+            throw Failure.download("下载到的文件不是可解码音频（\(ext)）")
         }
-        try? FileManager.default.removeItem(at: target)
-        try FileManager.default.moveItem(at: temporary, to: target)
-        return target
+        return finalURL
     }
 
-    private func audioExtension(for url: URL) -> String {
+    private func audioExtension(for url: URL, mimeType: String?) -> String {
+        let type = (mimeType ?? "").lowercased()
+        if type.contains("mpeg") || type.contains("mp3") { return "mp3" }
+        if type.contains("mp4") || type.contains("m4a") || type.contains("aac") { return "m4a" }
+        if type.contains("flac") { return "flac" }
+        if type.contains("wav") { return "wav" }
         let ext = url.pathExtension.lowercased()
         if ["mp3", "m4a", "aac", "flac", "wav", "ogg", "opus"].contains(ext) { return ext }
         return "mp3"

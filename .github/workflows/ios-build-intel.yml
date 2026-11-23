@@ -86,10 +86,10 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.129
-          name: Sonora 1.0.129
+          tag_name: v1.0.130
+          name: Sonora 1.0.130
           body: |
-            Sonora 1.0.129 unsigned IPA
+            Sonora 1.0.130 unsigned IPA
             - 评论楼中楼回复
             - UVR_MDXNET_9703 快速双轨分离（Core ML，iOS15）
           files: KugouLite-iOS15-unsigned.ipa
