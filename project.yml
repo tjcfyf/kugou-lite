@@ -25,12 +25,14 @@ targets:
       - path: Sources
       - path: Resources/mss-model.tflite
         buildPhase: resources
+      - path: Vendor/TencentOpenApi_IOS_Bundle.bundle
+        buildPhase: resources
     info:
       path: Info.plist
       properties:
         CFBundleDisplayName: Sonora
-        CFBundleShortVersionString: "1.0.100"
-        CFBundleVersion: "100"
+        CFBundleShortVersionString: "1.0.101"
+        CFBundleVersion: "101"
         UILaunchScreen: {}
         UIBackgroundModes:
           - audio
@@ -38,23 +40,42 @@ targets:
           - UIInterfaceOrientationPortrait
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
+        LSApplicationQueriesSchemes:
+          - mqq
+          - mqqapi
+          - mqqopensdkapi
+          - mqqopensdkapiV2
+          - mqqopensdkapiV3
+          - mqqopensdkfriend
+          - mqqopensdkssologin
+          - mqqopensdknopasteboard
+          - mqqconnect
+          - mqqbrowser
+          - mttbrowser
+          - mqzone
+          - mqzoneopensdk
+          - mqzoneopensdkapi
+          - mqzoneopensdkapiV2
+          - mqzoneopensdkapi19
+          - mqzoneopensdkapiV3
+          - wtloginmqq
+          - wtloginmqq2
+          - mqqwpa
         CFBundleURLTypes:
           - CFBundleURLName: tencent205141
             CFBundleURLSchemes:
               - tencent205141
-        LSApplicationQueriesSchemes:
-          - mqq
-          - mqqapi
-          - mqqopensdkapiV3
-          - mqqOpensdkSSoLogin
-          - mqqbrowser
+    dependencies:
+      - framework: Vendor/TencentOpenAPI.framework
+        embed: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tjcfyf.kugoulite
         PRODUCT_NAME: KugouLite
         TARGETED_DEVICE_FAMILY: "1,2"
         FRAMEWORK_SEARCH_PATHS: "$(inherited) $(SRCROOT)/Vendor"
-        OTHER_LDFLAGS: "$(inherited) -framework TensorFlowLiteC -lc++"
+        OTHER_LDFLAGS: "$(inherited) -framework TensorFlowLiteC -lc++ -framework TencentOpenAPI -ObjC -lz -lsqlite3 -liconv"
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/Sonora-Bridging-Header.h
         CODE_SIGN_IDENTITY: ""

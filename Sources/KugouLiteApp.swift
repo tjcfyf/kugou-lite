@@ -129,6 +129,9 @@ struct RootView: View {
             }
         }
         .onChange(of: themeRaw) { _ in applyInterfaceStyle() }
+        .onOpenURL { url in
+            _ = QQSDKLogin.handleOpen(url)
+        }
         .task(id: auth.isLoggedIn) {
             if auth.isLoggedIn {
                 await LibraryStore.shared.refreshFavorites(force: true)
