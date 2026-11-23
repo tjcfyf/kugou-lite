@@ -1,87 +1,39 @@
 import SwiftUI
 
-/// Material 3 Expressive 运动常量（与 MD3Music-iOS 的 `M3ExpressiveMotion` 逐值对齐）。
-///
-/// 参考：
-/// - `lib/core/theme/motion_constants.dart`
-/// - `lib/modules/player/full_player_route.dart`
-///
-/// 这些曲线都是三次贝塞尔（两个控制点），SwiftUI 的 `.timingCurve(x1, y1, x2, y2)`
-/// 与 Flutter 的 `Cubic(x1, y1, x2, y2)` 定义完全一致，可直接 1:1 复刻。
+/// 全局动效常量。应用整体按 Apple Music 的手感走：
+/// 交互使用短弹簧，页面使用中长弹簧，收起使用略快的减速弹簧。
+/// 原来的 Material 3 三次贝塞尔曲线全部替换掉，避免“先慢后快再停”的机械感。
 enum M3Motion {
-    // MARK: - 基础时长
+    /// 通用内容显隐、tab 图标颜色。
+    static let expressive = Animation.spring(response: 0.42, dampingFraction: 0.86)
+    /// 大块内容切换、页面级状态变化。
+    static let emphasized = Animation.spring(response: 0.52, dampingFraction: 0.90)
 
-    /// M3 medium duration，对应 400ms。
-    static let defaultDuration: Double = 0.40
-    /// M3 long duration，对应 600ms。
-    static let emphasisDuration: Double = 0.60
+    /// 播放页展开：从底部整页上滑，末端只留极小回弹。
+    static let panelExpand = Animation.spring(response: 0.46, dampingFraction: 0.90)
+    /// 拖拽取消/回弹：跟手结束后快速归位，不能有二次速度塌陷。
+    static let panelSettle = Animation.spring(response: 0.32, dampingFraction: 0.86)
+    /// 播放页收起：比展开略快，避免整页下滑拖泥带水。
+    static let panelCollapse = Animation.spring(response: 0.36, dampingFraction: 0.90)
 
-    // MARK: - 标准曲线
+    /// 底栏显隐。
+    static let chromeRise = Animation.spring(response: 0.34, dampingFraction: 0.88)
+    static let chromeSink = Animation.spring(response: 0.34, dampingFraction: 0.92)
 
-    /// `expressiveEasing = Cubic(0.05, 0.7, 0.1, 1.0)`
-    /// 略带过冲的减速曲线，用于 tab 切换、卡片入场、内容显隐。
-    static let expressive = Animation.timingCurve(
-        0.05, 0.7, 0.1, 1.0,
-        duration: defaultDuration
-    )
+    /// 底栏形态交棒。
+    static let barFormMorph = Animation.spring(response: 0.32, dampingFraction: 0.90)
+}
 
-    /// `emphasizedEasing = Cubic(0.2, 0.0, 0.0, 1.0)`
-    /// M3 标准 emphasized，用于大型状态转换。
-    static let emphasized = Animation.timingCurve(
-        0.2, 0.0, 0.0, 1.0,
-        duration: emphasisDuration
-    )
-
-    // MARK: - 播放页面板（FullPlayer）
-
-    /// `kPlayerExpandDuration = 400ms`
-    /// 从静止开始的展开：强 S 型，起步慢、中段最快、末端慢着陆。
-    /// `panelExpandEasing = Cubic(0.52, 0.08, 0.3, 0.98)`
-    static let panelExpand = Animation.timingCurve(
-        0.52, 0.08, 0.3, 0.98,
-        duration: 0.40
-    )
-
-    /// `kPlayerDragCancelDuration = 220ms`
-    /// 起点是手指的续展 / 回弹：不能再用慢起步的 S 型，否则会有一次速度塌陷。
-    /// `panelSettleEasing = Cubic(0.35, 0.1, 0.2, 1.0)`
-    static let panelSettle = Animation.timingCurve(
-        0.35, 0.1, 0.2, 1.0,
-        duration: 0.22
-    )
-
-    /// `kPlayerCollapseDuration = 260ms`
-    /// 面板收起：轻推起步、末端速度趋零。
-    /// `panelCollapseEasing = Cubic(0.3, 0.2, 0.3, 1.0)`
-    static let panelCollapse = Animation.timingCurve(
-        0.3, 0.2, 0.3, 1.0,
-        duration: 0.26
-    )
-
-    /// `kPlayerTapEntryOffsetRatio = 0.15`
-    /// 点击进入时，抽屉上滑比例为屏幕高度的 15%。
-    static let playerEntryOffsetRatio: CGFloat = 0.15
-
-    // MARK: - 底栏 / 搜索栏显隐
-
-    /// `chromeRiseEasing = Cubic(0.3, 0.0, 0.18, 1.0)`，260ms。
-    static let chromeRise = Animation.timingCurve(
-        0.3, 0.0, 0.18, 1.0,
-        duration: 0.26
-    )
-
-    /// `chromeSinkEasing = Cubic(0.3, 0.2, 0.3, 1.0)`，260ms。
-    static let chromeSink = Animation.timingCurve(
-        0.3, 0.2, 0.3, 1.0,
-        duration: 0.26
-    )
-
-    // MARK: - 底栏形态交棒
-
-    /// `barFormMorphEasing = Cubic(0.2, 0.0, 0.0, 1.0)`。
-    /// 可见形变前置完成，避免交棒那一刻还在动。
-    static let barFormMorph = Animation.timingCurve(
-        0.2, 0.0, 0.0, 1.0,
-        duration: 0.26
-    )
+/// 常用交互弹簧，按场景拆分，避免每个页面各写一套 duration。
+enum Motion {
+    /// 按压反馈，手指按下/抬起必须立刻有回应。
+    static let tap = Animation.interactiveSpring(response: 0.22, dampingFraction: 0.80)
+    /// 小范围状态变化：收藏、播放/暂停图标、搜索框聚焦。
+    static let quick = Animation.spring(response: 0.30, dampingFraction: 0.86)
+    /// 列表增删、卡片展开、模式切换。
+    static let standard = Animation.spring(response: 0.40, dampingFraction: 0.88)
+    /// 封面/大面积颜色过渡。
+    static let gentle = Animation.spring(response: 0.55, dampingFraction: 0.92)
+    /// 底栏 tab 图标选中态。
+    static let tab = Animation.spring(response: 0.30, dampingFraction: 0.78)
 }

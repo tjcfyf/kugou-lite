@@ -23,7 +23,7 @@ targets:
     platform: iOS
     sources:
       - path: Sources
-      - path: Resources/CoreML/MdxNetFast9703_iOS15.mlmodelc
+      - path: Resources/mss-model.tflite
         buildPhase: resources
       - path: Vendor/TencentOpenApi_IOS_Bundle.bundle
         buildPhase: resources
@@ -31,8 +31,8 @@ targets:
       path: Info.plist
       properties:
         CFBundleDisplayName: Sonora
-        CFBundleShortVersionString: "1.0.130"
-        CFBundleVersion: "130"
+        CFBundleShortVersionString: "1.0.131"
+        CFBundleVersion: "131"
         UILaunchScreen: {}
         UIBackgroundModes:
           - audio

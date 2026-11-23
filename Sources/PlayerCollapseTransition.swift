@@ -87,9 +87,11 @@ final class PlayerCollapseTransition {
     func updateInteractive(progress: CGFloat) {
         guard isInteractive, let page = pageShot else { return }
         let p = progress
-        let travel = max(screen.height * 0.2, 1)
-        // progress 允许小于 0：用户拖过 20% 屏幕后，卡片继续跟着手指走。
-        let offset = min(max(screen.height, 1) + 24, (1 - p) * travel)
+        // progress 直接对应整页高度：手指往下拖多少，卡片就跟着走多少。
+        // 之前只按 20% 屏幕高度计算，拖到 20% 之后卡片就不动了，
+        // 松手才突然飞出去，这是「跟手感断掉」的来源。
+        let travel = max(screen.height, 1) + 24
+        let offset = min(travel, max(0, (1 - p) * travel))
         let radius = min(14, 14 * max(0, min(1, p)))
 
         CATransaction.begin()
@@ -167,12 +169,11 @@ final class PlayerCollapseTransition {
     private func makeAnimator(duration: TimeInterval,
                               animations: @escaping () -> Void,
                               completion: @escaping (UIViewAnimatingPosition) -> Void) -> UIViewPropertyAnimator {
+        // 弹簧收尾：和播放页展开的 SwiftUI spring 同一条手感，
+        // 不再使用先慢后快的三次贝塞尔，松手瞬间不会有速度突变。
         let animator = UIViewPropertyAnimator(
             duration: duration,
-            timingParameters: UICubicTimingParameters(
-                controlPoint1: CGPoint(x: 0.32, y: 0.02),
-                controlPoint2: CGPoint(x: 0.18, y: 1.0)
-            )
+            timingParameters: UISpringTimingParameters(dampingRatio: 0.9)
         )
         animator.addAnimations(animations)
         animator.addCompletion(completion)

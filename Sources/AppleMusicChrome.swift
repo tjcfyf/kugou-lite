@@ -67,6 +67,7 @@ struct AppleMusicBottomBar: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .contentShape(Rectangle())
+            .animation(Motion.tab, value: tab == tag)
         }
         .buttonStyle(AppleMusicPressStyle())
         .accessibilityLabel(title)
@@ -83,7 +84,7 @@ struct AppleMusicMiniPlayer: View {
         HStack(spacing: 11) {
             Button(action: onOpenPlayer) {
                 HStack(spacing: 11) {
-                    CoverImage(url: player.current?.coverURL, size: 42, radius: 5)
+                    CoverImage(url: player.current?.coverURL, size: 44, radius: 6)
                         .shadow(color: .black.opacity(0.25), radius: 5, x: 0, y: 2)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(player.current?.SongName ?? "")
@@ -131,5 +132,6 @@ struct AppleMusicPressStyle: ButtonStyle {
         configuration.label
             .opacity(configuration.isPressed ? 0.55 : 1)
             .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(Motion.tap, value: configuration.isPressed)
     }
 }

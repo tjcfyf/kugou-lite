@@ -497,8 +497,8 @@ private struct FloatingAlbumButton: View {
                 )
                 .scaleEffect(player.isPlaying ? 1.0 : 0.985)
                 .contentShape(Circle())
-                .animation(.easeInOut(duration: 0.22), value: player.isPlaying)
-                .animation(.easeInOut(duration: 0.24), value: player.current?.id)
+                .animation(Motion.quick, value: player.isPlaying)
+                .animation(Motion.standard, value: player.current?.id)
         }
         .buttonStyle(GlassPressButtonStyle())
         .accessibilityLabel("当前播放")
@@ -619,7 +619,7 @@ struct SongRow: View {
         }
         .padding(.vertical, 9)
         .contentShape(Rectangle())
-        .animation(.easeInOut(duration: 0.22), value: isFavorite)
+        .animation(Motion.quick, value: isFavorite)
         .contextMenu {
             Button {
                 player.playNext(song)

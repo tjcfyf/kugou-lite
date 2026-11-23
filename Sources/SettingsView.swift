@@ -411,10 +411,10 @@ struct SettingsView: View {
                 set: { player.setAISeparationEnabled($0) }
             )) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("本地 UVR-MDX-Net 人声/伴奏分离")
+                    Text("本地 MSS 4-stem 人声/伴奏分离")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(Theme.text)
-                    Text("UVR_MDXNET_9703 快速版；官方双轨的兜底，首次分离会缓存")
+                    Text("模型约 4.7MB，实时分离；官方双轨优先，取不到才走本地 MSS")
                         .font(.system(size: 10))
                         .foregroundColor(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -852,10 +852,10 @@ struct PlayerSettingsView: View {
                 set: { player.setAISeparationEnabled($0) }
             )) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("本地 UVR-MDX-Net 人声/伴奏分离")
+                    Text("本地 MSS 4-stem 人声/伴奏分离")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(Theme.text)
-                    Text("UVR_MDXNET_9703 快速版；首次处理当前歌曲约 20–30 秒")
+                    Text("模型约 4.7MB，实时处理；不缓存整首歌，也不占额外几十秒")
                         .font(.system(size: 10))
                         .foregroundColor(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -868,9 +868,7 @@ struct PlayerSettingsView: View {
                     .font(.system(size: 13))
                     .foregroundColor(player.aiSeparationEnabled ? Theme.accent : Theme.tertiaryText)
                 Text(player.aiSeparationEnabled
-                     ? (player.aiSeparationProgress != nil
-                        ? (player.aiSeparationStatus ?? "MDX 分离中…")
-                        : "当前使用 UVR-MDX-Net 本地分离")
+                     ? (player.aiSeparationAvailable ? "当前使用本地 MSS 实时分离" : "正在后台加载 MSS 模型…")
                      : "当前未开启；播放页「分离」里也能开关")
                     .font(.system(size: 11))
                     .foregroundColor(Theme.secondaryText)

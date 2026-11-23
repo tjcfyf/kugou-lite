@@ -383,7 +383,7 @@ private struct ToastOverlay: View {
                     )
             }
         }
-        .animation(.easeOut(duration: 0.24), value: player.toast)
+        .animation(Motion.standard, value: player.toast)
     }
 }
 

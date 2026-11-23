@@ -76,7 +76,7 @@ struct RecommendView: View {
             }
         }
         .background(AppBackground())
-        .animation(.easeInOut(duration: 0.28), value: isSearching)
+        .animation(Motion.standard, value: isSearching)
         .task {
             historyWords = Preferences.searchHistory
             if hotKeywords.isEmpty {
@@ -163,7 +163,7 @@ struct RecommendView: View {
         .padding(.horizontal, 16)
         .padding(.top, 4)
         .padding(.bottom, 8)
-        .animation(.easeInOut(duration: 0.20), value: searchFocused)
+        .animation(Motion.quick, value: searchFocused)
     }
 
     private var discoverBody: some View {
@@ -237,8 +237,8 @@ struct RecommendView: View {
                 }
             }
             .padding(.bottom, 132)
-            .animation(.easeInOut(duration: 0.28), value: model.songs.count)
-            .animation(.easeInOut(duration: 0.28), value: ranks.count)
+            .animation(Motion.standard, value: model.songs.count)
+            .animation(Motion.standard, value: ranks.count)
         }
         .refreshable {
             await model.load(force: true)
@@ -333,7 +333,7 @@ struct RecommendView: View {
                 }
             }
             .padding(.bottom, 132)
-            .animation(.easeInOut(duration: 0.24), value: searchModel.songs.count)
+            .animation(Motion.standard, value: searchModel.songs.count)
         }
     }
 

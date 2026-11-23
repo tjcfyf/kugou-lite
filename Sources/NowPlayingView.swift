@@ -141,7 +141,7 @@ struct NowPlayingView: View {
             coverMorphOverlay
         }
         .coordinateSpace(name: "playerPage")
-        .animation(.easeInOut(duration: 0.22), value: showLyrics)
+        .animation(Motion.standard, value: showLyrics)
         .animation(.easeOut(duration: 0.22), value: player.toast)
         .onPreferenceChange(PlayerCoverFramePreferenceKey.self) { coverFrame = $0 }
         .onChange(of: visualProgress) { value in
@@ -389,7 +389,7 @@ struct NowPlayingView: View {
                 let vertical = value.translation.height
                 let horizontal = abs(value.translation.width)
                 guard vertical > 0, vertical > horizontal * 1.25 else { return }
-                let collapseDistance = max(UIScreen.main.bounds.height * 0.2, 1)
+                let collapseDistance = max(UIScreen.main.bounds.height, 1)
                 let rawProgress = 1 - vertical / collapseDistance
                 let progress = max(0, min(1, rawProgress))
                 var snapshotDriven = interactiveDismiss
@@ -402,7 +402,7 @@ struct NowPlayingView: View {
                 }
 
                 if snapshotDriven {
-                    // 传入未夹紧的 progress：拖过 20% 屏幕后整页还能继续跟手。
+                    // progress 按整页高度归一化：快照位移与手指 1:1。
                     onInteractiveDismissChanged?(rawProgress)
                 } else {
                     panelProgress = progress
@@ -425,7 +425,7 @@ struct NowPlayingView: View {
                 let vertical = value.translation.height
                 let horizontal = abs(value.translation.width)
                 let predicted = value.predictedEndTranslation.height
-                let collapseDistance = max(UIScreen.main.bounds.height * 0.2, 1)
+                let collapseDistance = max(UIScreen.main.bounds.height, 1)
                 let progress = max(0, min(1, 1 - vertical / collapseDistance))
                 let shouldClose = progress < 0.55
                     || (vertical > 110 && vertical > horizontal && predicted > 120)
@@ -657,7 +657,7 @@ struct NowPlayingView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 28)
         .id(player.current?.id ?? "")
-        .animation(.easeInOut(duration: 0.26), value: player.current?.id)
+        .animation(Motion.standard, value: player.current?.id)
     }
 
     private var displayedTime: Double {
@@ -774,8 +774,8 @@ struct NowPlayingView: View {
                         .transition(.opacity)
                     }
                 }
-                .animation(.easeInOut(duration: 0.20), value: player.isPlaying)
-                .animation(.easeInOut(duration: 0.20), value: player.isLoading)
+                .animation(Motion.quick, value: player.isPlaying)
+                .animation(Motion.quick, value: player.isLoading)
             }
             .buttonStyle(GlassPressButtonStyle())
 
@@ -1146,7 +1146,7 @@ struct KaraokeSheet: View {
         case .centerChannel:
             return "没有走 AI：官方双轨和本地模型都不可用，实际用立体声中置声道估计；鼓点和居中低频会明显保留。"
         case .aiModel:
-            return "本地 UVR-MDX-Net（UVR_MDXNET_9703 快速版）离线分离，和电脑端 UVR 同款模型；第一次处理当前歌曲约 20–30 秒，结果会缓存。"
+            return "本地 MSS 4-stem 实时分离：模型约 4.7MB，播放时直接处理，不需要等整首歌解析。"
         case .unavailable:
             return player.karaokeEnabled
                 ? "正在请求官方双轨；取不到时会自动尝试 AI 本地分离。"
@@ -1228,15 +1228,6 @@ struct KaraokeSheet: View {
                 .font(.system(size: 11))
                 .foregroundColor(Theme.tertiaryText)
                 .fixedSize(horizontal: false, vertical: true)
-            if let progress = player.aiSeparationProgress {
-                VStack(alignment: .leading, spacing: 5) {
-                    ProgressView(value: progress)
-                        .progressViewStyle(LinearProgressViewStyle(tint: Theme.accent))
-                    Text(player.aiSeparationStatus ?? "MDX 分离中…")
-                        .font(.system(size: 10))
-                        .foregroundColor(Theme.tertiaryText)
-                }
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)

@@ -23,16 +23,6 @@ jobs:
           if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
           xcodegen --version
 
-      - name: Fetch and compile Core ML MDX model
-        run: |
-          mkdir -p Resources/CoreML
-          curl -fsSL --retry 3 -o /tmp/mdx-coreml.tar \
-            "https://github.com/tjcfyf/kugou-lite/releases/download/models-v3/MdxNetFast9703_iOS15.mlpackage.tar"
-          mkdir -p /tmp/mdx-coreml
-          tar -xf /tmp/mdx-coreml.tar -C /tmp/mdx-coreml
-          xcrun coremlc compile /tmp/mdx-coreml/MdxNetFast9703_iOS15.mlpackage Resources/CoreML
-          ls -lh Resources/CoreML
-
       - name: Generate Xcode project
         run: xcodegen generate
 
@@ -86,10 +76,12 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.130
-          name: Sonora 1.0.130
+          tag_name: v1.0.131
+          name: Sonora 1.0.131
           body: |
-            Sonora 1.0.130 unsigned IPA
-            - 评论楼中楼回复
-            - UVR_MDXNET_9703 快速双轨分离（Core ML，iOS15）
+            Sonora 1.0.131 unsigned IPA
+            - 评论区楼中楼回复
+            - AI 分离改回最初 4.7MB MSS 4-stem 实时模型，播放中即时处理，不再离线等整首
+            - 播放页下拉收起与手指 1:1 跟手，整页快照弹簧收尾
+            - 全局动效换成 Apple Music 式弹簧，统一按压、tab、面板、列表过渡
           files: KugouLite-iOS15-unsigned.ipa

@@ -79,7 +79,7 @@ struct SearchPageView: View {
         .padding(.horizontal, 16)
         .padding(.top, 6)
         .padding(.bottom, 8)
-        .animation(.easeInOut(duration: 0.20), value: searchFocused)
+        .animation(Motion.quick, value: searchFocused)
     }
 
     private var searchBody: some View {
@@ -134,7 +134,7 @@ struct SearchPageView: View {
                 }
             }
             .padding(.bottom, 132)
-            .animation(.easeInOut(duration: 0.24), value: searchModel.songs.count)
+            .animation(Motion.standard, value: searchModel.songs.count)
         }
     }
 
