@@ -358,15 +358,28 @@ private struct ThirdPartyWebView: UIViewRepresentable {
                      decidePolicyFor navigationAction: WKNavigationAction,
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             if let url = navigationAction.request.url,
-               url.scheme?.lowercased() == "http",
-               let host = url.host?.lowercased(),
-               host == "openplat-user.kugou.com"
-                || (host.hasPrefix("cross.") && host.hasSuffix("kugou.com")) {
+               let host = url.host?.lowercased() {
                 var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-                components?.scheme = "https"
-                if let httpsURL = components?.url {
+                var rewrite = false
+
+                // cross.www.kugou.com 在部分网络下解析失败，会白屏；
+                // 酷狗自己的跨域回调页在 cross.kugou.com 上同样可用。
+                if host == "cross.www.kugou.com" {
+                    components?.host = "cross.kugou.com"
+                    rewrite = true
+                }
+
+                // 酷狗回调/http 页面统一走 https，和 YAQMC 的处理一致。
+                if url.scheme?.lowercased() == "http",
+                   host == "openplat-user.kugou.com"
+                    || (host.hasPrefix("cross.") && host.hasSuffix("kugou.com")) {
+                    components?.scheme = "https"
+                    rewrite = true
+                }
+
+                if rewrite, let fixedURL = components?.url, fixedURL != url {
                     decisionHandler(.cancel)
-                    webView.load(URLRequest(url: httpsURL))
+                    webView.load(URLRequest(url: fixedURL))
                     return
                 }
             }
