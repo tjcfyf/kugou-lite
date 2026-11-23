@@ -632,8 +632,8 @@ struct NowPlayingView: View {
                         )
                 }
             )
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.30 : 0.10),
-                    radius: 16, x: 0, y: 8)
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.22 : 0.10),
+                    radius: 12, x: 0, y: 4)
             .padding(.horizontal, 24)
             .opacity(isCoverMorphing ? 0 : 1)
             // 封面不再接收切歌/双击手势，让播放页的系统的下拉收出手势覆盖整张封面。

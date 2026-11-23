@@ -76,12 +76,13 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.131
-          name: Sonora 1.0.131
+          tag_name: v1.0.132
+          name: Sonora 1.0.132
           body: |
-            Sonora 1.0.131 unsigned IPA
+            Sonora 1.0.132 unsigned IPA
             - 评论区楼中楼回复
             - AI 分离改回最初 4.7MB MSS 4-stem 实时模型，播放中即时处理，不再离线等整首
             - 播放页下拉收起与手指 1:1 跟手，整页快照弹簧收尾
             - 全局动效换成 Apple Music 式弹簧，统一按压、tab、面板、列表过渡
+            - 迷你播放器改成悬浮磨砂卡，底栏透出四周；封面阴影减重
           files: KugouLite-iOS15-unsigned.ipa

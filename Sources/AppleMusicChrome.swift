@@ -19,11 +19,21 @@ struct AppleMusicBottomBar: View {
     var body: some View {
         VStack(spacing: 0) {
             if player.current != nil {
+                // Apple Music 式悬浮迷你播放卡：不跟底栏焊在一起，
+                // 留 8pt 边距和 14pt 圆角，底栏玻璃从卡片四周透出来。
                 AppleMusicMiniPlayer(onOpenPlayer: onOpenPlayer)
-                Rectangle()
-                    .fill(AppleMusicTheme.hairline)
-                    .frame(height: 0.5)
-                    .padding(.horizontal, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(AppleMusicTheme.hairline, lineWidth: 0.5)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .padding(.horizontal, 8)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
             }
 
             HStack(spacing: 0) {
@@ -38,7 +48,7 @@ struct AppleMusicBottomBar: View {
                 .fill(.ultraThinMaterial)
                 .overlay(
                     Rectangle()
-                        .fill(Color.black.opacity(colorScheme == .dark ? 0.18 : 0.02))
+                        .fill(Color.black.opacity(colorScheme == .dark ? 0.10 : 0.02))
                         .allowsHitTesting(false)
                 )
                 .ignoresSafeArea(edges: .bottom)
@@ -85,7 +95,7 @@ struct AppleMusicMiniPlayer: View {
             Button(action: onOpenPlayer) {
                 HStack(spacing: 11) {
                     CoverImage(url: player.current?.coverURL, size: 44, radius: 6)
-                        .shadow(color: .black.opacity(0.25), radius: 5, x: 0, y: 2)
+                        .shadow(color: .black.opacity(0.18), radius: 3, x: 0, y: 1)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(player.current?.SongName ?? "")
                             .font(.system(size: 15, weight: .semibold))
@@ -122,8 +132,8 @@ struct AppleMusicMiniPlayer: View {
             .buttonStyle(AppleMusicPressStyle())
             .accessibilityLabel("下一首")
         }
-        .padding(.horizontal, 16)
-        .frame(height: 62)
+        .padding(.horizontal, 14)
+        .frame(height: 60)
     }
 }
 
