@@ -130,7 +130,7 @@ struct RootView: View {
         }
         .onChange(of: themeRaw) { _ in applyInterfaceStyle() }
         .onOpenURL { url in
-            _ = QQSDKLogin.handleOpenURL(url)
+            _ = QQSDKLogin.handleOpen(url)
         }
         .task(id: auth.isLoggedIn) {
             if auth.isLoggedIn {

@@ -70,7 +70,7 @@ struct QQAppLoginView: View {
 
     private func start() {
         status = "正在打开 QQ…"
-        QQSDKLogin.shared().startLogin { accessToken, openid, error in
+        QQSDKLogin.shared().start { accessToken, openid, error in
             DispatchQueue.main.async {
                 if let error, !error.isEmpty {
                     status = error
