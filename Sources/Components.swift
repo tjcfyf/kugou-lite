@@ -580,12 +580,12 @@ struct SongRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            CoverImage(url: song.coverURL, size: 48, radius: 7)
+            CoverImage(url: song.coverURL, size: 56, radius: 6)
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
                     Text(song.SongName)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(Theme.text)
                         .lineLimit(1)
                     if song.needsPurchase {
@@ -601,7 +601,7 @@ struct SongRow: View {
                     }
                 }
                 Text(song.artist)
-                    .font(.system(size: 12))
+                    .font(.system(size: 13))
                     .foregroundColor(Theme.secondaryText)
                     .lineLimit(1)
             }
@@ -618,7 +618,7 @@ struct SongRow: View {
                     .frame(width: 24, height: 30)
             }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 9)
         .contentShape(Rectangle())
         .animation(.easeInOut(duration: 0.22), value: isFavorite)
         .contextMenu {

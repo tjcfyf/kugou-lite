@@ -39,10 +39,7 @@ struct RootView: View {
     @State private var isPlayerOpen = false
     @State private var showSettings = false
     @State private var tab = 0
-    // 播放页转场由 Root 统一驱动：以底栏播放封面圆盘为起点，
-    // 按 MD3Music 的 PlayerPanelFrame 几何展开/收回。
-    @State private var miniPlayerFrame: CGRect = .zero
-    @State private var playerOrigin: CGRect = .zero
+    // 播放页转场由 Root 统一驱动：Apple Music 式整页 sheet 上滑/下滑。
     @State private var playerProgress: CGFloat = 0
     @State private var isPlayerClosing = false
     // 快照收起期间只把播放页隐藏，不立即销毁；否则 SwiftUI 在动画第一帧
@@ -70,9 +67,9 @@ struct RootView: View {
             ZStack {
                 discoverTab
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .opacity(tab == 0 ? 1 : 0)
-                    .allowsHitTesting(tab == 0)
-                    .zIndex(tab == 0 ? 1 : 0)
+                    .opacity(tab == 1 ? 0 : 1)
+                    .allowsHitTesting(tab != 1)
+                    .zIndex(tab != 1 ? 1 : 0)
 
                 profileTab
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -83,29 +80,19 @@ struct RootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(M3Motion.expressive, value: tab)
 
-            FloatingTabBar(tab: $tab, onOpenPlayer: { openPlayer() })
-                .opacity(isSearching ? 0 : 1)
-                .offset(y: isSearching ? 64 : 0)
-                .scaleEffect(isSearching ? 0.94 : 1, anchor: .bottom)
-                .allowsHitTesting(!isSearching)
-                .animation(isSearching ? M3Motion.chromeSink : M3Motion.chromeRise, value: isSearching)
+            AppleMusicBottomBar(tab: $tab, onOpenPlayer: { openPlayer() })
+                .zIndex(10)
 
             // 播放页直接作为 Root 的覆盖层，不走 UIKit fullScreenCover。
             // 这样 tab 切换不会触发系统 presentation，也就不会闪一次播放页。
             //
-            // 1:1 移植 MD3Music 的 DraggablePlayerRoute：
-            // 以外层底栏播放封面圆盘为 originRect，整页按 400ms panelExpand
-            // 从 56pt 圆角窗口长到全屏；收起 260ms panelCollapse 反向缩回。
-            // 不做 15% 位移/淡入的退化，也不给播放页内部另叠一层入场动画。
+            // Apple Music 式播放页：整页 sheet 从底部上滑；收起由整页快照
+            // 下滑带出，不再从迷你封面长出来，也不做封面飞行。
             if showPlayer {
-                PlayerPanelFrame(
-                    progress: playerProgress,
-                    originRect: playerOrigin,
-                    originRadius: 28
-                ) {
+                PlayerSheetFrame(progress: playerProgress) {
                     NowPlayingView(
                         panelProgress: $playerProgress,
-                        panelOrigin: playerOrigin,
+                        panelOrigin: .zero,
                         onClose: { closePlayer() },
                         onInteractiveDismissBegan: { self.beginInteractiveDismiss() },
                         onInteractiveDismissChanged: { progress in
@@ -126,11 +113,6 @@ struct RootView: View {
         .overlay(alignment: .top) {
             ToastOverlay()
         }
-        .onPreferenceChange(MiniPlayerFramePreferenceKey.self) { rect in
-            if rect.width > 1, rect.height > 1 {
-                miniPlayerFrame = rect
-            }
-        }
         .preferredColorScheme(resolvedScheme)
         .accentColor(Theme.accent)
         .background(
@@ -139,8 +121,10 @@ struct RootView: View {
         )
         .onAppear { applyInterfaceStyle() }
         .onChange(of: tab) { value in
-            if value != 0 {
-                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            if value == 2 {
+                isSearching = true
+            } else if value != 0 {
                 isSearching = false
             }
         }
@@ -174,21 +158,9 @@ struct RootView: View {
         }
     }
 
-    /// 播放页展开：以底栏播放封面圆盘为起点，400ms 强 S 型曲线长到全屏。
-    /// 不叠加 15% 位移/根层淡入；几何、页面淡入、封面飞行全部由
-    /// PlayerPanelFrame + NowPlayingView 按同一 progress 驱动。
+    /// 播放页展开：Apple Music 式整页 sheet，从屏幕底部滑上来。
     private func openPlayer() {
         guard !isPlayerOpen, !isPlayerClosing else { return }
-        let screen = UIScreen.main.bounds
-        let fallback = CGRect(
-            x: screen.midX - 28,
-            y: screen.maxY - 92,
-            width: 56,
-            height: 56
-        )
-        playerOrigin = (miniPlayerFrame.width > 1 && miniPlayerFrame.height > 1)
-            ? miniPlayerFrame
-            : fallback
         playerProgress = 0
         isPlayerOpen = true
         // 首次打开才创建视图；之后的打开直接复用已经挂载的 NowPlayingView。
@@ -198,7 +170,7 @@ struct RootView: View {
         hidePlayerForCollapse = false
 
         DispatchQueue.main.async {
-            withAnimation(M3Motion.panelExpand) {
+            withAnimation(.spring(response: 0.48, dampingFraction: 0.88)) {
                 playerProgress = 1
             }
         }
@@ -208,13 +180,7 @@ struct RootView: View {
     private func beginInteractiveDismiss() -> Bool {
         guard isPlayerOpen, showPlayer, !isPlayerClosing else { return false }
         let screen = UIScreen.main.bounds
-        let panelOrigin = (playerOrigin.width > 1 && playerOrigin.height > 1)
-            ? playerOrigin
-            : CGRect(x: screen.midX - 28,
-                     y: screen.maxY - 92,
-                     width: 56,
-                     height: 56)
-        let fullRect = PlayerPanelGeometry.rect(progress: 1, origin: panelOrigin, screen: screen.size)
+        let fullRect = CGRect(origin: .zero, size: screen.size)
         guard PlayerCollapseTransition.shared.beginInteractive(
             from: fullRect,
             screen: screen.size
@@ -278,14 +244,7 @@ struct RootView: View {
         isPlayerClosing = true
 
         let screen = UIScreen.main.bounds
-        let panelOrigin = (playerOrigin.width > 1 && playerOrigin.height > 1)
-            ? playerOrigin
-            : CGRect(x: screen.midX - 28,
-                     y: screen.maxY - 92,
-                     width: 56,
-                     height: 56)
-        let progress = min(max(playerProgress, 0), 1)
-        let startRect = PlayerPanelGeometry.rect(progress: progress, origin: panelOrigin, screen: screen.size)
+        let startRect = CGRect(origin: .zero, size: screen.size)
 
         // 关键：收起不再让 SwiftUI 逐帧重排整页。先裁一张当前面板快照，
         // 用 UIViewPropertyAnimator 只动这一层静态图片；SwiftUI 页面立即摘除。
@@ -325,7 +284,7 @@ struct RootView: View {
     private var profileTab: some View {
         NavigationView {
             ProfileView(onOpenPlayer: { openPlayer() })
-                .navigationTitle("我的")
+                .navigationTitle("资料库")
                 .navigationBarTitleDisplayMode(.large)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {

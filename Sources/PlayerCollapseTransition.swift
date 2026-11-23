@@ -26,7 +26,7 @@ enum PlayerPanelGeometry {
 /// 不缩成小播放页，也不把封面单独抠出来飘在首页上。
 ///
 /// 1. 跟手阶段只改 UIKit 快照的 frame / 顶部圆角，SwiftUI 页面不 reflow；
-/// 2. 往下拖时整页下移，顶部逐渐出现 24pt 圆角，像一张被拉下来的卡片；
+/// 2. 往下拖时整页下移，顶部逐渐出现 14pt 圆角，像一张被拉下来的卡片；
 /// 3. 松手关闭时快照继续滑出屏幕底部，取消时弹回原位；
 /// 4. 滑出后再隐藏真实播放页，避免在切换点销毁整页造成卡顿。
 final class PlayerCollapseTransition {
@@ -56,7 +56,7 @@ final class PlayerCollapseTransition {
         let end = pageRect.offsetBy(dx: 0, dy: max(screen.height, 1) + 24)
         let animator = makeAnimator(duration: duration) {
             page.frame = end
-            page.layer.cornerRadius = 24
+            page.layer.cornerRadius = 14
         } completion: { [weak self, weak page] _ in
             guard let self, let page else { return }
             self.animator = nil
@@ -90,7 +90,7 @@ final class PlayerCollapseTransition {
         let travel = max(screen.height * 0.2, 1)
         // progress 允许小于 0：用户拖过 20% 屏幕后，卡片继续跟着手指走。
         let offset = min(max(screen.height, 1) + 24, (1 - p) * travel)
-        let radius = min(24, 24 * max(0, min(1, p)))
+        let radius = min(14, 14 * max(0, min(1, p)))
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -117,7 +117,7 @@ final class PlayerCollapseTransition {
 
         let animator = makeAnimator(duration: duration) {
             page.frame = end
-            page.layer.cornerRadius = closing ? 24 : 0
+            page.layer.cornerRadius = closing ? 14 : 0
         } completion: { [weak self, weak page] _ in
             guard let self, let page else { return }
             self.animator = nil

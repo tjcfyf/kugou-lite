@@ -98,7 +98,7 @@ struct NowPlayingView: View {
     }
 
     private var artworkSize: CGFloat {
-        min(UIScreen.main.bounds.width - 72, 330)
+        min(UIScreen.main.bounds.width - 48, 340)
     }
 
     /// 页面内容在面板展开前 20% 行程内淡入；与 MD3Music 的
@@ -229,23 +229,29 @@ struct NowPlayingView: View {
 
     private var playerContent: some View {
         VStack(spacing: 0) {
+            Capsule()
+                .fill(playerPrimary.opacity(0.28))
+                .frame(width: 36, height: 5)
+                .padding(.top, 4)
+                .padding(.bottom, 2)
+
             topBar
 
-            Spacer(minLength: 14)
+            Spacer(minLength: 10)
 
             artwork
 
-            Spacer(minLength: 16)
+            Spacer(minLength: 14)
 
             titleBlock
             progress
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
+                .padding(.horizontal, 28)
+                .padding(.top, 14)
 
             controls
-                .padding(.top, 18)
+                .padding(.top, 12)
 
-            Spacer(minLength: 8)
+            Spacer(minLength: 4)
         }
     }
 
@@ -456,16 +462,10 @@ struct NowPlayingView: View {
 
             Spacer()
 
-            Text("正在播放")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(playerSecondary)
-
-            Spacer()
-
             moreMenu
         }
         .padding(.horizontal, 16)
-        .frame(height: 52)
+        .frame(height: 44)
     }
 
     private var lyricsTopBar: some View {
@@ -629,22 +629,30 @@ struct NowPlayingView: View {
             )
             .shadow(color: .black.opacity(colorScheme == .dark ? 0.30 : 0.10),
                     radius: 16, x: 0, y: 8)
-            .padding(.horizontal, 36)
+            .padding(.horizontal, 24)
             .opacity(isCoverMorphing ? 0 : 1)
             // 封面不再接收切歌/双击手势，让播放页的系统的下拉收出手势覆盖整张封面。
             .allowsHitTesting(false)
     }
 
     private var titleBlock: some View {
-        Text(player.current?.SongName ?? "未在播放")
-            .font(.system(size: 22, weight: .bold))
-            .foregroundColor(playerPrimary)
-            .lineLimit(2)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 28)
-            .id(player.current?.id ?? "")
-            .animation(.easeInOut(duration: 0.26), value: player.current?.id)
+        VStack(alignment: .leading, spacing: 3) {
+            Text(player.current?.SongName ?? "未在播放")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundColor(playerPrimary)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+            if let artist = player.current?.artist, !artist.isEmpty {
+                Text(artist)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundColor(playerSecondary)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 28)
+        .id(player.current?.id ?? "")
+        .animation(.easeInOut(duration: 0.26), value: player.current?.id)
     }
 
     private var displayedTime: Double {
@@ -657,23 +665,15 @@ struct NowPlayingView: View {
                 let width = max(geo.size.width, 1)
                 let ratio = player.duration > 0 ? min(max(displayedTime / player.duration, 0), 1) : 0
                 ZStack(alignment: .leading) {
-                    // 透明进度：底线接近音质标签的淡度，播放段用主色渐变保持可读。
                     Capsule()
-                        .fill(playerPrimary.opacity(colorScheme == .dark ? 0.16 : 0.12))
+                        .fill(playerPrimary.opacity(colorScheme == .dark ? 0.22 : 0.16))
                         .frame(height: 2.5)
                     Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [Theme.accent.opacity(0.42), Theme.accent.opacity(0.72)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .fill(playerPrimary.opacity(0.92))
                         .frame(width: width * ratio, height: 2.5)
                     Circle()
-                        .fill(Theme.accent.opacity(0.62))
+                        .fill(playerPrimary)
                         .frame(width: 9, height: 9)
-                        .overlay(Circle().stroke(playerPrimary.opacity(0.28), lineWidth: 0.6))
                         .offset(x: width * ratio - 4.5)
 
                     if isScrubbing {
@@ -726,25 +726,18 @@ struct NowPlayingView: View {
             .font(.system(size: 11, weight: .medium))
             .foregroundColor(playerSecondary)
 
-            if !player.currentQuality.isEmpty {
-                Text(qualityLabel)
-                    .font(.system(size: 10, weight: .regular))
-                    .foregroundColor(
-                        playerTertiary.opacity(colorScheme == .dark ? 0.72 : 0.68)
-                    )
-            }
         }
         // 进度本身 0.25 秒刷新一次；再叠一层 0.25 秒动画会让播放页持续重绘。
         .animation(nil, value: displayedTime)
     }
 
     private var controls: some View {
-        HStack(spacing: 42) {
+        HStack(spacing: 44) {
             Spacer(minLength: 0)
 
             Button { player.previous() } label: {
                 Image(systemName: "backward.fill")
-                    .font(.system(size: 27, weight: .semibold))
+                    .font(.system(size: 26, weight: .semibold))
                     .foregroundColor(playerPrimary.opacity(0.94))
                     .frame(width: 56, height: 56)
                     .contentShape(Rectangle())
@@ -761,17 +754,17 @@ struct NowPlayingView: View {
                     } else {
                         ZStack {
                             Image(systemName: "pause.fill")
-                                .font(.system(size: 52, weight: .semibold))
+                                .font(.system(size: 44, weight: .semibold))
                                 .foregroundColor(playerPrimary)
                                 .opacity(player.isPlaying ? 1 : 0)
                                 .scaleEffect(player.isPlaying ? 1 : 0.86)
                             Image(systemName: "play.fill")
-                                .font(.system(size: 52, weight: .semibold))
+                                .font(.system(size: 44, weight: .semibold))
                                 .foregroundColor(playerPrimary)
                                 .opacity(player.isPlaying ? 0 : 1)
                                 .scaleEffect(player.isPlaying ? 0.86 : 1)
                         }
-                        .frame(width: 64, height: 64)
+                        .frame(width: 56, height: 56)
                         .contentShape(Rectangle())
                         .transition(.opacity)
                     }
@@ -783,7 +776,7 @@ struct NowPlayingView: View {
 
             Button { player.next() } label: {
                 Image(systemName: "forward.fill")
-                    .font(.system(size: 27, weight: .semibold))
+                    .font(.system(size: 26, weight: .semibold))
                     .foregroundColor(playerPrimary.opacity(0.94))
                     .frame(width: 56, height: 56)
                     .contentShape(Rectangle())

@@ -39,6 +39,13 @@ struct RecommendView: View {
     @State private var historyWords: [String] = Preferences.searchHistory
     @State private var hotKeywords: [String] = []
 
+    private var todayLabel: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 EEEE"
+        return formatter.string(from: Date())
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -88,19 +95,19 @@ struct RecommendView: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 ZStack(alignment: .leading) {
-                    Text("今天想听点什么")
-                        .font(.system(size: 28, weight: .bold))
+                    Text("现在就听")
+                        .font(.system(size: 34, weight: .bold))
                         .foregroundColor(Theme.text)
                         .opacity(isSearching ? 0 : 1)
                     Text("搜索")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(.system(size: 34, weight: .bold))
                         .foregroundColor(Theme.text)
                         .opacity(isSearching ? 1 : 0)
                 }
                 .lineLimit(1)
                 .minimumScaleFactor(0.80)
 
-                Text("每天一组，按你的口味来")
+                Text(todayLabel + " · 为你推荐")
                     .font(.system(size: 13))
                     .foregroundColor(Theme.secondaryText)
                     .opacity(isSearching ? 0 : 1)
@@ -184,6 +191,21 @@ struct RecommendView: View {
                         .padding(.top, 20)
                 }
 
+                if !model.songs.isEmpty {
+                    SectionTitle(title: "为你推荐", subtitle: nil)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 14) {
+                            ForEach(model.songs.prefix(7), id: \.recommendRowID) { song in
+                                AppleMusicFeatureCard(song: song) {
+                                    onSelect(song, model.songs)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 4)
+                    }
+                }
+
                 if !ranks.isEmpty {
                     SectionTitle(title: "排行榜", subtitle: nil)
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -212,7 +234,7 @@ struct RecommendView: View {
                     }
                 }
             }
-            .padding(.bottom, 96)
+            .padding(.bottom, 132)
             .animation(.easeInOut(duration: 0.28), value: model.songs.count)
             .animation(.easeInOut(duration: 0.28), value: ranks.count)
         }
@@ -226,7 +248,7 @@ struct RecommendView: View {
     private var dailyHeader: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text("每日推荐")
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 22, weight: .bold))
                 .foregroundColor(Theme.text)
 
             Text("\(model.songs.count) 首")
@@ -308,7 +330,7 @@ struct RecommendView: View {
                         .onAppear { searchModel.loadMore() }
                 }
             }
-            .padding(.bottom, 24)
+            .padding(.bottom, 132)
             .animation(.easeInOut(duration: 0.24), value: searchModel.songs.count)
         }
     }
@@ -482,25 +504,25 @@ struct RankCard: View {
                             .font(.system(size: 22))
                             .foregroundColor(Theme.secondaryText)
                     }
-                    .frame(width: 112, height: 112)
-                    .clipShape(RoundedRectangle(cornerRadius: 9))
+                    .frame(width: 148, height: 148)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 } else {
                     Image(systemName: "chart.bar.fill")
                         .font(.system(size: 22))
                         .foregroundColor(Theme.secondaryText)
                 }
             }
-            .frame(width: 112, height: 112)
+            .frame(width: 148, height: 148)
             .overlay(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(Theme.border, lineWidth: 0.5)
             )
 
             Text(rank.name)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(Theme.text)
-                .lineLimit(2)
-                .frame(width: 112, alignment: .leading)
+                .lineLimit(1)
+                .frame(width: 148, alignment: .leading)
         }
     }
 }
@@ -774,29 +796,29 @@ struct PlaylistCard: View {
                             .font(.system(size: 22))
                             .foregroundColor(Theme.secondaryText)
                     }
-                    .frame(width: 112, height: 112)
-                    .clipShape(RoundedRectangle(cornerRadius: 9))
+                    .frame(width: 148, height: 148)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 } else {
                     Image(systemName: "music.note.list")
                         .font(.system(size: 22))
                         .foregroundColor(Theme.secondaryText)
                 }
             }
-            .frame(width: 112, height: 112)
+            .frame(width: 148, height: 148)
             .overlay(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(Theme.border, lineWidth: 0.5)
             )
 
             Text(playlist.name)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(Theme.text)
                 .lineLimit(1)
-                .frame(width: 112, alignment: .leading)
+                .frame(width: 148, alignment: .leading)
             Text(playlist.isCollected ? "收藏 · \(playlist.count) 首" : "\(playlist.count) 首")
                 .font(.system(size: 11))
                 .foregroundColor(Theme.secondaryText)
-                .frame(width: 112, alignment: .leading)
+                .frame(width: 148, alignment: .leading)
         }
     }
 }
@@ -1195,7 +1217,7 @@ struct SectionTitle: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(title)
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 22, weight: .bold))
                 .foregroundColor(Theme.text)
             if let subtitle = subtitle {
                 Text(subtitle)
@@ -1251,7 +1273,7 @@ struct ProfileView: View {
                     .padding(.top, 8)
             }
             .padding(16)
-            .padding(.bottom, 88)
+            .padding(.bottom, 136)
         }
         .background(AppBackground())
         .sheet(isPresented: $showLogin) {
@@ -1322,8 +1344,14 @@ struct ProfileView: View {
                     .foregroundColor(Theme.tertiaryText)
             }
             .padding(.horizontal, 16)
-            .frame(minHeight: 58)
-            .appSurface(cornerRadius: 12)
+            .frame(minHeight: 64)
+            .background(Theme.card.opacity(0.92))
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Theme.separator.opacity(0.55))
+                    .frame(height: 0.5)
+                    .padding(.leading, 58)
+            }
         }
         .buttonStyle(GlassPressButtonStyle())
     }
@@ -1332,7 +1360,7 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Text("我的歌单")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Theme.text)
                 Text(playlistsLoading ? "同步中…" : "\(playlists.count) 个")
                     .font(.system(size: 12))
