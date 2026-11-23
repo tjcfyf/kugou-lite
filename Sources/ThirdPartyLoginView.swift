@@ -45,7 +45,7 @@ enum ThirdPartyProvider: String, CaseIterable, Identifiable {
     private func qqURL(clienttime: String) -> URL {
         let callback = "https://openplat-user.kugou.com/qq_callback"
             + "?ver=0&mid=\(KGApi.shared.mid)&dfid=\(KGApi.shared.dfid)"
-            + "&https=1&domain=www.kugou.com&callback=SonoraThirdLogin"
+            + "&https=1&domain=kugou.com&callback=SonoraThirdLogin"
             + "&plat=0&ktype=0&clienttime=\(clienttime)&appid=3116&platid=4"
 
         var components = URLComponents(string: "https://graph.qq.com/oauth2.0/show")!
@@ -65,7 +65,7 @@ enum ThirdPartyProvider: String, CaseIterable, Identifiable {
             "mid": KGApi.shared.mid,
             "dfid": KGApi.shared.dfid,
             "https": "1",
-            "domain": "www.kugou.com",
+            "domain": "kugou.com",
             "callback": "SonoraThirdLogin",
             "plat": 0,
             "ktype": 0,
