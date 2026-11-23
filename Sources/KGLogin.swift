@@ -220,35 +220,25 @@ extension KGLogin {
                     dev,
                     String(clientTime),
                 ].joined(separator: "|"),
-                key: KGLoginCrypto.t2Key,
-                iv: KGLoginCrypto.t2IV
+                key: KGLoginCrypto.t2Key, iv: KGLoginCrypto.t2IV
               ) else {
             throw KGError.server("设备参数加密失败")
         }
 
-        // UserLogin$g 的 h0.c 最终由 f.e(map) 序列化成 JSON body，
-        // 再由 ParamGenerator 生成 query 与 signature。这里按它的字段集补齐，
-        // 不再把 params/openid 放到 query（query-only 会被判 20008 参数非法）。
-        // h0(ZZ) 在概念版 openplat 构造里传的是 (true, true)：
-        // 第二个 true 会跳过 appid/clientver/mid/key/uuid 的 body 注入，
-        // 这些字段只由 ParamGenerator 放进 query。body 里多塞它们会被判参数错误。
+        // 与 KuGouMusicApi / 概念版 login_qq.js 完全对齐：
+        // openplat 只认这 11 个字段，t1/t2 是设备加密串，不是空串和 mid。
         let body: [String: Any] = [
-            "dfid": KGApi.shared.dfid,
-            "plat": 1,
-            "pk": pk,
-            "params": params,
-            "clienttime_ms": String(clientTime),
-            "t1": "",
-            "t2": KGApi.shared.mid,
-            "force_bind": 1,
+            "dev": dev,
             "force_login": 1,
-            "support_third": "3",
-            "support_verify": 1,
+            "partnerid": 1,
+            "clienttime_ms": Int(clientTime),
+            "t1": t1,
+            "t2": t2,
+            "t3": "MCwwLDAsMCwwLDAsMCwwLDA=",
             "third_appid": "101706348",
             "openid": openid,
-            "dev": dev,
-            "gitversion": "5f0b7c4",
-            "busi_type": "concept",
+            "params": params,
+            "pk": pk,
         ]
 
         LoginDebug.shared.clear()
@@ -261,7 +251,7 @@ extension KGLogin {
             path: "/v6/login_by_openplat",
             host: "http://login.user.kugou.com",
             params: [
-                "clientver": "11621",
+                "clientver": "11440",
             ],
             body: body,
             headers: [
