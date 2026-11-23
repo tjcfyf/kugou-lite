@@ -51,7 +51,7 @@ struct PlayerPanelFrame<Content: View>: View, Animatable {
             let screen = geo.size
             let p = min(max(progress, 0), 1)
             let origin = clampedOrigin(in: screen)
-            let rect = panelRect(progress: p, origin: origin, screen: screen)
+            let rect = PlayerPanelGeometry.rect(progress: p, origin: origin, screen: screen)
             let radius = max(0, originRadius * (1 - p))
             let baseOpacity = min(1, Double(p) / 0.04)
 
@@ -89,21 +89,4 @@ struct PlayerPanelFrame<Content: View>: View, Animatable {
         return CGRect(x: left, y: top, width: right - left, height: bottom - top)
     }
 
-    /// 与 MD3Music 的 `playerPanelContour` 同式。
-    private func panelRect(progress p: CGFloat, origin: CGRect, screen: CGSize) -> CGRect {
-        let w = max(screen.width, 1)
-        let h = max(screen.height, 1)
-
-        let top = origin.minY * (1 - p)
-        let bottom = min(h, origin.maxY + (h - origin.maxY) * p)
-        let left = origin.minX * (1 - p)
-        let right = min(w, origin.maxX + (w - origin.maxX) * p)
-
-        return CGRect(
-            x: left,
-            y: max(0, min(top, bottom)),
-            width: max(0, right - left),
-            height: max(0, bottom - top)
-        )
-    }
 }

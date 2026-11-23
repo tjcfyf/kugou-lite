@@ -188,6 +188,35 @@ struct RootView: View {
     private func closePlayer() {
         guard showPlayer, !isPlayerClosing else { return }
         isPlayerClosing = true
+
+        let screen = UIScreen.main.bounds
+        let origin = (playerOrigin.width > 1 && playerOrigin.height > 1)
+            ? playerOrigin
+            : CGRect(x: screen.midX - 28,
+                     y: screen.maxY - 92,
+                     width: 56,
+                     height: 56)
+        let progress = min(max(playerProgress, 0), 1)
+        let startRect = PlayerPanelGeometry.rect(progress: progress, origin: origin, screen: screen)
+        let startRadius = max(0, 28 * (1 - progress))
+
+        // 关键：收起不再让 SwiftUI 逐帧重排整页。先裁一张当前面板快照，
+        // 用 UIViewPropertyAnimator 只动这一层静态图片；SwiftUI 页面立即摘除。
+        if PlayerCollapseTransition.shared.begin(
+            from: startRect,
+            to: origin,
+            startRadius: startRadius,
+            duration: 0.28,
+            completion: {
+                self.isPlayerClosing = false
+            }
+        ) {
+            showPlayer = false
+            playerProgress = 0
+            return
+        }
+
+        // 快照失败时回退到旧路径，至少保证功能可用。
         withAnimation(M3Motion.panelCollapse) {
             playerProgress = 0
         }
