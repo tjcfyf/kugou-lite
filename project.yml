@@ -54,7 +54,7 @@ targets:
         PRODUCT_NAME: KugouLite
         TARGETED_DEVICE_FAMILY: "1,2"
         FRAMEWORK_SEARCH_PATHS: "$(inherited) $(SRCROOT)/Vendor"
-        OTHER_LDFLAGS: "$(inherited) -framework TensorFlowLiteC -lc++ -framework SystemConfiguration -force_load $(SRCROOT)/Vendor/TencentOpenAPI.framework/TencentOpenAPI"
+        OTHER_LDFLAGS: "$(inherited) -framework TensorFlowLiteC -lc++ -framework SystemConfiguration -framework TencentOpenAPI -ObjC"
         SWIFT_OBJC_BRIDGING_HEADER: Sources/Sonora-Bridging-Header.h
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO
