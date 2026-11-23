@@ -29,8 +29,8 @@ targets:
       path: Info.plist
       properties:
         CFBundleDisplayName: Sonora
-        CFBundleShortVersionString: "1.0.96"
-        CFBundleVersion: "96"
+        CFBundleShortVersionString: "1.0.97"
+        CFBundleVersion: "97"
         UILaunchScreen: {}
         UIBackgroundModes:
           - audio

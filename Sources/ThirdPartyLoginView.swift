@@ -135,39 +135,59 @@ struct ThirdPartyLoginView: View {
     @State private var showError = false
     @State private var directMode = false
     @State private var reloadID = 0
+    @State private var qqReloadID = 0
 
     var body: some View {
         NavigationView {
             ZStack {
                 Theme.background.ignoresSafeArea()
 
-                ThirdPartyWebView(
-                    url: directMode ? provider.directURL : provider.wrapperURL,
-                    userAgent: provider.userAgent,
-                    reloadID: reloadID,
-                    loading: $loading,
-                    onLogin: { token, userid, vipToken in
-                        onLogin(token, userid, vipToken)
-                        dismiss()
-                    },
-                    onFailure: { message in
-                        loading = false
-                        errorMessage = message
-                        showError = true
-                    }
-                )
+                if provider == .qq {
+                    // QQ 不再走 WKWebView 的第三方 iframe：iOS 对 iframe 的
+                    // Cookie 隔离会让 QQ 扫码成功后授权会话接不上，表现成
+                    // “手机 QQ 已登录，网页又刷新二维码”。这里直接跑原生
+                    // ptqrshow / ptqrlogin 协议。
+                    QQNativeLoginView(
+                        reloadID: qqReloadID,
+                        onLogin: { token, userid, vipToken in
+                            onLogin(token, userid, vipToken)
+                            dismiss()
+                        },
+                        onFailure: { message in
+                            loading = false
+                            errorMessage = message
+                            showError = true
+                        }
+                    )
+                } else {
+                    ThirdPartyWebView(
+                        url: directMode ? provider.directURL : provider.wrapperURL,
+                        userAgent: provider.userAgent,
+                        reloadID: reloadID,
+                        loading: $loading,
+                        onLogin: { token, userid, vipToken in
+                            onLogin(token, userid, vipToken)
+                            dismiss()
+                        },
+                        onFailure: { message in
+                            loading = false
+                            errorMessage = message
+                            showError = true
+                        }
+                    )
 
-                if loading {
-                    VStack(spacing: 12) {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: Theme.text))
-                        Text("正在打开\(provider.shortTitle)…")
-                            .font(.system(size: 13))
-                            .foregroundColor(Theme.secondaryText)
+                    if loading {
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: Theme.text))
+                            Text("正在打开\(provider.shortTitle)…")
+                                .font(.system(size: 13))
+                                .foregroundColor(Theme.secondaryText)
+                        }
+                        .padding(22)
+                        .background(Theme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
-                    .padding(22)
-                    .background(Theme.card)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
             }
             .navigationTitle(provider.title)
@@ -178,13 +198,21 @@ struct ThirdPartyLoginView: View {
                         .foregroundColor(Theme.text)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(directMode ? "酷狗页" : "直连") {
-                        directMode.toggle()
-                        loading = true
-                        reloadID += 1
+                    if provider == .qq {
+                        Button("刷新") {
+                            qqReloadID += 1
+                        }
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.secondaryText)
+                    } else {
+                        Button(directMode ? "酷狗页" : "直连") {
+                            directMode.toggle()
+                            loading = true
+                            reloadID += 1
+                        }
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.secondaryText)
                     }
-                    .font(.system(size: 12))
-                    .foregroundColor(Theme.secondaryText)
                 }
             }
             .alert(isPresented: $showError) {
