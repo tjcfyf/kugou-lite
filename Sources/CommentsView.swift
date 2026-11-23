@@ -11,6 +11,7 @@ struct CommentsView: View {
     @State private var hasMore = false
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var replyTarget: SongComment?
 
     private let pageSize = 20
 
@@ -26,6 +27,9 @@ struct CommentsView: View {
         }
         .task(id: song.FileHash) {
             await load(reset: true)
+        }
+        .sheet(item: $replyTarget) { comment in
+            CommentRepliesView(song: song, comment: comment)
         }
     }
 
@@ -183,13 +187,23 @@ struct CommentsView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 if comment.replyCount > 0 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "bubble.left")
-                            .font(.system(size: 9))
-                        Text("\(comment.replyCount) 条回复")
-                            .font(.system(size: 10))
+                    Button {
+                        if comment.canOpenReplies { replyTarget = comment }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "bubble.left")
+                                .font(.system(size: 9))
+                            Text("\(comment.replyCount) 条回复")
+                                .font(.system(size: 10))
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 8, weight: .semibold))
+                        }
+                        .foregroundColor(comment.canOpenReplies ? Theme.accent : Theme.tertiaryText)
+                        .padding(.vertical, 3)
+                        .contentShape(Rectangle())
                     }
-                    .foregroundColor(Theme.tertiaryText)
+                    .buttonStyle(GlassPressButtonStyle())
+                    .disabled(!comment.canOpenReplies)
                 }
             }
         }

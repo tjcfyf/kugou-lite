@@ -1,0 +1,19 @@
+name: Convert MDX to CoreML
+on:
+  workflow_dispatch:
+jobs:
+  convert:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install --upgrade pip
+          pip install torch==2.5.0 coremltools==8.3.0 onnx==1.17.0 onnx2torch==1.5.14 numpy
+      - run: python tools/convert_mdx_ios15.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mdx-coreml
+          path: out/*.tar

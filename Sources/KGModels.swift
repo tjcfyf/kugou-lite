@@ -83,17 +83,27 @@ struct Song: Identifiable, Equatable, Codable {
 /// 酷狗歌曲评论。只保留界面真正需要的字段，避免接口字段变化时整页解析失败。
 struct SongComment: Identifiable, Equatable {
     let id: String
+    /// 酷狗评论接口里的原始评论 id；回复列表要用它作为 `tid`。
+    let rawID: Int
+    /// 评论所属楼层的 childrenid（cmtlist 根部返回，回复接口必须带上）。
+    let childrenID: String?
     let userName: String
     let content: String
     let timeText: String
     let avatarURL: URL?
     let replyCount: Int
 
-    init?(json: [String: Any], fallbackID: String) {
+    var canOpenReplies: Bool { rawID > 0 && replyCount > 0 }
+
+    init?(json: [String: Any], fallbackID: String, childrenID: String? = nil) {
         guard let content = json["content"] as? String,
               !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
 
         let rawID = Song.intValue(json["id"]) ?? 0
+        self.rawID = rawID
+        let itemChildren = (json["special_child_id"] as? String)
+            ?? Song.intValue(json["special_child_id"]).map(String.init)
+        self.childrenID = (itemChildren?.isEmpty == false ? itemChildren : nil) ?? childrenID
         id = "\(rawID)-\(fallbackID)"
         userName = (json["user_name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "酷狗用户"
         self.content = content
@@ -112,6 +122,44 @@ struct SongComment: Identifiable, Equatable {
 
 struct CommentPage {
     let comments: [SongComment]
+    let total: Int
+    let hasMore: Bool
+    /// cmtlist 根部的 childrenid；回复接口必须原样带回，否则会报“歌曲不存在”。
+    let childrenID: String?
+}
+
+struct CommentReply: Identifiable, Equatable {
+    let id: String
+    let userName: String
+    let content: String
+    let timeText: String
+    let avatarURL: URL?
+    /// 回复的回复数量；目前只展示，不继续向下钻取。
+    let replyCount: Int
+
+    init?(json: [String: Any], fallbackID: String) {
+        guard let content = json["content"] as? String,
+              !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        let rawID = Song.intValue(json["id"]) ?? 0
+        id = "\(rawID)-\(fallbackID)"
+        userName = (json["user_name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "酷狗用户"
+        self.content = content
+        let rawTime = (json["addtime"] as? String) ?? ""
+        timeText = rawTime.count >= 10 ? String(rawTime.prefix(10)) : rawTime
+        if var avatar = json["user_pic"] as? String, !avatar.isEmpty {
+            if avatar.hasPrefix("http://") { avatar = "https://" + avatar.dropFirst(7) }
+            avatarURL = URL(string: avatar)
+        } else {
+            avatarURL = nil
+        }
+        replyCount = Song.intValue(json["comments_num"])
+            ?? Song.intValue(json["reply_num"])
+            ?? 0
+    }
+}
+
+struct CommentReplyPage {
+    let replies: [CommentReply]
     let total: Int
     let hasMore: Bool
 }

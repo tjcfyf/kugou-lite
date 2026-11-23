@@ -135,8 +135,10 @@ enum KGService {
         }
 
         let list = (root["list"] as? [[String: Any]]) ?? []
+        let childrenID = (root["childrenid"] as? String)
+            ?? Song.intValue(root["childrenid"]).map(String.init)
         let comments = list.enumerated().compactMap { index, item in
-            SongComment(json: item, fallbackID: "\(page)-\(index)")
+            SongComment(json: item, fallbackID: "\(page)-\(index)", childrenID: childrenID)
         }
         let total = Song.intValue(root["combine_count"]) ?? Song.intValue(root["count"]) ?? comments.count
         let maxPage = Song.intValue(root["maxPage"]) ?? 0
@@ -148,7 +150,64 @@ enum KGService {
         } else {
             hasMore = list.count >= pageSize
         }
-        return CommentPage(comments: comments, total: total, hasMore: hasMore)
+        return CommentPage(comments: comments, total: total, hasMore: hasMore,
+                           childrenID: childrenID)
+    }
+
+    /// 楼中楼回复列表。酷狗的 `replylist` 只给 6 条热门回复，完整列表必须用
+    /// `hot_replylist`，并同时带 `childrenid`（楼层 id）和 `tid`（主评论原始 id）。
+    /// 这个接口对签名很敏感：POST 不能带 body，否则会返回 err signature。
+    static func replies(for song: Song,
+                        comment: SongComment,
+                        page: Int = 1,
+                        pageSize: Int = 30) async throws -> CommentReplyPage {
+        guard let childrenID = comment.childrenID, !childrenID.isEmpty else {
+            throw KGError.server("这条评论缺少回复楼层 ID")
+        }
+        let mixSongID = [song.MixSongID, song.Audioid]
+            .compactMap { $0 }
+            .first(where: { $0 > 0 })
+        guard let mixSongID = mixSongID else {
+            throw KGError.server("当前歌曲缺少评论 ID")
+        }
+        let data = try await KGApi.shared.post(
+            path: "/mcomment/v1/hot_replylist",
+            params: [
+                "childrenid": childrenID,
+                "tid": "\(comment.rawID)",
+                "mixsongid": "\(mixSongID)",
+                "p": "\(page)",
+                "pagesize": "\(pageSize)",
+                "show_classify": "1",
+                "show_hotword_list": "1",
+                "code": "fc4be23b4e972707f36b8a828a93ba8a"
+            ]
+        )
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw KGError.server("回复返回格式异常")
+        }
+        if let code = Song.intValue(root["err_code"]), code != 0 {
+            let message = (root["msg"] as? String) ?? (root["message"] as? String) ?? "回复加载失败"
+            throw KGError.server(message)
+        }
+        if let status = Song.intValue(root["status"]), status != 1 {
+            let message = (root["msg"] as? String) ?? (root["message"] as? String) ?? "回复加载失败"
+            throw KGError.server(message)
+        }
+        let list = (root["list"] as? [[String: Any]]) ?? []
+        let replies = list.enumerated().compactMap { index, item in
+            CommentReply(json: item, fallbackID: "\(page)-\(index)")
+        }
+        let total = Song.intValue(root["comments_num"])
+            ?? Song.intValue(root["count"])
+            ?? replies.count
+        let hasMore: Bool
+        if replies.isEmpty {
+            hasMore = false
+        } else {
+            hasMore = page * pageSize < total || list.count >= pageSize
+        }
+        return CommentReplyPage(replies: replies, total: total, hasMore: hasMore)
     }
 
     // MARK: - 热门搜索
