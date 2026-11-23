@@ -239,6 +239,7 @@ extension KGLogin {
             "t_clientver": "10597",
             "srcappid": "2919",
             "clienttime_ms": String(clientTime),
+            "key": KGLoginCrypto.loginKey(clientTime: clientTime),
             "dev": dev,
             "t1": t1,
             "t2": t2,
