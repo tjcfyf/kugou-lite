@@ -43,8 +43,6 @@ struct RootView: View {
     // 按 MD3Music 的 PlayerPanelFrame 几何展开/收回。
     @State private var miniPlayerFrame: CGRect = .zero
     @State private var playerOrigin: CGRect = .zero
-    // 播放页大封面在窗口里的矩形；收起时只让这张封面缩向底栏。
-    @State private var artworkFrame: CGRect = .zero
     @State private var playerProgress: CGFloat = 0
     @State private var isPlayerClosing = false
     // 快照收起期间只把播放页隐藏，不立即销毁；否则 SwiftUI 在动画第一帧
@@ -133,11 +131,6 @@ struct RootView: View {
                 miniPlayerFrame = rect
             }
         }
-        .onPreferenceChange(PlayerArtworkGlobalFrameKey.self) { rect in
-            if rect.width > 1, rect.height > 1 {
-                artworkFrame = rect
-            }
-        }
         .preferredColorScheme(resolvedScheme)
         .accentColor(Theme.accent)
         .background(
@@ -179,24 +172,6 @@ struct RootView: View {
                 window.backgroundColor = UIColor(named: "Background")
             }
         }
-    }
-
-    /// 底栏里真正可见的封面是 43pt，外层 56pt 只是点击热区。
-    /// 收起时专辑图必须落到 43pt 圆盘中心，否则最后会先缩到 56pt 再跳成 43pt。
-    private var miniArtworkFrame: CGRect {
-        let f = miniPlayerFrame
-        guard f.width > 1, f.height > 1 else {
-            let screen = UIScreen.main.bounds
-            return CGRect(x: screen.midX - 21.5,
-                          y: screen.maxY - 87.5,
-                          width: 43,
-                          height: 43)
-        }
-        let side: CGFloat = 43
-        return CGRect(x: f.midX - side / 2,
-                      y: f.midY - side / 2,
-                      width: side,
-                      height: side)
     }
 
     /// 播放页展开：以底栏播放封面圆盘为起点，400ms 强 S 型曲线长到全屏。
@@ -242,10 +217,7 @@ struct RootView: View {
         let fullRect = PlayerPanelGeometry.rect(progress: 1, origin: panelOrigin, screen: screen.size)
         guard PlayerCollapseTransition.shared.beginInteractive(
             from: fullRect,
-            origin: miniArtworkFrame,
-            screen: screen.size,
-            coverRect: artworkFrame,
-            startRadius: 0
+            screen: screen.size
         ) else { return false }
         hidePlayerForCollapse = true
         return true
@@ -314,16 +286,12 @@ struct RootView: View {
                      height: 56)
         let progress = min(max(playerProgress, 0), 1)
         let startRect = PlayerPanelGeometry.rect(progress: progress, origin: panelOrigin, screen: screen.size)
-        let startRadius = max(0, 28 * (1 - progress))
 
         // 关键：收起不再让 SwiftUI 逐帧重排整页。先裁一张当前面板快照，
         // 用 UIViewPropertyAnimator 只动这一层静态图片；SwiftUI 页面立即摘除。
         if PlayerCollapseTransition.shared.begin(
             from: startRect,
-            to: miniArtworkFrame,
-            coverRect: artworkFrame,
-            startRadius: startRadius,
-            duration: 0.28,
+            duration: 0.30,
             completion: {
                 // 播放页常驻视图树，收起结束只隐藏，不做同步销毁。
                 self.playerProgress = 0

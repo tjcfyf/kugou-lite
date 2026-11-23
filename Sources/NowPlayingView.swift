@@ -354,7 +354,8 @@ struct NowPlayingView: View {
                 let horizontal = abs(value.translation.width)
                 guard vertical > 0, vertical > horizontal * 1.25 else { return }
                 let collapseDistance = max(UIScreen.main.bounds.height * 0.2, 1)
-                let progress = max(0, min(1, 1 - vertical / collapseDistance))
+                let rawProgress = 1 - vertical / collapseDistance
+                let progress = max(0, min(1, rawProgress))
                 var snapshotDriven = interactiveDismiss
 
                 // 第一次达到有效竖向拖动时，切到静态快照跟手。
@@ -365,8 +366,8 @@ struct NowPlayingView: View {
                 }
 
                 if snapshotDriven {
-                    // 只改 UIKit 快照 frame，不触发整页 SwiftUI 重新布局。
-                    onInteractiveDismissChanged?(progress)
+                    // 传入未夹紧的 progress：拖过 20% 屏幕后整页还能继续跟手。
+                    onInteractiveDismissChanged?(rawProgress)
                 } else {
                     panelProgress = progress
                 }
