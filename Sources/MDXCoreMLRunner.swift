@@ -40,10 +40,12 @@ final class MDXCoreMLRunner: MDXEngine {
 
     func run(input: [Float], output: inout [Float]) -> Bool {
         guard input.count == Self.inputCount, output.count == Self.inputCount else { return false }
+        // iOS 15 没有 `withUnsafeBufferPointer(ofType:)`（15.4 才有），
+        // 直接拿 MLMultiArray 的 dataPointer；输入是我们自己分配、连续排布的 float32。
+        let destination = inputArray.dataPointer.assumingMemoryBound(to: Float.self)
         input.withUnsafeBufferPointer { source in
-            inputArray.withUnsafeMutableBufferPointer(ofType: Float.self) { destination, _ in
-                destination.baseAddress?.update(from: source.baseAddress!, count: Self.inputCount)
-            }
+            guard let base = source.baseAddress else { return }
+            destination.update(from: base, count: Self.inputCount)
         }
         guard let provider = try? MLDictionaryFeatureProvider(
             dictionary: [inputName: MLFeatureValue(multiArray: inputArray)]),
@@ -63,10 +65,9 @@ final class MDXCoreMLRunner: MDXEngine {
             expected[i] = expected[i + 1] * shape[i + 1]
         }
         if array.dataType == .float32 && strides == expected {
-            array.withUnsafeBufferPointer(ofType: Float.self) { source in
-                outputBuffer.withUnsafeMutableBufferPointer { destination in
-                    destination.baseAddress?.update(from: source.baseAddress!, count: Self.inputCount)
-                }
+            let source = array.dataPointer.assumingMemoryBound(to: Float.self)
+            outputBuffer.withUnsafeMutableBufferPointer { destination in
+                destination.baseAddress?.update(from: source, count: Self.inputCount)
             }
             return
         }
