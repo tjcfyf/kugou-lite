@@ -1,7 +1,7 @@
 #import "QQSDKLogin.h"
 #import <TencentOpenAPI/TencentOAuth.h>
 
-@interface QQSDKLogin () <TencentSessionDelegate>
+@interface QQSDKLogin ()
 @property (nonatomic, strong) TencentOAuth *oauth;
 @property (nonatomic, copy, nullable) QQSDKLoginCompletion completion;
 @end
@@ -19,7 +19,7 @@
 
 - (void)startLogin:(QQSDKLoginCompletion)completion {
     self.completion = completion;
-    self.oauth = [[TencentOAuth alloc] initWithAppId:@"205141" andDelegate:self];
+    self.oauth = [[TencentOAuth alloc] initWithAppId:@"205141" andDelegate:(id<TencentSessionDelegate>)self];
     self.oauth.redirectURI = @"tencent205141://tauth.qq.com/";
     self.oauth.authMode = kAuthModeClientSideToken;
     [self.oauth authorize:@[@"get_user_info"]];
