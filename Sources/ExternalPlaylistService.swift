@@ -200,7 +200,12 @@ enum ExternalPlaylistService {
             throw PlaylistImportError.invalidInput
         }
 
-        // Meting 的酷狗源接受 specialid；如果已经失效，就给出明确提示。
+        // 酷狗移动站公开的 plist 接口可以直接按 specialid 读取公开歌单，
+        // 不需要登录态，优先走这个；失败再退回 Meting。
+        if let playlist = try? await fetchKugouMobile(id: id), !playlist.tracks.isEmpty {
+            return playlist
+        }
+
         var components = URLComponents(string: "https://api.i-meto.com/meting/api")!
         components.queryItems = [
             URLQueryItem(name: "server", value: "kugou"),
@@ -219,6 +224,39 @@ enum ExternalPlaylistService {
         }
         let cover = (list.first?["pic"] as? String).flatMap(URL.init(string:))
         return ExternalPlaylist(name: "酷狗歌单", coverURL: cover, tracks: tracks)
+    }
+
+    private static func fetchKugouMobile(id: String) async throws -> ExternalPlaylist? {
+        guard let url = URL(string: "https://m.kugou.com/plist/list/\(id)?json=true") else { return nil }
+        var request = URLRequest(url: url)
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        let json = try await requestJSON(request)
+        guard let listContainer = json["list"] as? [String: Any],
+              let list = listContainer["list"] as? [String: Any],
+              let rawSongs = list["info"] as? [[String: Any]] else {
+            return nil
+        }
+
+        let info = json["info"] as? [String: Any]
+        let name = (info?["specialname"] as? String) ?? (info?["name"] as? String) ?? "酷狗歌单"
+        let coverRaw = (info?["img"] as? String) ?? (info?["cover"] as? String)
+        let cover = coverRaw.flatMap(URL.init(string:))
+
+        let tracks = rawSongs.compactMap { item -> ExternalTrack? in
+            if let songName = item["songname"] as? String, !songName.isEmpty {
+                let artist = (item["singername"] as? String) ?? ""
+                return ExternalTrack(name: songName, artist: artist, album: item["album_name"] as? String)
+            }
+            guard let filename = item["filename"] as? String, !filename.isEmpty else { return nil }
+            let pieces = filename.components(separatedBy: " - ")
+            if pieces.count >= 2 {
+                let artist = pieces[0].trimmingCharacters(in: .whitespacesAndNewlines)
+                let song = pieces.dropFirst().joined(separator: " - ").trimmingCharacters(in: .whitespacesAndNewlines)
+                return ExternalTrack(name: song, artist: artist, album: item["album_name"] as? String)
+            }
+            return ExternalTrack(name: filename, artist: "", album: item["album_name"] as? String)
+        }
+        return ExternalPlaylist(name: name, coverURL: cover, tracks: tracks)
     }
 
     // MARK: - 汽水音乐
