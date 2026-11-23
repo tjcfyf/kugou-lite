@@ -53,7 +53,9 @@ struct AppleMusicBottomBar: View {
     private func tabButton(title: String, icon: String, tag: Int) -> some View {
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.easeInOut(duration: 0.20)) { tab = tag }
+            // 底栏切 tab 不要包 withAnimation：首页和搜索是两棵独立视图树，
+            // 0.2 秒的透明度过渡会让人先看到「现在就听」再看到搜索页。
+            tab = tag
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: icon)
