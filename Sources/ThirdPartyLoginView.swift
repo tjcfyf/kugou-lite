@@ -1,0 +1,344 @@
+import SwiftUI
+import UIKit
+import WebKit
+
+enum ThirdPartyProvider: String, CaseIterable, Identifiable {
+    case qq
+    case wechat
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .qq: return "QQ 登录"
+        case .wechat: return "微信登录"
+        }
+    }
+
+    var shortTitle: String {
+        switch self {
+        case .qq: return "QQ"
+        case .wechat: return "微信"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .qq: return Color(red: 0.12, green: 0.56, blue: 0.98)
+        case .wechat: return Color(red: 0.02, green: 0.69, blue: 0.24)
+        }
+    }
+
+    /// 概念版 appid 3116，走酷狗官方第三方登录页，不是标准版 1005/网页版 1014。
+    var authURL: URL {
+        let base: String
+        switch self {
+        case .qq:
+            base = "https://openplat-user.kugou.com/qq/"
+        case .wechat:
+            base = "https://openplat-user.kugou.com/weixin/index.php?ktype=0"
+        }
+
+        var components = URLComponents(string: base)
+        var items = components?.queryItems ?? []
+        items.append(contentsOf: [
+            URLQueryItem(name: "appid", value: "3116"),
+            URLQueryItem(name: "clienttime", value: String(Int(Date().timeIntervalSince1970))),
+            URLQueryItem(name: "callback", value: "SonoraThirdLogin"),
+            URLQueryItem(name: "domain", value: "www.kugou.com"),
+            URLQueryItem(name: "https", value: "1"),
+            URLQueryItem(name: "mid", value: KGApi.shared.mid),
+            URLQueryItem(name: "dfid", value: KGApi.shared.dfid),
+            URLQueryItem(name: "platid", value: "4"),
+        ])
+        components?.queryItems = items
+        return components?.url ?? URL(string: base)!
+    }
+
+    var userAgent: String {
+        // 强制桌面版 QQ/微信扫码页。移动版 QQ 会走“一键登录”并跳转 QQ App，
+        // 回调无法可靠回到本 App；桌面版直接展示二维码，扫码完成后再回到网页。
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+    }
+}
+
+struct ThirdPartyLoginView: View {
+    let provider: ThirdPartyProvider
+    let onLogin: (String, Int, String?) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var loading = true
+    @State private var errorMessage = ""
+    @State private var showError = false
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Theme.background.ignoresSafeArea()
+
+                ThirdPartyWebView(
+                    url: provider.authURL,
+                    userAgent: provider.userAgent,
+                    loading: $loading,
+                    onLogin: { token, userid, vipToken in
+                        onLogin(token, userid, vipToken)
+                        dismiss()
+                    },
+                    onFailure: { message in
+                        loading = false
+                        errorMessage = message
+                        showError = true
+                    }
+                )
+
+                if loading {
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: Theme.text))
+                        Text("正在打开\(provider.shortTitle)…")
+                            .font(.system(size: 13))
+                            .foregroundColor(Theme.secondaryText)
+                    }
+                    .padding(22)
+                    .background(Theme.card)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+            }
+            .navigationTitle(provider.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("取消") { dismiss() }
+                        .foregroundColor(Theme.text)
+                }
+            }
+            .alert(isPresented: $showError) {
+                Alert(
+                    title: Text("\(provider.shortTitle) 登录失败"),
+                    message: Text(errorMessage),
+                    dismissButton: .default(Text("知道了"))
+                )
+            }
+        }
+        .navigationViewStyle(.stack)
+    }
+}
+
+private struct ThirdPartyWebView: UIViewRepresentable {
+    let url: URL
+    let userAgent: String
+    @Binding var loading: Bool
+    let onLogin: (String, Int, String?) -> Void
+    let onFailure: (String) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeUIView(context: Context) -> WKWebView {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .default()
+        configuration.preferences.javaScriptCanOpenWindowsAutomatically = true
+
+        let webView = WKWebView(frame: .zero, configuration: configuration)
+        webView.customUserAgent = userAgent
+        webView.navigationDelegate = context.coordinator
+        webView.uiDelegate = context.coordinator
+        webView.allowsBackForwardNavigationGestures = true
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
+        webView.isOpaque = false
+        webView.backgroundColor = .clear
+        webView.scrollView.backgroundColor = .clear
+        context.coordinator.attach(webView)
+        context.coordinator.prepareAndLoad(url)
+        return webView
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {}
+
+    static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
+        coordinator.stop()
+    }
+
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+        private var parent: ThirdPartyWebView
+        private weak var webView: WKWebView?
+        private var timer: Timer?
+        private var completed = false
+        private var checking = false
+        private var started = false
+
+        init(parent: ThirdPartyWebView) {
+            self.parent = parent
+        }
+
+        func attach(_ webView: WKWebView) {
+            self.webView = webView
+        }
+
+        /// 先清掉旧的 KuGoo 登录态，避免上次登录的 cookie 让本次直接“成功”。
+        func prepareAndLoad(_ url: URL) {
+            guard let webView = webView else { return }
+            let store = webView.configuration.websiteDataStore.httpCookieStore
+            store.getAllCookies { [weak self] cookies in
+                let group = DispatchGroup()
+                for cookie in cookies where cookie.name == "KuGoo" {
+                    group.enter()
+                    store.delete(cookie) { group.leave() }
+                }
+                group.notify(queue: .main) {
+                    guard let self = self else { return }
+                    self.startPolling()
+                    webView.load(URLRequest(url: url))
+                }
+            }
+        }
+
+        func stop() {
+            timer?.invalidate()
+            timer = nil
+        }
+
+        private func startPolling() {
+            guard timer == nil else { return }
+            let timer = Timer(timeInterval: 0.7, repeats: true) { [weak self] _ in
+                self?.checkCookies()
+            }
+            self.timer = timer
+            RunLoop.main.add(timer, forMode: .common)
+        }
+
+        private func checkCookies() {
+            guard !completed, !checking, let webView = webView else { return }
+            checking = true
+            webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { [weak self] cookies in
+                guard let self = self else { return }
+                self.checking = false
+                for cookie in cookies where cookie.name == "KuGoo" {
+                    if let result = Self.parseKuGoo(cookie.value) {
+                        DispatchQueue.main.async {
+                            guard !self.completed else { return }
+                            self.completed = true
+                            self.stop()
+                            self.parent.loading = false
+                            self.parent.onLogin(result.token, result.userid, result.vipToken)
+                        }
+                        return
+                    }
+                }
+            }
+        }
+
+        private static func parseKuGoo(_ raw: String) -> (token: String, userid: Int, vipToken: String?)? {
+            var source = raw
+            // 少数情况下整个 cookie 被 URL 编码；只在没有 '=' 时整体解一次，
+            // 避免把 token 里的 %26 提前解码成 & 拆错字段。
+            if !source.contains("="), let decoded = source.removingPercentEncoding {
+                source = decoded
+            }
+
+            var token: String?
+            var userid: Int?
+            var vipToken: String?
+
+            for pair in source.split(separator: "&", omittingEmptySubsequences: true) {
+                let parts = pair.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+                guard parts.count == 2 else { continue }
+                let key = String(parts[0]).removingPercentEncoding ?? String(parts[0])
+                let value = String(parts[1]).removingPercentEncoding ?? String(parts[1])
+                switch key.lowercased() {
+                case "t", "token":
+                    token = value
+                case "kugouid", "kugoo_id", "userid":
+                    userid = Int(value)
+                case "vip_token", "viptoken":
+                    vipToken = value
+                default:
+                    continue
+                }
+            }
+
+            guard let token = token, !token.isEmpty,
+                  let userid = userid, userid > 0 else {
+                return nil
+            }
+            return (token, userid, vipToken)
+        }
+
+        private func finishWithError(_ message: String) {
+            guard !completed else { return }
+            completed = true
+            stop()
+            DispatchQueue.main.async {
+                self.parent.loading = false
+                self.parent.onFailure(message)
+            }
+        }
+
+        private func handleNavigation(_ url: URL?) {
+            guard let url = url else { return }
+            let host = url.host?.lowercased() ?? ""
+            let path = url.path.lowercased()
+
+            if host.contains("openplat-user.kugou.com") && path.contains("_callback") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                    self?.checkCookies()
+                }
+            }
+
+            if host.contains("cross.kugou.com") && path.contains("callmsg") {
+                let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+                let code = items.first(where: { $0.name == "errcode" })?.value
+                let message = items.first(where: { $0.name == "msg" })?.value
+
+                if let code = code, code != "0" {
+                    let detail = message?.isEmpty == false ? message! : "第三方登录未完成"
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+                        guard let self = self, !self.completed else { return }
+                        self.finishWithError("\(detail)（\(code)）")
+                    }
+                } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                        self?.checkCookies()
+                    }
+                }
+            }
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            parent.loading = false
+            checkCookies()
+        }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            handleFailure(error)
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            handleFailure(error)
+        }
+
+        private func handleFailure(_ error: Error) {
+            let nsError = error as NSError
+            if nsError.code == NSURLErrorCancelled { return }
+            finishWithError(nsError.localizedDescription)
+        }
+
+        func webView(_ webView: WKWebView,
+                     decidePolicyFor navigationAction: WKNavigationAction,
+                     decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            handleNavigation(navigationAction.request.url)
+            decisionHandler(.allow)
+        }
+
+        func webView(_ webView: WKWebView,
+                     createWebViewWith configuration: WKWebViewConfiguration,
+                     for navigationAction: WKNavigationAction,
+                     windowFeatures: WKWindowFeatures) -> WKWebView? {
+            if let url = navigationAction.request.url {
+                webView.load(URLRequest(url: url))
+            }
+            return nil
+        }
+    }
+}

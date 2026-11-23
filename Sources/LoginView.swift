@@ -36,6 +36,7 @@ struct LoginView: View {
     @State private var loggingIn = false
     @State private var loginError = ""
     @State private var smsNotice = ""
+    @State private var thirdParty: ThirdPartyProvider?
     @FocusState private var focus: Field?
 
     private enum Field: Hashable {
@@ -60,6 +61,7 @@ struct LoginView: View {
                         } else {
                             qrContent
                         }
+                        thirdPartySection
                     }
                 }
                 .padding(.horizontal, 22)
@@ -112,6 +114,14 @@ struct LoginView: View {
         }
         .onReceive(countdownTimer) { _ in
             if countdown > 0 { countdown -= 1 }
+        }
+        .sheet(item: $thirdParty) { provider in
+            ThirdPartyLoginView(provider: provider) { token, userid, vipToken in
+                thirdParty = nil
+                Task {
+                    await completeLogin(token: token, userid: userid, vipToken: vipToken)
+                }
+            }
         }
     }
 
@@ -313,6 +323,61 @@ struct LoginView: View {
 
     private var validPhone: Bool {
         phone.range(of: "^1[3-9]\\d{9}$", options: .regularExpression) != nil
+    }
+
+    private var thirdPartySection: some View {
+        VStack(spacing: 11) {
+            HStack(spacing: 10) {
+                Rectangle()
+                    .fill(Theme.separator)
+                    .frame(height: 0.5)
+                Text("其他登录方式")
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.tertiaryText)
+                Rectangle()
+                    .fill(Theme.separator)
+                    .frame(height: 0.5)
+            }
+
+            HStack(spacing: 11) {
+                ForEach(ThirdPartyProvider.allCases) { provider in
+                    Button {
+                        thirdParty = provider
+                    } label: {
+                        HStack(spacing: 8) {
+                            ZStack {
+                                Circle()
+                                    .fill(provider.tint.opacity(0.13))
+                                    .frame(width: 30, height: 30)
+                                if provider == .qq {
+                                    Text("QQ")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(provider.tint)
+                                } else {
+                                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(provider.tint)
+                                }
+                            }
+
+                            Text(provider.title)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(Theme.text)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 46)
+                        .background(Theme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                .stroke(Theme.border, lineWidth: 0.5)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.top, 6)
     }
 
     private var canSendCode: Bool {
