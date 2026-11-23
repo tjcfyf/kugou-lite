@@ -231,9 +231,9 @@ extension KGLogin {
         // UserLogin$g 的 h0.c 最终由 f.e(map) 序列化成 JSON body，
         // 再由 ParamGenerator 生成 query 与 signature。这里按它的字段集补齐，
         // 不再把 params/openid 放到 query（query-only 会被判 20008 参数非法）。
-        let loginKey = KGLoginCrypto.loginKey(clientTime: clientTime,
-                                               clientver: "11621",
-                                               dev: dev)
+        // h0.g 实际取 SystemUtils.e0()：配置为空时回落到 liteSalt。
+        // 所以 key 仍是 md5(appid + liteSalt + clientver + clienttime_ms)。
+        let loginKey = KGLoginCrypto.loginKey(clientTime: clientTime, clientver: "11621")
         let body: [String: Any] = [
             "dfid": KGApi.shared.dfid,
             "plat": 1,
