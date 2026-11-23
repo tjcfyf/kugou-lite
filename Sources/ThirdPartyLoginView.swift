@@ -29,30 +29,64 @@ enum ThirdPartyProvider: String, CaseIterable, Identifiable {
         }
     }
 
-    /// 概念版 appid 3116，走酷狗官方第三方登录页，不是标准版 1005/网页版 1014。
+    /// 概念版 appid 3116，直接走 QQ/微信官方授权页，不套酷狗 openplat 外壳。
+    /// 外壳页把 QQ 放在 iframe 里，iOS WKWebView 容易丢第三方 Cookie；
+    /// 直连官方页是首方页面，二维码和回调都更稳定。
     var authURL: URL {
-        let base: String
+        let clienttime = String(Int(Date().timeIntervalSince1970))
         switch self {
         case .qq:
-            base = "https://openplat-user.kugou.com/qq/"
+            return qqURL(clienttime: clienttime)
         case .wechat:
-            base = "https://openplat-user.kugou.com/weixin/index.php?ktype=0"
+            return wechatURL(clienttime: clienttime)
         }
+    }
 
-        var components = URLComponents(string: base)
-        var items = components?.queryItems ?? []
-        items.append(contentsOf: [
-            URLQueryItem(name: "appid", value: "3116"),
-            URLQueryItem(name: "clienttime", value: String(Int(Date().timeIntervalSince1970))),
-            URLQueryItem(name: "callback", value: "SonoraThirdLogin"),
-            URLQueryItem(name: "domain", value: "www.kugou.com"),
-            URLQueryItem(name: "https", value: "1"),
-            URLQueryItem(name: "mid", value: KGApi.shared.mid),
-            URLQueryItem(name: "dfid", value: KGApi.shared.dfid),
-            URLQueryItem(name: "platid", value: "4"),
-        ])
-        components?.queryItems = items
-        return components?.url ?? URL(string: base)!
+    private func qqURL(clienttime: String) -> URL {
+        let callback = "https://openplat-user.kugou.com/qq_callback"
+            + "?ver=0&mid=\(KGApi.shared.mid)&dfid=\(KGApi.shared.dfid)"
+            + "&https=1&domain=www.kugou.com&callback=SonoraThirdLogin"
+            + "&plat=0&ktype=0&clienttime=\(clienttime)&appid=3116&platid=4"
+
+        var components = URLComponents(string: "https://graph.qq.com/oauth2.0/show")!
+        components.queryItems = [
+            URLQueryItem(name: "which", value: "Login"),
+            URLQueryItem(name: "display", value: "pc"),
+            URLQueryItem(name: "response_type", value: "code"),
+            URLQueryItem(name: "client_id", value: "205141"),
+            URLQueryItem(name: "redirect_uri", value: callback),
+            URLQueryItem(name: "scope", value: "get_user_info"),
+        ]
+        return components.url!
+    }
+
+    private func wechatURL(clienttime: String) -> URL {
+        let args: [String: Any] = [
+            "mid": KGApi.shared.mid,
+            "dfid": KGApi.shared.dfid,
+            "https": "1",
+            "domain": "www.kugou.com",
+            "callback": "SonoraThirdLogin",
+            "plat": 0,
+            "ktype": 0,
+            "clienttime": Int(clienttime) ?? 0,
+            "appid": 3116,
+            "platid": "4",
+        ]
+        let data = (try? JSONSerialization.data(withJSONObject: args, options: [])) ?? Data()
+        let encodedArgs = data.base64EncodedString()
+        let callback = "https://openplat-user.kugou.com/wechat_callback?args=\(encodedArgs)"
+
+        var components = URLComponents(string: "https://open.weixin.qq.com/connect/qrconnect")!
+        components.queryItems = [
+            URLQueryItem(name: "appid", value: "wxe1a0603d89981725"),
+            URLQueryItem(name: "redirect_uri", value: callback),
+            URLQueryItem(name: "response_type", value: "code"),
+            URLQueryItem(name: "scope", value: "snsapi_login"),
+            URLQueryItem(name: "state", value: ""),
+        ]
+        components.fragment = "wechat_redirect"
+        return components.url!
     }
 
     var userAgent: String {
