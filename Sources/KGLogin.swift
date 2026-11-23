@@ -226,41 +226,49 @@ extension KGLogin {
             throw KGError.server("设备参数加密失败")
         }
 
-        // 概念版 UserLogin$g 把所有字段（含加密后的 params / pk / openid）
-        // 全部塞进查询串，POST 本身没有 JSON body。之前把 params 放 body，
-        // 服务端在 query 里拿不到加密参数，就会直接判「验证码错误或已过期」。
-        let query: [String: String] = [
-            "plat": "1",
-            "userid": "0",
-            "token": "",
-            "t_mid": KGApi.shared.mid,
-            "t": KGLoginCrypto.guid(),
-            "t_appid": "3116",
-            "t_clientver": "10597",
-            "srcappid": "2919",
-            "clienttime_ms": String(clientTime),
-            "key": KGLoginCrypto.loginKey(clientTime: clientTime),
-            "dev": dev,
-            "t1": t1,
-            "t2": t2,
-            "t3": "MCwwLDAsMCwwLDAsMCwwLDA=",
-            "openid": openid,
-            "third_appid": "101706348",
-            "partnerid": "1",
-            "force_login": "1",
-            "force_bind": "1",
-            "support_third": "3",
-            "support_verify": "1",
-            "busi_type": "concept",
+        // UserLogin$g 的 h0.c 最终由 f.e(map) 序列化成 JSON body，
+        // 再由 ParamGenerator 生成 query 与 signature。这里按它的字段集补齐，
+        // 不再把 params/openid 放到 query（query-only 会被判 20008 参数非法）。
+        let loginKey = KGLoginCrypto.loginKey(clientTime: clientTime)
+        let body: [String: Any] = [
+            "dfid": KGApi.shared.dfid,
+            "plat": 1,
             "pk": pk,
             "params": params,
+            "clienttime_ms": Int(clientTime),
+            "appid": 3116,
+            "clientver": 11440,
+            "mid": KGApi.shared.mid,
+            "key": loginKey,
+            "uuid": "-",
+            "t1": "",
+            "t2": "",
+            "t3": "MCwwLDAsMCwwLDAsMCwwLDA=",
+            "dev": dev,
+            "force_login": 1,
+            "force_bind": 1,
+            "partnerid": 1,
+            "third_appid": "101706348",
+            "openid": openid,
+            "support_third": "3",
+            "support_verify": 1,
+            "busi_type": "concept",
         ]
 
         let data = try await KGApi.shared.post(
             path: "/v6/login_by_openplat",
             host: "http://login.user.kugou.com",
-            params: query,
-            body: nil,
+            params: [
+                "plat": "1",
+                "userid": "0",
+                "token": "",
+                "t_mid": KGApi.shared.mid,
+                "t": KGLoginCrypto.guid(),
+                "t_appid": "3116",
+                "t_clientver": "10597",
+                "srcappid": "2919",
+            ],
+            body: body,
             headers: [
                 "x-router": "login.user.kugou.com",
                 "SUPPORT-CALM": "1",
