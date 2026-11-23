@@ -124,14 +124,14 @@ final class AIOfflineSeparator {
 
         // URLSession 的临时文件没有扩展名，AVURLAsset 对本地文件很依赖扩展名；
         // 先按 Content-Type/URL 改成 .mp3/.m4a/.flac，再判断是否能解出音轨。
-        let ext = audioExtension(for: sourceURL, mimeType: http.mimeType)
-        let finalURL = dir.appendingPathComponent(safeName(song.FileHash) + "." + ext)
+        let finalExt = audioExtension(for: sourceURL, mimeType: http.mimeType)
+        let finalURL = dir.appendingPathComponent(safeName(song.FileHash) + "." + finalExt)
         try? FileManager.default.removeItem(at: finalURL)
         try FileManager.default.moveItem(at: temporary, to: finalURL)
         let asset = AVURLAsset(url: finalURL)
         guard asset.tracks(withMediaType: .audio).first != nil else {
             try? FileManager.default.removeItem(at: finalURL)
-            throw Failure.download("下载到的文件不是可解码音频（\(ext)）")
+            throw Failure.download("下载到的文件不是可解码音频（\(finalExt)）")
         }
         return finalURL
     }
