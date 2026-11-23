@@ -357,6 +357,19 @@ private struct ThirdPartyWebView: UIViewRepresentable {
         func webView(_ webView: WKWebView,
                      decidePolicyFor navigationAction: WKNavigationAction,
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            if let url = navigationAction.request.url,
+               url.scheme?.lowercased() == "http",
+               let host = url.host?.lowercased(),
+               host == "openplat-user.kugou.com"
+                || (host.hasPrefix("cross.") && host.hasSuffix("kugou.com")) {
+                var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+                components?.scheme = "https"
+                if let httpsURL = components?.url {
+                    decisionHandler(.cancel)
+                    webView.load(URLRequest(url: httpsURL))
+                    return
+                }
+            }
             handleNavigation(navigationAction.request.url)
             decisionHandler(.allow)
         }
