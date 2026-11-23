@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import Foundation
+import WebKit
 
 /// QQ 原生扫码登录。
 ///
@@ -26,6 +27,29 @@ struct QQNativeLoginView: View {
     }
 
     var body: some View {
+        Group {
+            if let authURL = model.authURL {
+                QQAuthWebView(
+                    url: authURL,
+                    cookies: model.qqCookies,
+                    onLogin: { token, userid, vipToken in
+                        model.accept(token: token, userid: userid, vipToken: vipToken)
+                    },
+                    onFailure: { message in
+                        model.fail(message)
+                    }
+                )
+                .ignoresSafeArea(edges: .bottom)
+            } else {
+                qrContent
+            }
+        }
+        .onChange(of: reloadID) { _ in
+            model.restart()
+        }
+    }
+
+    private var qrContent: some View {
         VStack(spacing: 18) {
             Spacer(minLength: 18)
 
@@ -87,9 +111,6 @@ struct QQNativeLoginView: View {
         .padding(.horizontal, 24)
         .onAppear { model.start() }
         .onDisappear { model.stop() }
-        .onChange(of: reloadID) { _ in
-            model.restart()
-        }
     }
 }
 
@@ -98,6 +119,8 @@ final class QQNativeLoginModel: ObservableObject {
     @Published var qrImage: UIImage?
     @Published var status = "正在获取二维码…"
     @Published var errorMessage: String?
+    @Published var authURL: URL?
+    @Published var qqCookies: [HTTPCookie] = []
 
     private let onLogin: (String, Int, String?) -> Void
     private let onFailure: (String) -> Void
@@ -141,6 +164,8 @@ final class QQNativeLoginModel: ObservableObject {
     func restart() {
         stop()
         qrImage = nil
+        authURL = nil
+        qqCookies = []
         start()
     }
 
@@ -329,9 +354,16 @@ final class QQNativeLoginModel: ObservableObject {
         net.delegate.stopAtKugouCallback = false
         _ = try await net.get(url)
 
+        // 关键：不要直接调 graph.qq.com/oauth2.0/authorize。
+        // 该接口只负责“授权”，没有登录页；而且 QQ 经常要求用户在授权页
+        // 上再点一次“授权”。这里改为打开 QQ 官方的 show 授权页，并把
+        // 原生扫码拿到的 QQ Cookie 注入 WKWebView。这样用户登录后能看到
+        // 真正的授权页；已经授权过则会直接跳回酷狗回调。
         let callbackBase = callbackURL(code: nil)
-        var authorize = URLComponents(string: "https://graph.qq.com/oauth2.0/authorize")!
-        authorize.queryItems = [
+        var show = URLComponents(string: "https://graph.qq.com/oauth2.0/show")!
+        show.queryItems = [
+            URLQueryItem(name: "which", value: "Login"),
+            URLQueryItem(name: "display", value: "pc"),
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "client_id", value: "205141"),
             URLQueryItem(name: "redirect_uri", value: callbackBase.absoluteString),
@@ -339,45 +371,13 @@ final class QQNativeLoginModel: ObservableObject {
             URLQueryItem(name: "state", value: UUID().uuidString.replacingOccurrences(of: "-", with: "")),
         ]
 
-        net.delegate.resetCapturedCode()
-        net.delegate.stopAtKugouCallback = true
-        var authorizeData = Data()
-        var authorizeResponse: URLResponse? = nil
-        do {
-            let result = try await net.get(authorize.url!)
-            authorizeData = result.0
-            authorizeResponse = result.1
-        } catch {
-            // 在 qq_callback 处取消重定向时，URLSession 可能抛取消错误；
-            // 只要已经抓到 code 就继续，不能把成功当成失败。
-            if net.delegate.capturedCode == nil { throw error }
+        let allCookies = HTTPCookieStorage.shared.cookies ?? []
+        qqCookies = allCookies.filter {
+            let domain = $0.domain.lowercased()
+            return domain.contains("qq.com") || domain.contains("graph.qq.com")
         }
-
-        var code = net.delegate.capturedCode
-        if code == nil {
-            code = extractCode(from: authorizeData, response: authorizeResponse)
-        }
-        guard let code = code, !code.isEmpty else {
-            throw QQLoginError("QQ 已授权，但没有返回 code。可能是 QQ 授权页要求重新登录。")
-        }
-
-        status = "QQ 授权成功，正在同步酷狗账号…"
-        net.delegate.stopAtKugouCallback = false
-        let callback = URL(string: callbackBase.absoluteString + "&code=\(code)")!
-        _ = try await net.get(callback)
-
-        // 酷狗 qq_callback 可能 302 到 cross.kugou.com/callmsg，等一拍再读 Cookie。
-        try? await Task.sleep(nanoseconds: 600_000_000)
-
-        if let session = findKuGooSession() {
-            completed = true
-            running = false
-            task?.cancel()
-            status = "登录成功"
-            onLogin(session.token, session.userid, session.vipToken)
-        } else {
-            throw QQLoginError("QQ 已授权，但酷狗没有写入 KuGoo 登录态。")
-        }
+        status = "正在打开 QQ 授权页面…"
+        self.authURL = show.url
     }
 
     private func callbackURL(code: String?) -> URL {
@@ -497,7 +497,16 @@ final class QQNativeLoginModel: ObservableObject {
         return (token, userid, vipToken)
     }
 
-    private func fail(_ message: String) {
+    func accept(token: String, userid: Int, vipToken: String?) {
+        guard !completed else { return }
+        completed = true
+        running = false
+        task?.cancel()
+        status = "登录成功"
+        onLogin(token, userid, vipToken)
+    }
+
+    func fail(_ message: String) {
         guard !completed else { return }
         completed = true
         running = false
@@ -505,6 +514,274 @@ final class QQNativeLoginModel: ObservableObject {
         status = "登录失败"
         errorMessage = message
         onFailure(message)
+    }
+}
+
+private struct QQAuthWebView: UIViewRepresentable {
+    let url: URL
+    let cookies: [HTTPCookie]
+    let onLogin: (String, Int, String?) -> Void
+    let onFailure: (String) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeUIView(context: Context) -> WKWebView {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .default()
+        configuration.preferences.javaScriptCanOpenWindowsAutomatically = true
+
+        let script = """
+        Object.defineProperty(navigator, 'platform', { get: function() { return 'MacIntel'; } });
+        Object.defineProperty(navigator, 'maxTouchPoints', { get: function() { return 0; } });
+        """
+        configuration.userContentController.addUserScript(
+            WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+        )
+
+        let webView = WKWebView(frame: .zero, configuration: configuration)
+        webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+        webView.navigationDelegate = context.coordinator
+        webView.uiDelegate = context.coordinator
+        webView.allowsBackForwardNavigationGestures = true
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
+        webView.isOpaque = false
+        webView.backgroundColor = .clear
+        webView.scrollView.backgroundColor = .clear
+        context.coordinator.attach(webView)
+        context.coordinator.prepare(cookies: cookies, url: url)
+        return webView
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {}
+
+    static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
+        coordinator.stop()
+    }
+
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+        private let parent: QQAuthWebView
+        private weak var webView: WKWebView?
+        private var timer: Timer?
+        private var completed = false
+        private var checking = false
+        private var failureWorkItem: DispatchWorkItem?
+
+        init(parent: QQAuthWebView) {
+            self.parent = parent
+        }
+
+        func attach(_ webView: WKWebView) {
+            self.webView = webView
+        }
+
+        func prepare(cookies: [HTTPCookie], url: URL) {
+            guard let webView = webView else { return }
+            let store = webView.configuration.websiteDataStore.httpCookieStore
+
+            store.getAllCookies { [weak self] existing in
+                let group = DispatchGroup()
+                for cookie in existing where cookie.name == "KuGoo" {
+                    group.enter()
+                    store.delete(cookie) { group.leave() }
+                }
+                group.notify(queue: .main) {
+                    guard let self = self else { return }
+                    let setGroup = DispatchGroup()
+                    for cookie in cookies {
+                        setGroup.enter()
+                        store.setCookie(cookie) { setGroup.leave() }
+                    }
+                    setGroup.notify(queue: .main) {
+                        self.startPolling()
+                        webView.load(URLRequest(url: url))
+                    }
+                }
+            }
+        }
+
+        func stop() {
+            timer?.invalidate()
+            timer = nil
+            failureWorkItem?.cancel()
+            failureWorkItem = nil
+        }
+
+        private func startPolling() {
+            guard timer == nil else { return }
+            let timer = Timer(timeInterval: 0.7, repeats: true) { [weak self] _ in
+                self?.checkCookies()
+            }
+            self.timer = timer
+            RunLoop.main.add(timer, forMode: .common)
+        }
+
+        private func checkCookies() {
+            guard !completed, !checking, let webView = webView else { return }
+            checking = true
+            webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { [weak self] cookies in
+                guard let self = self else { return }
+                self.checking = false
+                for cookie in cookies where cookie.name == "KuGoo" {
+                    if let result = Self.parseKuGoo(cookie.value) {
+                        DispatchQueue.main.async {
+                            guard !self.completed else { return }
+                            self.completed = true
+                            self.stop()
+                            self.parent.onLogin(result.token, result.userid, result.vipToken)
+                        }
+                        return
+                    }
+                }
+            }
+        }
+
+        private static func parseKuGoo(_ raw: String) -> (token: String, userid: Int, vipToken: String?)? {
+            var source = raw
+            if !source.contains("="), let decoded = source.removingPercentEncoding {
+                source = decoded
+            }
+
+            var token: String?
+            var userid: Int?
+            var vipToken: String?
+
+            for pair in source.split(separator: "&", omittingEmptySubsequences: true) {
+                let parts = pair.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+                guard parts.count == 2 else { continue }
+                let key = String(parts[0]).removingPercentEncoding ?? String(parts[0])
+                let value = String(parts[1]).removingPercentEncoding ?? String(parts[1])
+                switch key.lowercased() {
+                case "t", "token":
+                    token = value
+                case "kugouid", "kugoo_id", "userid":
+                    userid = Int(value)
+                case "vip_token", "viptoken":
+                    vipToken = value
+                default:
+                    continue
+                }
+            }
+
+            guard let token = token, !token.isEmpty,
+                  let userid = userid, userid > 0 else {
+                return nil
+            }
+            return (token, userid, vipToken)
+        }
+
+        private func finishWithError(_ message: String) {
+            guard !completed else { return }
+            completed = true
+            stop()
+            DispatchQueue.main.async {
+                self.parent.onFailure(message)
+            }
+        }
+
+        private func scheduleFailure(_ message: String, delay: TimeInterval) {
+            guard !completed, failureWorkItem == nil else { return }
+            let work = DispatchWorkItem { [weak self] in
+                guard let self = self, !self.completed else { return }
+                self.checkCookies()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                    guard let self = self, !self.completed else { return }
+                    self.checkCookies()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                        guard let self = self, !self.completed else { return }
+                        self.finishWithError(message)
+                    }
+                }
+            }
+            failureWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+        }
+
+        private func handleNavigation(_ url: URL?) {
+            guard let url = url else { return }
+            let host = url.host?.lowercased() ?? ""
+            let path = url.path.lowercased()
+
+            if host.contains("openplat-user.kugou.com") && path.contains("_callback") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                    self?.checkCookies()
+                }
+            }
+
+            if host.hasPrefix("cross.") && host.hasSuffix("kugou.com") && path.contains("callmsg") {
+                let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+                let code = items.first(where: { $0.name == "errcode" })?.value
+                let message = items.first(where: { $0.name == "msg" })?.value
+
+                if let code = code, code != "0" {
+                    let detail = message?.isEmpty == false ? message! : "QQ 授权未完成"
+                    scheduleFailure("\(detail)（\(code)）", delay: 1.2)
+                } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                        self?.checkCookies()
+                    }
+                }
+            }
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            checkCookies()
+        }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            handleFailure(error)
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            handleFailure(error)
+        }
+
+        private func handleFailure(_ error: Error) {
+            let nsError = error as NSError
+            if nsError.code == NSURLErrorCancelled { return }
+            scheduleFailure(nsError.localizedDescription, delay: 1.0)
+        }
+
+        func webView(_ webView: WKWebView,
+                     decidePolicyFor navigationAction: WKNavigationAction,
+                     decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            if let url = navigationAction.request.url,
+               let host = url.host?.lowercased() {
+                var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+                var rewrite = false
+
+                if host == "cross.www.kugou.com" {
+                    components?.host = "cross.kugou.com"
+                    rewrite = true
+                }
+
+                if url.scheme?.lowercased() == "http",
+                   host == "openplat-user.kugou.com"
+                    || (host.hasPrefix("cross.") && host.hasSuffix("kugou.com")) {
+                    components?.scheme = "https"
+                    rewrite = true
+                }
+
+                if rewrite, let fixedURL = components?.url, fixedURL != url {
+                    decisionHandler(.cancel)
+                    webView.load(URLRequest(url: fixedURL))
+                    return
+                }
+            }
+            handleNavigation(navigationAction.request.url)
+            decisionHandler(.allow)
+        }
+
+        func webView(_ webView: WKWebView,
+                     createWebViewWith configuration: WKWebViewConfiguration,
+                     for navigationAction: WKNavigationAction,
+                     windowFeatures: WKWindowFeatures) -> WKWebView? {
+            if let url = navigationAction.request.url {
+                webView.load(URLRequest(url: url))
+            }
+            return nil
+        }
     }
 }
 
