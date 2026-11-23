@@ -126,9 +126,12 @@ struct RootView: View {
         )
         .onAppear { applyInterfaceStyle() }
         .onChange(of: isSearching) { value in
-            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            if value, tab == 0 { tab = 2 }
-            if !value, tab == 2 { tab = 0 }
+            if value {
+                if tab == 0 { tab = 2 }
+            } else {
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                if tab == 2 { tab = 0 }
+            }
         }
         .onChange(of: themeRaw) { _ in applyInterfaceStyle() }
         .onOpenURL { url in
@@ -345,7 +348,8 @@ private struct DiscoverTab: View {
                 },
                 onOpenPlayer: onOpenPlayer
             )
-            .navigationBarHidden(true)
+            .navigationTitle(isSearching ? "搜索" : "现在就听")
+            .navigationBarTitleDisplayMode(.large)
             .task { await recommendModel.load() }
         }
         .navigationViewStyle(.stack)

@@ -48,8 +48,6 @@ struct RecommendView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-
             if isSearching {
                 searchBar
                     .transition(.opacity.combined(with: .move(edge: .top)))
@@ -100,87 +98,63 @@ struct RecommendView: View {
         }
     }
 
-    private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                ZStack(alignment: .leading) {
-                    Text("现在就听")
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundColor(Theme.text)
-                        .opacity(isSearching ? 0 : 1)
-                    Text("搜索")
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundColor(Theme.text)
-                        .opacity(isSearching ? 1 : 0)
-                }
-                .lineLimit(1)
-                .minimumScaleFactor(0.80)
-
-                Text(todayLabel + " · 为你推荐")
-                    .font(.system(size: 13))
+    private var searchBar: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(Theme.secondaryText)
-                    .opacity(isSearching ? 0 : 1)
-                    .frame(height: isSearching ? 0 : nil, alignment: .top)
-                    .clipped()
+                TextField("搜索歌曲、歌手", text: $searchModel.query)
+                    .font(.system(size: 14))
+                    .foregroundColor(Theme.text)
+                    .focused($searchFocused)
+                    .submitLabel(.search)
+                    .onSubmit { searchModel.submit() }
+                if !searchModel.query.isEmpty {
+                    Button {
+                        searchModel.query = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(Theme.secondaryText)
+                    }
+                    .buttonStyle(GlassPressButtonStyle())
+                }
             }
-            .animation(.easeInOut(duration: 0.26), value: isSearching)
+            .padding(.horizontal, 11)
+            .frame(height: 38)
+            .appSearchField(cornerRadius: 10)
 
-            Spacer(minLength: 8)
-
-            // 首页不再放放大镜：搜索已经是独立底栏 tab。
-            // 搜索页保留「取消」，点它回到「现在就听」。
-            if isSearching {
+            if searchFocused {
                 Button {
-                    endSearch()
+                    searchFocused = false
+                    searchModel.query = ""
+                    historyWords = Preferences.searchHistory
                 } label: {
                     Text("取消")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(Theme.accent)
-                        .frame(width: 48, height: 44)
-                        .contentShape(Rectangle())
+                        .frame(height: 38)
                 }
                 .buttonStyle(GlassPressButtonStyle())
-                .accessibilityLabel("关闭搜索")
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
-    }
-
-    private var searchBar: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(Theme.secondaryText)
-            TextField("搜索歌曲、歌手", text: $searchModel.query)
-                .font(.system(size: 14))
-                .foregroundColor(Theme.text)
-                .focused($searchFocused)
-                .submitLabel(.search)
-                .onSubmit { searchModel.submit() }
-            if !searchModel.query.isEmpty {
-                Button {
-                    searchModel.query = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(Theme.secondaryText)
-                }
-                .buttonStyle(GlassPressButtonStyle())
-            }
-        }
-        .padding(.horizontal, 11)
-        .frame(height: 38)
-        .appSearchField(cornerRadius: 10)
         .padding(.horizontal, 16)
         .padding(.top, 4)
         .padding(.bottom, 8)
+        .animation(.easeInOut(duration: 0.20), value: searchFocused)
     }
 
     private var discoverBody: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
+                Text(todayLabel + " · 为你推荐")
+                    .font(.system(size: 13))
+                    .foregroundColor(Theme.secondaryText)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+
                 if model.isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
@@ -460,14 +434,6 @@ struct RecommendView: View {
         .padding(.top, 10)
     }
 
-    private func endSearch() {
-        searchFocused = false
-        searchModel.query = ""
-        historyWords = Preferences.searchHistory
-        withAnimation(.easeInOut(duration: 0.20)) {
-            isSearching = false
-        }
-    }
 }
 
 enum LibraryKind: String, Identifiable {
