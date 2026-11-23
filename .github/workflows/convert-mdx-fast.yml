@@ -1,0 +1,27 @@
+name: Convert MDX Fast
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  convert:
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install --upgrade pip
+          pip install torch==2.5.0 coremltools==8.3.0 onnx==1.17.0 onnx2torch==1.5.14 numpy
+      - run: python tools/convert_mdx_fast.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mdx-fast-coreml
+          path: out/*.tar
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view models-v3 >/dev/null 2>&1 || gh release create models-v3 --title "MDX fast CoreML models" --notes "UVR_MDXNET_1_9703 fast vocal model"
+          gh release upload models-v3 out/MdxNetFast9703_iOS15.mlpackage.tar --clobber
