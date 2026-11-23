@@ -1,0 +1,21 @@
+name: CoreML Bench
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bench:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch model
+        run: |
+          curl -fsSL -o /tmp/mdx.tar "https://github.com/tjcfyf/kugou-lite/releases/download/models-v2/mdx_net_voc_ft_iOS15.mlpackage.tar"
+          mkdir -p /tmp/mdx && tar -xf /tmp/mdx.tar -C /tmp/mdx
+          ls -lh /tmp/mdx
+      - name: Compile model
+        run: |
+          xcrun coremlc compile /tmp/mdx/MdxNetVocFT_iOS15.mlpackage /tmp/compiled
+      - name: Run benchmark
+        run: |
+          xcrun swift tools/coreml_bench.swift /tmp/compiled/MdxNetVocFT_iOS15.mlmodelc
