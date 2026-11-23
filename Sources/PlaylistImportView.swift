@@ -106,7 +106,7 @@ struct PlaylistImportView: View {
             .appSearchField(cornerRadius: 10)
 
             Text(source == .soda
-                 ? "汽水音乐目前没有公开的歌单接口。把歌单里的歌曲按每行「歌名 - 歌手」粘贴进来，Sonora 会自动匹配酷狗曲库。"
+                 ? "直接粘贴汽水音乐 App 里复制的歌单分享链接。链接失效时，也可以把歌单歌曲按每行「歌名 - 歌手」粘贴。"
                  : "支持直接粘贴公开歌单链接；如果链接失效，也可以粘贴歌曲列表，每行「歌名 - 歌手」。")
                 .font(.system(size: 11))
                 .foregroundColor(Theme.tertiaryText)

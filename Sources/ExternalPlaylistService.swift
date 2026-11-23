@@ -52,7 +52,7 @@ enum PlaylistImportSource: String, CaseIterable, Identifiable {
         case .netease: return "粘贴网易云歌单链接或 ID"
         case .qq: return "粘贴 QQ 音乐歌单链接或 ID"
         case .kugou: return "粘贴酷狗歌单链接 / specialid / collection ID"
-        case .soda: return "粘贴汽水歌单链接，或每行「歌名 - 歌手」"
+        case .soda: return "粘贴汽水歌单分享链接"
         }
     }
 }
@@ -96,7 +96,7 @@ enum ExternalPlaylistService {
         case .kugou:
             return try await fetchKugou(trimmed)
         case .soda:
-            throw PlaylistImportError.unsupported("汽水音乐没有公开的歌单读取接口。请复制歌单里的歌曲，按每行「歌名 - 歌手」粘贴，或粘贴歌曲列表文本。")
+            return try await fetchSoda(trimmed)
         }
     }
 
@@ -219,6 +219,86 @@ enum ExternalPlaylistService {
         }
         let cover = (list.first?["pic"] as? String).flatMap(URL.init(string:))
         return ExternalPlaylist(name: "酷狗歌单", coverURL: cover, tracks: tracks)
+    }
+
+    // MARK: - 汽水音乐
+
+    private static func fetchSoda(_ input: String) async throws -> ExternalPlaylist {
+        guard input.contains("qishui.douyin.com") || input.contains("music.douyin.com/qishui") else {
+            throw PlaylistImportError.unsupported("请粘贴汽水音乐的分享链接，或按每行「歌名 - 歌手」粘贴歌曲列表。")
+        }
+
+        guard let url = URL(string: input.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            throw PlaylistImportError.invalidInput
+        }
+        var request = URLRequest(url: url)
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        let data = try await requestData(request)
+        guard let html = String(data: data, encoding: .utf8) else {
+            throw PlaylistImportError.network("汽水分享页解码失败")
+        }
+        guard let marker = html.range(of: "_ROUTER_DATA = ") else {
+            throw PlaylistImportError.unsupported("这个汽水分享页没有歌单数据，请换一个公开歌单链接。")
+        }
+
+        // _ROUTER_DATA 是一段嵌在分享页里的 JSON，后面还会接脚本代码；
+        // 用花括号配对截出完整 JSON，避免把 JS 尾巴一起丢给 JSONSerialization。
+        let start = marker.upperBound
+        var depth = 0
+        var inString = false
+        var escaped = false
+        var end = start
+        var found = false
+        for index in html.indices[start...] {
+            let ch = html[index]
+            if inString {
+                if escaped { escaped = false }
+                else if ch == "\\" { escaped = true }
+                else if ch == "\"" { inString = false }
+            } else {
+                if ch == "\"" { inString = true }
+                else if ch == "{" { depth += 1 }
+                else if ch == "}" {
+                    depth -= 1
+                    if depth == 0 {
+                        end = html.index(after: index)
+                        found = true
+                        break
+                    }
+                }
+            }
+        }
+        guard found,
+              let json = try? JSONSerialization.jsonObject(with: Data(html[start..<end].utf8)) as? [String: Any],
+              let loader = json["loaderData"] as? [String: Any],
+              let page = loader["playlist_page"] as? [String: Any] else {
+            throw PlaylistImportError.network("汽水歌单数据解析失败")
+        }
+
+        let info = page["playlistInfo"] as? [String: Any]
+        let name = (info?["title"] as? String) ?? "汽水音乐歌单"
+        let medias = (page["medias"] as? [[String: Any]]) ?? []
+        var cover: URL?
+        if let coverInfo = info?["url_cover"] as? [String: Any],
+           let uri = coverInfo["uri"] as? String,
+           let bases = coverInfo["urls"] as? [String],
+           let base = bases.first,
+           let prefix = coverInfo["template_prefix"] as? String {
+            cover = URL(string: base + uri + "~tplv-\(prefix)-crop-center:720:720.jpg")
+        }
+
+        let tracks = medias.compactMap { media -> ExternalTrack? in
+            guard let entity = media["entity"] as? [String: Any],
+                  let track = entity["track"] as? [String: Any],
+                  let title = track["name"] as? String, !title.isEmpty else { return nil }
+            let artists = (track["artists"] as? [[String: Any]])?.compactMap { $0["name"] as? String } ?? []
+            let album = (track["album"] as? [String: Any])?["name"] as? String
+            return ExternalTrack(name: title, artist: artists.joined(separator: " / "), album: album)
+        }
+        guard !tracks.isEmpty else {
+            throw PlaylistImportError.empty("这个汽水歌单里没有读到歌曲，可能是私密歌单或分享页已失效")
+        }
+        return ExternalPlaylist(name: name, coverURL: cover, tracks: tracks)
     }
 
     // MARK: - 工具
