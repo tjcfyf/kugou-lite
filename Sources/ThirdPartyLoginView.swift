@@ -29,10 +29,14 @@ enum ThirdPartyProvider: String, CaseIterable, Identifiable {
         }
     }
 
-    /// 概念版 appid 3116，直接走 QQ/微信官方授权页，不套酷狗 openplat 外壳。
-    /// 外壳页把 QQ 放在 iframe 里，iOS WKWebView 容易丢第三方 Cookie；
-    /// 直连官方页是首方页面，二维码和回调都更稳定。
-    var authURL: URL {
+    /// 默认走酷狗官方 openplat 外壳页；QQ/微信按钮和二维码由酷狗页面自己生成，
+    /// 回调域名使用 kugou.com（不是 www.kugou.com）。
+    var wrapperURL: URL {
+        makeWrapperURL(clienttime: String(Int(Date().timeIntervalSince1970)))
+    }
+
+    /// 备用：直接进 QQ/微信官方授权页，绕过 openplat 里的 iframe。
+    var directURL: URL {
         let clienttime = String(Int(Date().timeIntervalSince1970))
         switch self {
         case .qq:
@@ -40,6 +44,31 @@ enum ThirdPartyProvider: String, CaseIterable, Identifiable {
         case .wechat:
             return wechatURL(clienttime: clienttime)
         }
+    }
+
+    private func makeWrapperURL(clienttime: String) -> URL {
+        let base: String
+        switch self {
+        case .qq:
+            base = "https://openplat-user.kugou.com/qq/"
+        case .wechat:
+            base = "https://openplat-user.kugou.com/weixin/index.php?ktype=0"
+        }
+
+        var components = URLComponents(string: base)
+        var items = components?.queryItems ?? []
+        items.append(contentsOf: [
+            URLQueryItem(name: "appid", value: "3116"),
+            URLQueryItem(name: "clienttime", value: clienttime),
+            URLQueryItem(name: "callback", value: "SonoraThirdLogin"),
+            URLQueryItem(name: "domain", value: "kugou.com"),
+            URLQueryItem(name: "https", value: "1"),
+            URLQueryItem(name: "mid", value: KGApi.shared.mid),
+            URLQueryItem(name: "dfid", value: KGApi.shared.dfid),
+            URLQueryItem(name: "platid", value: "4"),
+        ])
+        components?.queryItems = items
+        return components?.url ?? URL(string: base)!
     }
 
     private func qqURL(clienttime: String) -> URL {
@@ -104,6 +133,8 @@ struct ThirdPartyLoginView: View {
     @State private var loading = true
     @State private var errorMessage = ""
     @State private var showError = false
+    @State private var directMode = false
+    @State private var reloadID = 0
 
     var body: some View {
         NavigationView {
@@ -111,8 +142,9 @@ struct ThirdPartyLoginView: View {
                 Theme.background.ignoresSafeArea()
 
                 ThirdPartyWebView(
-                    url: provider.authURL,
+                    url: directMode ? provider.directURL : provider.wrapperURL,
                     userAgent: provider.userAgent,
+                    reloadID: reloadID,
                     loading: $loading,
                     onLogin: { token, userid, vipToken in
                         onLogin(token, userid, vipToken)
@@ -145,6 +177,15 @@ struct ThirdPartyLoginView: View {
                     Button("取消") { dismiss() }
                         .foregroundColor(Theme.text)
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(directMode ? "酷狗页" : "直连") {
+                        directMode.toggle()
+                        loading = true
+                        reloadID += 1
+                    }
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.secondaryText)
+                }
             }
             .alert(isPresented: $showError) {
                 Alert(
@@ -161,6 +202,7 @@ struct ThirdPartyLoginView: View {
 private struct ThirdPartyWebView: UIViewRepresentable {
     let url: URL
     let userAgent: String
+    let reloadID: Int
     @Binding var loading: Bool
     let onLogin: (String, Int, String?) -> Void
     let onFailure: (String) -> Void
@@ -194,11 +236,17 @@ private struct ThirdPartyWebView: UIViewRepresentable {
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
         context.coordinator.attach(webView)
-        context.coordinator.prepareAndLoad(url)
+        context.coordinator.prepareAndLoad(url, reloadID: reloadID)
         return webView
     }
 
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        // 不要因为 authURL 里的 clienttime 每次刷新就重载页面；
+        // 只有用户点“直连/酷狗页”切换模式时才换页。
+        if context.coordinator.currentReloadID != reloadID {
+            context.coordinator.prepareAndLoad(url, reloadID: reloadID)
+        }
+    }
 
     static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
         coordinator.stop()
@@ -211,6 +259,8 @@ private struct ThirdPartyWebView: UIViewRepresentable {
         private var completed = false
         private var checking = false
         private var failureWorkItem: DispatchWorkItem?
+        private(set) var currentURL: URL?
+        private(set) var currentReloadID = 0
 
         init(parent: ThirdPartyWebView) {
             self.parent = parent
@@ -221,8 +271,14 @@ private struct ThirdPartyWebView: UIViewRepresentable {
         }
 
         /// 先清掉旧的 KuGoo 登录态，避免上次登录的 cookie 让本次直接“成功”。
-        func prepareAndLoad(_ url: URL) {
+        func prepareAndLoad(_ url: URL, reloadID: Int) {
             guard let webView = webView else { return }
+            currentURL = url
+            currentReloadID = reloadID
+            completed = false
+            checking = false
+            stop()
+
             let store = webView.configuration.websiteDataStore.httpCookieStore
             store.getAllCookies { [weak self] cookies in
                 let group = DispatchGroup()
