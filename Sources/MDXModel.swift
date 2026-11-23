@@ -14,5 +14,5 @@ enum MDXModel {
     static let segmentFrames = 256
     static let planeSize = frequencyBins * segmentFrames
     static let inputCount = 4 * planeSize
-    static let bundleName = "MdxNetFast9703"
+    static let bundleName = "MdxNetFast9703_iOS15"
 }

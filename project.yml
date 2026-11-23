@@ -23,7 +23,7 @@ targets:
     platform: iOS
     sources:
       - path: Sources
-      - path: Resources/CoreML/MdxNetFast9703.mlmodelc
+      - path: Resources/CoreML/MdxNetFast9703_iOS15.mlmodelc
         buildPhase: resources
       - path: Vendor/TencentOpenApi_IOS_Bundle.bundle
         buildPhase: resources
