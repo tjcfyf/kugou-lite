@@ -1236,6 +1236,7 @@ struct SectionTitle: View {
 struct ProfileView: View {
     @EnvironmentObject private var auth: AuthStore
     @ObservedObject private var library = LibraryStore.shared
+    @ObservedObject private var importedStore = ImportedPlaylistStore.shared
     private var player: PlayerEngine { PlayerEngine.shared }
     var onOpenPlayer: () -> Void = {}
     @State private var quality: AudioQuality = Preferences.quality
@@ -1246,7 +1247,8 @@ struct ProfileView: View {
     @State private var playlistsLoading = false
     @State private var playlistsMessage = ""
     @State private var selectedPlaylist: CloudPlaylist?
-    @State private var showFavorites = false
+    @State private var selectedImported: ImportedPlaylist?
+    @State private var showImport = false
     @State private var toast = ""
     @State private var sleepText = ""
     @State private var customMinutes = 45
@@ -1256,7 +1258,6 @@ struct ProfileView: View {
         ScrollView {
             VStack(spacing: 18) {
                 accountCard
-                favoritesCard
                 playlistsSection
 
             }
@@ -1267,12 +1268,19 @@ struct ProfileView: View {
         .sheet(isPresented: $showLogin) {
             LoginView().environmentObject(player).environmentObject(auth)
         }
-        .sheet(isPresented: $showFavorites) {
-            LibrarySongsView(kind: .favorites).environmentObject(player)
+        .sheet(isPresented: $showImport) {
+            PlaylistImportView()
         }
         .sheet(item: $selectedPlaylist) { playlist in
             PlaylistDetailSheet(playlist: playlist) { song, list in
                 selectedPlaylist = nil
+                player.play(song, in: list)
+                onOpenPlayer()
+            }
+        }
+        .sheet(item: $selectedImported) { playlist in
+            ImportedPlaylistDetailSheet(playlist: playlist) { song, list in
+                selectedImported = nil
                 player.play(song, in: list)
                 onOpenPlayer()
             }
@@ -1303,45 +1311,14 @@ struct ProfileView: View {
         playlistsMessage = ""
         defer { playlistsLoading = false }
         do {
-            playlists = try await KGService.playlists()
+            let loaded = try await KGService.playlists()
+            // 资料库不再展示「我喜欢」入口，云歌单里同名的旧收藏项也一并过滤，
+            // 避免删了行之后下面又出现一个「我喜欢」卡片。
+            playlists = loaded.filter { $0.name != "我喜欢" }
             if playlists.isEmpty { playlistsMessage = "官方账号里没有读到歌单" }
         } catch {
             playlistsMessage = (error as? LocalizedError)?.errorDescription ?? "歌单同步失败"
         }
-    }
-
-    private var favoritesCard: some View {
-        Button { showFavorites = true } label: {
-            HStack(spacing: 13) {
-                Image(systemName: "heart.fill")
-                    .font(.system(size: 21, weight: .semibold))
-                    .foregroundColor(Theme.accent)
-                    .frame(width: 28)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("我喜欢")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Theme.text)
-                    Text(library.favoritesLoading ? "同步中…" : "\(library.favorites.count) 首")
-                        .font(.system(size: 12))
-                        .foregroundColor(Theme.secondaryText)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Theme.tertiaryText)
-            }
-            .padding(.horizontal, 16)
-            .frame(minHeight: 64)
-            .background(Theme.card.opacity(0.92))
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(Theme.separator.opacity(0.55))
-                    .frame(height: 0.5)
-                    .padding(.leading, 58)
-            }
-        }
-        .buttonStyle(GlassPressButtonStyle())
     }
 
     private var playlistsSection: some View {
@@ -1350,26 +1327,56 @@ struct ProfileView: View {
                 Text("我的歌单")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Theme.text)
-                Text(playlistsLoading ? "同步中…" : "\(playlists.count) 个")
+                Text("\(playlists.count + importedStore.playlists.count) 个")
                     .font(.system(size: 12))
                     .foregroundColor(Theme.secondaryText)
                 Spacer()
+                Button { showImport = true } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("导入")
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .foregroundColor(Theme.accent)
+                    .frame(height: 32)
+                }
+                .buttonStyle(GlassPressButtonStyle())
+
                 if auth.isLoggedIn {
                     Button { Task { await loadPlaylists() } } label: {
-                        Text("同步")
+                        Text(playlistsLoading ? "同步中…" : "同步")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundColor(Theme.accent)
                             .frame(height: 32)
                     }
                     .buttonStyle(GlassPressButtonStyle())
+                    .disabled(playlistsLoading)
                 }
             }
+
             if !auth.isLoggedIn {
-                Text("登录后同步官方云歌单")
-                    .font(.system(size: 13))
-                    .foregroundColor(Theme.secondaryText)
-                    .padding(.vertical, 6)
-            } else if playlistsLoading && playlists.isEmpty {
+                Button { showLogin = true } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "person.crop.circle.badge.plus")
+                            .font(.system(size: 15))
+                            .foregroundColor(Theme.accent)
+                        Text("登录后同步酷狗云歌单")
+                            .font(.system(size: 13))
+                            .foregroundColor(Theme.secondaryText)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Theme.tertiaryText)
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 48)
+                    .appSurface(cornerRadius: 10)
+                }
+                .buttonStyle(GlassPressButtonStyle())
+            }
+
+            if playlistsLoading && playlists.isEmpty && importedStore.playlists.isEmpty {
                 HStack(spacing: 8) {
                     ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
                     Text("正在读取官方歌单…")
@@ -1377,34 +1384,144 @@ struct ProfileView: View {
                         .foregroundColor(Theme.secondaryText)
                 }
                 .padding(.vertical, 8)
-            } else if playlists.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(playlistsMessage.isEmpty ? "还没有读取到歌单" : playlistsMessage)
+            } else if playlists.isEmpty && importedStore.playlists.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(playlistsMessage.isEmpty ? "还没有歌单，点右上角「导入」从网易云、QQ 音乐、酷狗或汽水搬一个过来。" : playlistsMessage)
                         .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
-                    Button("重新同步") { Task { await loadPlaylists() } }
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Theme.accent)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if auth.isLoggedIn {
+                        Button("重新同步") { Task { await loadPlaylists() } }
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(Theme.accent)
+                    }
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .appSurface(cornerRadius: 12)
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 14) {
-                        ForEach(playlists) { playlist in
-                            Button {
-                                selectedPlaylist = playlist
-                            } label: {
-                                PlaylistCard(playlist: playlist)
-                            }
-                            .buttonStyle(GlassPressButtonStyle())
+                VStack(spacing: 0) {
+                    ForEach(importedStore.playlists) { playlist in
+                        importedRow(playlist)
+                        if playlist.id != importedStore.playlists.last?.id || !playlists.isEmpty {
+                            divider
+                        }
+                    }
+                    ForEach(playlists) { playlist in
+                        cloudRow(playlist)
+                        if playlist.id != playlists.last?.id {
+                            divider
                         }
                     }
                 }
+                .appSurface(cornerRadius: 12)
             }
         }
         .padding(.top, 2)
+    }
+
+    private var divider: some View {
+        Divider()
+            .background(Theme.separator.opacity(0.55))
+            .padding(.leading, 78)
+    }
+
+    private func importedRow(_ playlist: ImportedPlaylist) -> some View {
+        Button {
+            selectedImported = playlist
+        } label: {
+            HStack(spacing: 12) {
+                artworkView(url: playlist.coverURL)
+                    .frame(width: 52, height: 52)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(playlist.name)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Theme.text)
+                        .lineLimit(1)
+                    HStack(spacing: 5) {
+                        Text(playlist.source)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(Theme.accent)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                    .fill(Theme.accent.opacity(0.12))
+                            )
+                        Text("\(playlist.songs.count) 首")
+                            .font(.system(size: 12))
+                            .foregroundColor(Theme.secondaryText)
+                    }
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Theme.tertiaryText)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 66)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(GlassPressButtonStyle())
+        .contextMenu {
+            Button(role: .destructive) {
+                importedStore.remove(playlist)
+            } label: {
+                Label("删除导入歌单", systemImage: "trash")
+            }
+        }
+    }
+
+    private func cloudRow(_ playlist: CloudPlaylist) -> some View {
+        Button {
+            selectedPlaylist = playlist
+        } label: {
+            HStack(spacing: 12) {
+                artworkView(url: playlist.cover.flatMap(URL.init(string:)))
+                    .frame(width: 52, height: 52)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(playlist.name)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Theme.text)
+                        .lineLimit(1)
+                    Text("\(playlist.count) 首 · 酷狗云歌单")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.secondaryText)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Theme.tertiaryText)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 66)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(GlassPressButtonStyle())
+    }
+
+    private func artworkView(url: URL?) -> some View {
+        Group {
+            if let url {
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    artworkPlaceholder
+                }
+            } else {
+                artworkPlaceholder
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+    }
+
+    private var artworkPlaceholder: some View {
+        ZStack {
+            Theme.card
+            Image(systemName: "music.note")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundColor(Theme.secondaryText)
+        }
     }
 
     private func loadProfile() async {
@@ -1630,6 +1747,7 @@ private enum LibrarySongSort: String, CaseIterable, Identifiable {
 struct LibrarySongsView: View {
     let kind: LibraryKind
     @ObservedObject private var library = LibraryStore.shared
+    @ObservedObject private var importedStore = ImportedPlaylistStore.shared
     private var player: PlayerEngine { PlayerEngine.shared }
     @Environment(\.dismiss) private var dismiss
     @State private var showClearConfirm = false
@@ -1902,4 +2020,115 @@ private extension Song {
     var favoriteRowID: String { "fav-\(FileHash)" }
     var recentRowID: String { "recent-\(FileHash)" }
     var rowIdentity: String { FileHash }
+}
+
+/// 外部歌单导入后的详情页。没有远端分页，歌曲已经在导入时全部匹配好。
+struct ImportedPlaylistDetailSheet: View {
+    let playlist: ImportedPlaylist
+    let onSelect: (Song, [Song]) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 0) {
+                    ZStack(alignment: .bottomLeading) {
+                        CollectionHero(coverURL: playlist.coverURL ?? playlist.songs.first?.coverURL, height: 280)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(playlist.source.uppercased())
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(Theme.accent)
+                            Text(playlist.name)
+                                .font(.system(size: 26, weight: .bold))
+                                .foregroundColor(Theme.text)
+                                .lineLimit(3)
+                            Text("\(playlist.songs.count) 首 · 导入歌单")
+                                .font(.system(size: 13))
+                                .foregroundColor(Theme.secondaryText)
+                        }
+                        .padding(16)
+                    }
+                    .frame(height: 280)
+
+                    HStack(spacing: 12) {
+                        Button {
+                            guard let first = playlist.songs.first else { return }
+                            dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+                                onSelect(first, playlist.songs)
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "play.fill")
+                                    .font(.system(size: 13, weight: .bold))
+                                Text("播放")
+                                    .font(.system(size: 15, weight: .semibold))
+                            }
+                            .foregroundColor(Theme.onAccent)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(
+                                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                    .fill(Theme.accent)
+                            )
+                        }
+                        .buttonStyle(GlassPressButtonStyle())
+                        .disabled(playlist.songs.isEmpty)
+
+                        Button {
+                            if let first = playlist.songs.first {
+                                let shuffled = playlist.songs.shuffled()
+                                dismiss()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+                                    onSelect(shuffled.first ?? first, shuffled)
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "shuffle")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(Theme.accent)
+                                .frame(width: 48, height: 44)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                        .fill(Theme.card.opacity(0.9))
+                                )
+                        }
+                        .buttonStyle(GlassPressButtonStyle())
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 14)
+
+                    Divider()
+                        .background(Theme.separator.opacity(0.55))
+                        .padding(.horizontal, 16)
+
+                    ForEach(playlist.songs) { song in
+                        Button {
+                            dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+                                onSelect(song, playlist.songs)
+                            }
+                        } label: {
+                            SongRow(song: song, showsMore: false)
+                                .padding(.horizontal, 16)
+                        }
+                        .buttonStyle(GlassPressButtonStyle())
+                    }
+                }
+                .padding(.bottom, 24)
+            }
+            .background(AppBackground())
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("关闭") { dismiss() }
+                        .foregroundColor(Theme.accent)
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
+    }
 }

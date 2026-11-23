@@ -50,7 +50,6 @@ struct RootView: View {
     // 快照收起期间只把播放页隐藏，不立即销毁；否则 SwiftUI 在动画第一帧
     // 同步拆除整页歌词/材质，会阻塞主线程，表现就是只跳几帧的 PPT 式收起。
     @State private var hidePlayerForCollapse = false
-    @State private var isSearching = false
     @AppStorage(Preferences.themeModeKey) private var themeRaw = AppTheme.system.rawValue
     @State private var systemScheme: ColorScheme = UITraitCollection.current.userInterfaceStyle == .dark ? .dark : .light
 
@@ -72,20 +71,25 @@ struct RootView: View {
             ZStack {
                 discoverTab
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .opacity(tab == 1 ? 0 : 1)
-                    .allowsHitTesting(tab != 1)
-                    .zIndex(tab != 1 ? 1 : 0)
+                    .opacity(tab == 0 ? 1 : 0)
+                    .allowsHitTesting(tab == 0)
+                    .zIndex(tab == 0 ? 1 : 0)
 
                 profileTab
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .opacity(tab == 1 ? 1 : 0)
                     .allowsHitTesting(tab == 1)
                     .zIndex(tab == 1 ? 1 : 0)
+
+                searchTab
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .opacity(tab == 2 ? 1 : 0)
+                    .allowsHitTesting(tab == 2)
+                    .zIndex(tab == 2 ? 1 : 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(M3Motion.expressive, value: tab)
 
-            AppleMusicBottomBar(tab: shellTabBinding, onOpenPlayer: { openPlayer() })
+            AppleMusicBottomBar(tab: $tab, onOpenPlayer: { openPlayer() })
                 .zIndex(10)
 
             // 播放页直接作为 Root 的覆盖层，不走 UIKit fullScreenCover。
@@ -125,12 +129,9 @@ struct RootView: View {
                 .frame(width: 1, height: 1)
         )
         .onAppear { applyInterfaceStyle() }
-        .onChange(of: isSearching) { value in
-            if value {
-                if tab == 0 { tab = 2 }
-            } else {
+        .onChange(of: tab) { value in
+            if value != 2 {
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                if tab == 2 { tab = 0 }
             }
         }
         .onChange(of: themeRaw) { _ in applyInterfaceStyle() }
@@ -161,18 +162,6 @@ struct RootView: View {
                 window.backgroundColor = UIColor(named: "Background")
             }
         }
-    }
-
-    /// tab 和搜索状态在同一个 Binding 里落地，点「搜索」不会先闪一下
-    /// 「现在就听」再切进搜索页。
-    private var shellTabBinding: Binding<Int> {
-        Binding(
-            get: { tab },
-            set: { value in
-                tab = value
-                isSearching = (value == 2)
-            }
-        )
     }
 
     /// 播放页展开：Apple Music 式整页 sheet，从屏幕底部滑上来。
@@ -294,7 +283,7 @@ struct RootView: View {
     }
 
     private var discoverTab: some View {
-        DiscoverTab(isSearching: $isSearching, onOpenPlayer: { openPlayer() })
+        DiscoverTab(isSearching: .constant(false), onOpenPlayer: { openPlayer() })
             .background(AppBackground().ignoresSafeArea())
     }
 
@@ -322,6 +311,11 @@ struct RootView: View {
                 .environmentObject(auth)
         }
     }
+
+    private var searchTab: some View {
+        SearchTab(onOpenPlayer: { openPlayer() })
+            .background(AppBackground().ignoresSafeArea())
+    }
 }
 
 
@@ -348,9 +342,27 @@ private struct DiscoverTab: View {
                 },
                 onOpenPlayer: onOpenPlayer
             )
-            .navigationTitle(isSearching ? "搜索" : "现在就听")
+            .navigationTitle("现在就听")
             .navigationBarTitleDisplayMode(.large)
             .task { await recommendModel.load() }
+        }
+        .navigationViewStyle(.stack)
+    }
+}
+
+
+private struct SearchTab: View {
+    let onOpenPlayer: () -> Void
+    @StateObject private var searchModel = SearchModel()
+
+    var body: some View {
+        NavigationView {
+            SearchPageView(searchModel: searchModel) { song in
+                PlayerEngine.shared.play(song, in: searchModel.songs)
+                onOpenPlayer()
+            }
+            .navigationTitle("搜索")
+            .navigationBarTitleDisplayMode(.large)
         }
         .navigationViewStyle(.stack)
     }

@@ -1,6 +1,6 @@
 import Foundation
 
-struct Song: Identifiable, Equatable {
+struct Song: Identifiable, Equatable, Codable {
     let FileHash: String
     let SongName: String
     let SingerName: String
