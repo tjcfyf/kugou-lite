@@ -208,7 +208,9 @@ extension KGLogin {
             throw KGError.server("登录密钥加密失败")
         }
 
-        let dev = "android\(clientTime)"
+        // 概念版 f.c(appid, dev, clientver, clienttime_ms) 生成 key；
+        // 不是 Dart 里的 appid+salt+clientver 那套。
+        let dev = KGApi.shared.dev
         guard let t1 = KGLoginCrypto.aesHex("|\(clientTime)",
                                            key: KGLoginCrypto.t1Key,
                                            iv: KGLoginCrypto.t1IV),
@@ -229,7 +231,9 @@ extension KGLogin {
         // UserLogin$g 的 h0.c 最终由 f.e(map) 序列化成 JSON body，
         // 再由 ParamGenerator 生成 query 与 signature。这里按它的字段集补齐，
         // 不再把 params/openid 放到 query（query-only 会被判 20008 参数非法）。
-        let loginKey = KGLoginCrypto.loginKey(clientTime: clientTime, clientver: "11621")
+        let loginKey = KGLoginCrypto.loginKey(clientTime: clientTime,
+                                               clientver: "11621",
+                                               dev: dev)
         let body: [String: Any] = [
             "dfid": KGApi.shared.dfid,
             "plat": 1,
