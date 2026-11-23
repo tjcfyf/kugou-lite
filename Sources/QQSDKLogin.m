@@ -16,10 +16,18 @@
 - (BOOL)isQQInstalled { return [TencentOAuth iphoneQQInstalled]; }
 - (void)startLogin:(QQSDKLoginCompletion)completion {
     self.completion = completion;
+
+    // 3.5.7 起 SDK 要求先同意隐私授权，否则所有接口（包括初始化/拉起 QQ）都会被静默拦截。
+    [TencentOAuth setIsUserAgreedAuthorization:YES];
+
     self.oauth = [[TencentOAuth alloc] initWithAppId:@"205141" andDelegate:(id<TencentSessionDelegate>)self];
     self.oauth.redirectURI = @"tencent205141://tauth.qq.com/";
     self.oauth.authMode = kAuthModeClientSideToken;
-    [self.oauth authorize:@[@"get_user_info"]];
+
+    BOOL started = [self.oauth authorize:@[@"get_user_info"]];
+    if (!started) {
+        [self finish:nil openid:nil error:@"QQ SDK 没有成功发起授权，请确认已安装手机 QQ"];
+    }
 }
 + (BOOL)handleOpenURL:(NSURL *)url { return [TencentOAuth HandleOpenURL:url]; }
 - (void)finish:(NSString *)token openid:(NSString *)openid error:(NSString *)error {

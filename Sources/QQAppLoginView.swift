@@ -70,6 +70,12 @@ struct QQAppLoginView: View {
 
     private func start() {
         status = "正在打开 QQ…"
+        let watchdog = status
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) {
+            if status == watchdog {
+                status = "QQ 没有响应。请确认已安装手机 QQ，再点一次重试"
+            }
+        }
         QQSDKLogin.shared().start { accessToken, openid, error in
             DispatchQueue.main.async {
                 if let error, !error.isEmpty {
