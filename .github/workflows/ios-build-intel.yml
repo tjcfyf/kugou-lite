@@ -3,6 +3,9 @@ name: iOS Build Intel
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-15-intel
@@ -78,3 +81,15 @@ jobs:
         with:
           name: unsigned-ipa
           path: KugouLite-iOS15-unsigned.ipa
+
+      - name: Publish IPA to release
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.128
+          name: Sonora 1.0.128
+          body: |
+            Sonora 1.0.128 unsigned IPA
+            - 评论楼中楼回复
+            - 本地 UVR-MDX-NET-Voc_FT 双轨分离（Core ML，iOS15 可用）
+          files: KugouLite-iOS15-unsigned.ipa
