@@ -375,7 +375,7 @@ enum ExternalPlaylistService {
         let lines = text.components(separatedBy: .newlines).filter {
             !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
-        return lines.count >= 2 && !text.hasPrefix("http")
+        return lines.count >= 2 && !text.lowercased().contains("http")
     }
 
     private static func parseTrackList(_ text: String) -> [ExternalTrack] {

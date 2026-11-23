@@ -214,11 +214,13 @@ struct PlaylistImportView: View {
             guard !songs.isEmpty else {
                 throw PlaylistImportError.empty("没有一首匹配到酷狗曲库，请换一个歌单或检查歌曲列表格式")
             }
+            var seen = Set<String>()
+            let uniqueSongs = songs.filter { seen.insert($0.id).inserted }
             let playlist = ImportedPlaylist(
                 name: external.name,
                 source: source.shortTitle,
                 coverURL: external.coverURL ?? songs.first?.coverURL,
-                songs: songs
+                songs: uniqueSongs
             )
             ImportedPlaylistStore.shared.add(playlist)
             onImported(playlist)
