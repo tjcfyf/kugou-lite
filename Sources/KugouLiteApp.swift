@@ -8,9 +8,14 @@ struct KugouLiteApp: App {
         UITableView.appearance().separatorColor = .clear
         UIScrollView.appearance().backgroundColor = .clear
 
-        // 导航栏改成透明，不再用系统不透明黑底；页面自己铺专辑色背景。
+        // 导航栏改成 Apple Music 式的磨砂玻璃：保留背景模糊，但去掉
+        // 系统默认的不透明黑底和分割线，滚动时内容从玻璃下面经过。
         let navigationAppearance = UINavigationBarAppearance()
-        navigationAppearance.configureWithTransparentBackground()
+        // 先用系统默认背景把 material 的渲染路径打开，再把底色清空，
+        // 只保留 blur；configureWithTransparentBackground 在 iOS 15 上
+        // 会把 large title 的 scrollEdge 背景一起清掉，滚动时标题会压在卡片上。
+        navigationAppearance.configureWithDefaultBackground()
+        navigationAppearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
         navigationAppearance.backgroundColor = .clear
         navigationAppearance.shadowColor = .clear
         UINavigationBar.appearance().standardAppearance = navigationAppearance
@@ -80,7 +85,7 @@ struct RootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(M3Motion.expressive, value: tab)
 
-            AppleMusicBottomBar(tab: $tab, onOpenPlayer: { openPlayer() })
+            AppleMusicBottomBar(tab: shellTabBinding, onOpenPlayer: { openPlayer() })
                 .zIndex(10)
 
             // 播放页直接作为 Root 的覆盖层，不走 UIKit fullScreenCover。
@@ -120,11 +125,8 @@ struct RootView: View {
                 .frame(width: 1, height: 1)
         )
         .onAppear { applyInterfaceStyle() }
-        .onChange(of: tab) { value in
-            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            isSearching = (value == 2)
-        }
         .onChange(of: isSearching) { value in
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             if value, tab == 0 { tab = 2 }
             if !value, tab == 2 { tab = 0 }
         }
@@ -156,6 +158,18 @@ struct RootView: View {
                 window.backgroundColor = UIColor(named: "Background")
             }
         }
+    }
+
+    /// tab 和搜索状态在同一个 Binding 里落地，点「搜索」不会先闪一下
+    /// 「现在就听」再切进搜索页。
+    private var shellTabBinding: Binding<Int> {
+        Binding(
+            get: { tab },
+            set: { value in
+                tab = value
+                isSearching = (value == 2)
+            }
+        )
     }
 
     /// 播放页展开：Apple Music 式整页 sheet，从屏幕底部滑上来。

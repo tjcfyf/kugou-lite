@@ -73,6 +73,15 @@ struct RecommendView: View {
         .onChange(of: searchModel.query) { _ in
             searchModel.schedule()
         }
+        .onChange(of: isSearching) { value in
+            if value {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                    searchFocused = true
+                }
+            } else {
+                searchFocused = false
+            }
+        }
         .sheet(item: $sheetTarget) { target in
             switch target {
             case .playlist(let playlist):
@@ -118,25 +127,21 @@ struct RecommendView: View {
 
             Spacer(minLength: 8)
 
-            Button(action: toggleSearch) {
-                ZStack {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(Theme.accent)
-                        .opacity(isSearching ? 0 : 1)
-                        .scaleEffect(isSearching ? 0.82 : 1)
+            // 首页不再放放大镜：搜索已经是独立底栏 tab。
+            // 搜索页保留「取消」，点它回到「现在就听」。
+            if isSearching {
+                Button {
+                    endSearch()
+                } label: {
                     Text("取消")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(Theme.accent)
-                        .opacity(isSearching ? 1 : 0)
-                        .scaleEffect(isSearching ? 1 : 0.92)
+                        .frame(width: 48, height: 44)
+                        .contentShape(Rectangle())
                 }
-                .frame(width: 48, height: 44)
-                .contentShape(Rectangle())
-                .animation(.easeInOut(duration: 0.24), value: isSearching)
+                .buttonStyle(GlassPressButtonStyle())
+                .accessibilityLabel("关闭搜索")
             }
-            .buttonStyle(GlassPressButtonStyle())
-            .accessibilityLabel(isSearching ? "关闭搜索" : "搜索")
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
@@ -455,16 +460,12 @@ struct RecommendView: View {
         .padding(.top, 10)
     }
 
-    private func toggleSearch() {
-        withAnimation(.easeInOut(duration: 0.22)) {
-            isSearching.toggle()
-        }
-        if isSearching {
-            DispatchQueue.main.async { searchFocused = true }
-        } else {
-            searchFocused = false
-            searchModel.query = ""
-            historyWords = Preferences.searchHistory
+    private func endSearch() {
+        searchFocused = false
+        searchModel.query = ""
+        historyWords = Preferences.searchHistory
+        withAnimation(.easeInOut(duration: 0.20)) {
+            isSearching = false
         }
     }
 }

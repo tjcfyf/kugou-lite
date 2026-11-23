@@ -339,14 +339,14 @@ struct NowPlayingView: View {
                 // Apple Music 式的原生磨砂：深色下用深色 ultra thin material，
                 // 保留专辑图色相；浅色下用浅色 material。加一层极轻的压暗，
                 // 保证白色标题/控制按钮在亮色封面上也能读。
-                if !isPanelMoving {
-                    NativeFrostedGlass(style: colorScheme == .dark ? .systemUltraThinMaterialDark : .systemUltraThinMaterialLight)
-                        .frame(width: geo.size.width, height: geo.size.height)
-                    Color.black
-                        .opacity(colorScheme == .dark ? 0.22 : 0.05)
-                        .frame(width: geo.size.width, height: geo.size.height)
-                        .allowsHitTesting(false)
-                }
+                // 磨砂从 sheet 第一帧就存在。之前用 isPanelMoving 关掉，
+                // 结果上滑的前 0.5 秒会露出清晰专辑图，和 Apple Music 的观感不符。
+                NativeFrostedGlass(style: colorScheme == .dark ? .systemUltraThinMaterialDark : .systemUltraThinMaterialLight)
+                    .frame(width: geo.size.width, height: geo.size.height)
+                Color.black
+                    .opacity(colorScheme == .dark ? 0.22 : 0.05)
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .allowsHitTesting(false)
 
                 if showLyrics && lyricPhotoMode, let url = player.current?.coverURL {
                     CoverImage(url: url, size: max(geo.size.width, geo.size.height), radius: 0, showsBorder: false)
