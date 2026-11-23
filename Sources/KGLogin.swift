@@ -235,6 +235,7 @@ extension KGLogin {
             "t2": t2,
             "t3": "MCwwLDAsMCwwLDAsMCwwLDA=",
             "openid": openid,
+            "third_appid": "101706348",
             "params": params,
             "pk": pk,
         ]
@@ -251,6 +252,9 @@ extension KGLogin {
                 "t_appid": "3116",
                 "t_clientver": "10597",
                 "srcappid": "2919",
+                "third_appid": "101706348",
+                "partnerid": "1",
+                "force_bind": "1",
             ],
             body: body,
             headers: [

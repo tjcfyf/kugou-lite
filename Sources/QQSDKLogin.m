@@ -20,8 +20,8 @@
     // 3.5.7 起 SDK 要求先同意隐私授权，否则所有接口（包括初始化/拉起 QQ）都会被静默拦截。
     [TencentOAuth setIsUserAgreedAuthorization:YES];
 
-    self.oauth = [[TencentOAuth alloc] initWithAppId:@"205141" andDelegate:(id<TencentSessionDelegate>)self];
-    self.oauth.redirectURI = @"tencent205141://tauth.qq.com/";
+    self.oauth = [[TencentOAuth alloc] initWithAppId:@"101706348" andDelegate:(id<TencentSessionDelegate>)self];
+    self.oauth.redirectURI = @"tencent101706348://tauth.qq.com/";
     self.oauth.authMode = kAuthModeClientSideToken;
 
     BOOL started = [self.oauth authorize:@[@"get_user_info"]];
