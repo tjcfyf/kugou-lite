@@ -70,25 +70,20 @@ struct QQAppLoginView: View {
 
     private func start() {
         status = "正在打开 QQ…"
-        QQSDKLogin.shared().start { accessToken, openid, error in
-            DispatchQueue.main.async {
-                if let error, !error.isEmpty {
-                    status = error
-                    onFailure(error)
-                    return
-                }
-                guard let accessToken, !accessToken.isEmpty,
-                      let openid, !openid.isEmpty else {
-                    let message = "QQ 没有返回 access_token 或 openid"
-                    status = message
-                    onFailure(message)
-                    return
-                }
-
+        QQAppLoginSession.shared.start { result in
+            switch result {
+            case .failure(let error):
+                let message = (error as? LocalizedError)?.errorDescription ?? "QQ 授权失败"
+                status = message
+                onFailure(message)
+            case .success(let auth):
                 status = "正在换登录态…"
                 Task {
                     do {
-                        let result = try await KGLogin.loginByOpenPlat(accessToken: accessToken, openid: openid)
+                        let result = try await KGLogin.loginByOpenPlat(
+                            accessToken: auth.accessToken,
+                            openid: auth.openid
+                        )
                         await MainActor.run {
                             onLogin(result.token, result.userid, result.vipToken)
                         }
