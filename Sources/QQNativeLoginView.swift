@@ -299,7 +299,7 @@ final class QQNativeLoginModel: ObservableObject {
             return nil
         }
         let code = ns.substring(with: match.range(at: 1))
-        let rawURL = ns.substring(with: match.range(at: 3))
+        let rawURL = ns.substring(with: match.range(at: 2))
             .replacingOccurrences(of: "&amp;", with: "&")
 
         switch code {
@@ -329,18 +329,29 @@ final class QQNativeLoginModel: ObservableObject {
         net.delegate.stopAtKugouCallback = false
         _ = try await net.get(url)
 
+        let callbackBase = callbackURL(code: nil)
         var authorize = URLComponents(string: "https://graph.qq.com/oauth2.0/authorize")!
         authorize.queryItems = [
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "client_id", value: "205141"),
-            URLQueryItem(name: "redirect_uri", value: callbackURL(code: nil).absoluteString),
+            URLQueryItem(name: "redirect_uri", value: callbackBase.absoluteString),
             URLQueryItem(name: "scope", value: "get_user_info"),
             URLQueryItem(name: "state", value: UUID().uuidString.replacingOccurrences(of: "-", with: "")),
         ]
 
         net.delegate.resetCapturedCode()
         net.delegate.stopAtKugouCallback = true
-        let (authorizeData, authorizeResponse) = try await net.get(authorize.url!)
+        var authorizeData = Data()
+        var authorizeResponse: URLResponse? = nil
+        do {
+            let result = try await net.get(authorize.url!)
+            authorizeData = result.0
+            authorizeResponse = result.1
+        } catch {
+            // 在 qq_callback 处取消重定向时，URLSession 可能抛取消错误；
+            // 只要已经抓到 code 就继续，不能把成功当成失败。
+            if net.delegate.capturedCode == nil { throw error }
+        }
 
         var code = net.delegate.capturedCode
         if code == nil {
@@ -352,7 +363,7 @@ final class QQNativeLoginModel: ObservableObject {
 
         status = "QQ 授权成功，正在同步酷狗账号…"
         net.delegate.stopAtKugouCallback = false
-        let callback = callbackURL(code: code)
+        let callback = URL(string: callbackBase.absoluteString + "&code=\(code)")!
         _ = try await net.get(callback)
 
         // 酷狗 qq_callback 可能 302 到 cross.kugou.com/callmsg，等一拍再读 Cookie。
@@ -391,8 +402,8 @@ final class QQNativeLoginModel: ObservableObject {
         return components.url!
     }
 
-    private func extractCode(from data: Data, response: URLResponse) -> String? {
-        if let url = response.url,
+    private func extractCode(from data: Data, response: URLResponse?) -> String? {
+        if let url = response?.url,
            let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
            let code = components.queryItems?.first(where: { $0.name == "code" })?.value,
            !code.isEmpty {
