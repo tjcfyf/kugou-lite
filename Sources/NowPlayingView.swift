@@ -1146,7 +1146,7 @@ struct KaraokeSheet: View {
         case .centerChannel:
             return "没有走 AI：官方双轨和本地模型都不可用，实际用立体声中置声道估计；鼓点和居中低频会明显保留。"
         case .aiModel:
-            return "本地 UVR-MDX-Net（UVR-MDX-NET-Voc_FT）离线分离，和电脑端 UVR 同款模型；第一次处理当前歌曲需要几十秒到几分钟，结果会缓存。"
+            return "本地 UVR-MDX-Net（UVR_MDXNET_9703 快速版）离线分离，和电脑端 UVR 同款模型；第一次处理当前歌曲约 20–30 秒，结果会缓存。"
         case .unavailable:
             return player.karaokeEnabled
                 ? "正在请求官方双轨；取不到时会自动尝试 AI 本地分离。"

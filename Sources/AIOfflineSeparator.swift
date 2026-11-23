@@ -1,12 +1,12 @@
 import AVFoundation
 import Foundation
 
-/// 本地 UVR-MDX-NET-Voc_FT 离线分离器。
+/// 本地 UVR MDX 离线分离器。
 ///
-/// 与旧版 4.9 MB 实时 MSS 不同，这个模型是电脑端 UVR/MDX-Net 同款
-/// `UVR-MDX-NET-Voc_FT`（6144 点 STFT、256 帧窗口）。代价是必须把整首歌
-/// 预先分离并缓存；第一次处理一首 3–4 分钟的歌通常需要几十秒到几分钟，
-/// 之后直接播放缓存的双轨 WAV，不再重复推理。
+/// 当前模型是 `UVR_MDXNET_1_9703` 的 2048-bin Core ML 版：
+/// 4096 点 STFT / hop 1024 / 256 帧，输入 `[1,4,2048,256]`。
+/// 相比 Voc_FT 的 3072-bin，计算量和内存都接近减半，
+/// iPhone 12 上整首歌的目标是 20–30 秒；第一次处理后会缓存双轨。
 final class AIOfflineSeparator {
     static let shared = AIOfflineSeparator()
 
@@ -25,14 +25,7 @@ final class AIOfflineSeparator {
 
     var isModelLoaded: Bool { engine != nil }
     var engineName: String {
-        if engine is MDXCoreMLRunner { return "UVR-MDX-Net · Core ML" }
-        if engine is MDXRunner { return "UVR-MDX-Net · XNNPACK" }
-        return "未加载"
-    }
-
-    var modelURL: URL? {
-        Bundle.main.url(forResource: "mdx-voc-ft", withExtension: "tflite")
-            ?? Bundle.main.url(forResource: "mdx-voc-ft", withExtension: "tflite", subdirectory: "Resources")
+        engine is MDXCoreMLRunner ? "UVR_MDXNET_9703 · Core ML" : "未加载"
     }
 
     func prepareModelAsync() async -> Bool {
@@ -46,20 +39,13 @@ final class AIOfflineSeparator {
 
     private func loadModel() -> Bool {
         if engine != nil { return true }
-        // 优先 Core ML：iPhone 12 的 Neural Engine / GPU 比 TFLite CPU 快得多，
-        // 而且这个模型就是从同一份 UVR-MDX-NET-Voc_FT 转出来的 iOS 15 CoreML5。
         if let coreml = MDXCoreMLRunner() {
             engine = coreml
             lastError = nil
             return true
         }
-        guard let url = modelURL, let tflite = MDXRunner(path: url.path) else {
-            lastError = "MDX 模型文件缺失或张量形状不匹配"
-            return false
-        }
-        engine = tflite
-        lastError = nil
-        return true
+        lastError = "Core ML 模型加载失败（\(MDXModel.bundleName)）"
+        return false
     }
 
     /// 取缓存或执行一次完整分离。progress 会在后台线程调用，调用方自行切主线程。
@@ -72,7 +58,8 @@ final class AIOfflineSeparator {
                     let playback = try self.prepareOnQueue(song: song, localAudio: local, progress: progress)
                     DispatchQueue.main.async { continuation.resume(returning: playback) }
                 } catch {
-                    self.lastError = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+                    let detail = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+                    self.lastError = detail
                     DispatchQueue.main.async { continuation.resume(throwing: error) }
                 }
             }
@@ -97,27 +84,51 @@ final class AIOfflineSeparator {
         progress(0.06, "解码完成，准备分离")
 
         guard let engine else { throw Failure.model }
-        let stems = try MDXSeparator.separate(left: decoded.left, right: decoded.right,
-                                              model: engine, progress: progress)
-        progress(0.96, "写入双轨")
-        try writeWav(left: stems.instrumentalLeft, right: stems.instrumentalRight, gain: 1, to: instURL)
-        try writeWav(left: stems.vocalLeft, right: stems.vocalRight, gain: 1, to: vocalURL)
-        progress(1, "分离完成")
+        progress(0.08, "分离中 0/0")
+        try MDXSeparator.separateToWAV(left: decoded.left, right: decoded.right,
+                                       model: engine, instrumentalURL: instURL, vocalURL: vocalURL,
+                                       progress: progress)
+        progress(0.98, "准备双轨播放")
         return try makeComposition(vocalURL: vocalURL, instrumentalURL: instURL)
     }
 
     private func localAudio(sourceURL: URL, song: Song) async throws -> URL {
         if sourceURL.isFileURL { return sourceURL }
         let dir = try audioCacheDirectory()
-        let target = dir.appendingPathComponent(safeName(song.FileHash) + ".audio")
+        let ext = audioExtension(for: sourceURL)
+        let target = dir.appendingPathComponent(safeName(song.FileHash) + "." + ext)
         if FileManager.default.fileExists(atPath: target.path),
-           (try? FileManager.default.attributesOfItem(atPath: target.path)[.size] as? NSNumber)?.intValue ?? 0 > 44 {
+           (try? FileManager.default.attributesOfItem(atPath: target.path)[.size] as? NSNumber)?.intValue ?? 0 > 65_536,
+           !AVURLAsset(url: target).tracks(withMediaType: .audio).isEmpty {
             return target
         }
-        let (temporary, _) = try await URLSession.shared.download(from: sourceURL)
+        try? FileManager.default.removeItem(at: target)
+
+        var request = URLRequest(url: sourceURL)
+        request.timeoutInterval = 45
+        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15",
+                         forHTTPHeaderField: "User-Agent")
+        request.setValue("https://www.kugou.com/", forHTTPHeaderField: "Referer")
+        let (temporary, response) = try await URLSession.shared.download(for: request)
+        guard let http = response as? HTTPURLResponse,
+              (200...299).contains(http.statusCode) else {
+            throw Failure.download("音频下载失败（HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1)）")
+        }
+        let size = (try? FileManager.default.attributesOfItem(atPath: temporary.path)[.size] as? NSNumber)?.intValue ?? 0
+        guard size > 65_536 else { throw Failure.download("音频下载不完整（\(size) 字节）") }
+        let asset = AVURLAsset(url: temporary)
+        guard asset.tracks(withMediaType: .audio).first != nil else {
+            throw Failure.download("下载到的文件不是可解码音频")
+        }
         try? FileManager.default.removeItem(at: target)
         try FileManager.default.moveItem(at: temporary, to: target)
         return target
+    }
+
+    private func audioExtension(for url: URL) -> String {
+        let ext = url.pathExtension.lowercased()
+        if ["mp3", "m4a", "aac", "flac", "wav", "ogg", "opus"].contains(ext) { return ext }
+        return "mp3"
     }
 
     private func makeComposition(vocalURL: URL, instrumentalURL: URL) throws -> Playback {
@@ -186,36 +197,9 @@ final class AIOfflineSeparator {
                 right.append(floatPointer[2 * i + 1])
             }
         }
-        if reader.status == .failed { throw reader.error ?? Failure.decode }
+        if reader.status == .failed { throw Failure.decode }
         guard !left.isEmpty else { throw MDXSeparator.Failure.emptyAudio }
         return (left, right)
-    }
-
-    private func writeWav(left: [Float], right: [Float], gain: Float, to url: URL) throws {
-        let fm = FileManager.default
-        try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let part = url.appendingPathExtension("part")
-        try? fm.removeItem(at: part)
-        guard fm.createFile(atPath: part.path, contents: nil) else { throw Failure.write }
-        let handle = try FileHandle(forWritingTo: part)
-        do {
-            try handle.write(contentsOf: Data(StereoWav.header(frames: left.count,
-                                                               sampleRate: Int(MDXSeparator.sampleRate))))
-            var start = 0
-            while start < left.count {
-                let end = min(start + 65_536, left.count)
-                try handle.write(contentsOf: Data(StereoWav.pcm16(left: left, right: right,
-                                                                  range: start..<end, gain: gain)))
-                start = end
-            }
-            try handle.close()
-        } catch {
-            try? handle.close()
-            try? fm.removeItem(at: part)
-            throw error
-        }
-        try? fm.removeItem(at: url)
-        try fm.moveItem(at: part, to: url)
     }
 
     private func isComplete(_ url: URL) -> Bool {
@@ -263,14 +247,14 @@ final class AIOfflineSeparator {
         case model
         case audioTrack
         case decode
-        case write
+        case download(String)
 
         var errorDescription: String? {
             switch self {
             case .model: return "MDX 模型未加载"
             case .audioTrack: return "缓存双轨缺少音轨"
             case .decode: return "音频解码失败"
-            case .write: return "双轨写入失败"
+            case .download(let detail): return detail
             }
         }
     }

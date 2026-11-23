@@ -1,17 +1,9 @@
 import Foundation
 import TensorFlowLiteC
 
-/// UVR-MDX-NET-Voc_FT 的 TFLite 封装。
-/// 输入/输出都是 float32 `[1, 4, 3072, 256]`，planes 顺序
-/// `[L-real, L-imag, R-real, R-imag]`，44.1 kHz / 6144 点 FFT / hop 1024。
-/// 只跑 CPU + XNNPACK；MDX 全是卷积和矩阵乘，XNNPACK 已足够，
-/// 且 iOS 15 的 TFLite Metal delegate 对这个图并不稳定。
-protocol MDXEngine {
-    func run(input: [Float], output: inout [Float]) -> Bool
-}
-
+/// MDX 的 TFLite 后备封装。当前包不再内置 TFLite 权重，只保留代码路径；
+/// 主要运行的是 2048-bin 的 Core ML 快速模型。
 final class MDXRunner: MDXEngine {
-    static let inputCount = 1 * 4 * 3072 * 256
 
     private var model: OpaquePointer?
     private var options: OpaquePointer?
@@ -46,7 +38,7 @@ final class MDXRunner: MDXEngine {
         for d in 0..<Int(TfLiteTensorNumDims(input)) { inCount *= Int(TfLiteTensorDim(input, Int32(d))) }
         var outCount = 1
         for d in 0..<Int(TfLiteTensorNumDims(output)) { outCount *= Int(TfLiteTensorDim(output, Int32(d))) }
-        guard inCount == Self.inputCount, outCount == Self.inputCount else { return nil }
+        guard inCount == MDXModel.inputCount, outCount == MDXModel.inputCount else { return nil }
     }
 
     deinit {
@@ -58,11 +50,11 @@ final class MDXRunner: MDXEngine {
 
     func run(input: [Float], output: inout [Float]) -> Bool {
         guard let interpreter,
-              input.count == Self.inputCount,
-              output.count == Self.inputCount,
+              input.count == MDXModel.inputCount,
+              output.count == MDXModel.inputCount,
               let inputTensor = TfLiteInterpreterGetInputTensor(interpreter, 0) else { return false }
 
-        let bytes = Self.inputCount * MemoryLayout<Float>.size
+        let bytes = MDXModel.inputCount * MemoryLayout<Float>.size
         input.withUnsafeBytes { raw in
             _ = TfLiteTensorCopyFromBuffer(inputTensor, raw.baseAddress, bytes)
         }

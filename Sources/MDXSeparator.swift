@@ -1,15 +1,18 @@
 import Accelerate
 import Foundation
 
-/// UVR-MDX-NET-Voc_FT 的 STFT → 模型 → 互补掩码 → iSTFT 流程。
-/// 和电脑版 UVR/MDX-Net 使用同一个 6144 点 STFT / hop 1024 / 256 帧窗口；
-/// 模型只预测人声频谱，伴奏用立体声联动的互补掩码从原频谱重建。
+/// UVR_MDXNET_1_9703 的 STFT → 模型 → 互补掩码 → iSTFT 流程。
+/// 4096 点 STFT / hop 1024 / 256 帧窗口；模型只预测人声频谱，
+/// 伴奏用立体声联动的互补掩码从原频谱重建。
+///
+/// 结果直接流式写两条 WAV，不再在内存里额外保留 4 条整首歌的 Float 数组。
+/// 这是 iOS 上最容易 OOM 的地方，也是 9703 能把内存压下来的关键。
 enum MDXSeparator {
-    static let sampleRate: Double = 44_100
-    static let fftSize = 6_144
-    static let frequencyBins = 3_072
-    static let hop = 1_024
-    static let segmentFrames = 256
+    static let sampleRate = MDXModel.sampleRate
+    static let fftSize = MDXModel.fftSize
+    static let frequencyBins = MDXModel.frequencyBins
+    static let hop = MDXModel.hop
+    static let segmentFrames = MDXModel.segmentFrames
     static let chunkOverlap: Double = 0.25
     static let instrumentalGainDB: Float = 1.5
 
@@ -18,6 +21,7 @@ enum MDXSeparator {
         case transform
         case nonFiniteOutput
         case modelFailed
+        case write
 
         var errorDescription: String? {
             switch self {
@@ -25,20 +29,15 @@ enum MDXSeparator {
             case .transform: return "FFT 初始化失败"
             case .nonFiniteOutput: return "模型输出了无效数据"
             case .modelFailed: return "MDX 模型推理失败"
+            case .write: return "双轨写入失败"
             }
         }
     }
 
-    struct Stems {
-        let instrumentalLeft: [Float]
-        let instrumentalRight: [Float]
-        let vocalLeft: [Float]
-        let vocalRight: [Float]
-    }
-
-    /// 只做分离，不写文件。progress 的第一个参数是 0...1，第二个参数是给 UI 的短文案。
-    static func separate(left: [Float], right: [Float], model: MDXEngine,
-                         progress: (Double, String) -> Void) throws -> Stems {
+    /// 只做分离并写文件，不返回整首歌的采样数组。progress 为 0...1。
+    static func separateToWAV(left: [Float], right: [Float], model: MDXEngine,
+                              instrumentalURL: URL, vocalURL: URL,
+                              progress: (Double, String) -> Void) throws {
         guard !left.isEmpty, left.count == right.count else { throw Failure.emptyAudio }
 
         let window = hannWindowPeriodic(fftSize)
@@ -48,17 +47,17 @@ enum MDXSeparator {
         let totalFrames = 1 + (paddedLength - fftSize) / hop
         let chunkStride = max(Int(Double(segmentFrames) * (1 - chunkOverlap)), 1)
         let totalChunks = max(Int(ceil(Double(max(totalFrames - segmentFrames, 0)) / Double(chunkStride))), 1)
+        let planeSize = MDXModel.planeSize
 
         var accumLeft = [Float](repeating: 0, count: paddedLength)
         var accumRight = [Float](repeating: 0, count: paddedLength)
         var weightSum = [Float](repeating: 0, count: paddedLength)
-        var input = [Float](repeating: 0, count: MDXRunner.inputCount)
-        var output = [Float](repeating: 0, count: MDXRunner.inputCount)
+        var input = [Float](repeating: 0, count: MDXModel.inputCount)
+        var output = [Float](repeating: 0, count: MDXModel.inputCount)
         var mask = [Float](repeating: 0, count: frequencyBins)
         var re = [Float](repeating: 0, count: fftSize)
         var im = [Float](repeating: 0, count: fftSize)
-        var transform = try VDSPTransform(size: fftSize)
-        let planeSize = frequencyBins * segmentFrames
+        let transform = try VDSPTransform(size: fftSize)
 
         func fft(inverse: Bool) throws {
             try re.withUnsafeMutableBufferPointer { r in
@@ -148,59 +147,117 @@ enum MDXSeparator {
             }
 
             chunkIndex += 1
-            progress(min(Double(chunkIndex) / Double(totalChunks), 1.0),
+            progress(min(Double(chunkIndex) / Double(totalChunks) * 0.82, 0.82),
                      "分离中 \(min(chunkIndex, totalChunks))/\(totalChunks)")
             if chunkStart + chunkLen >= totalFrames { break }
             chunkStart += chunkStride
         }
 
         let trimStart = fftSize / 2
-        var outLeft = [Float](repeating: 0, count: left.count)
-        var outRight = [Float](repeating: 0, count: right.count)
-        for i in 0..<min(left.count, max(paddedLength - trimStart, 0)) {
-            let divisor = weightSum[trimStart + i] > 1e-8 ? weightSum[trimStart + i] : 1
-            outLeft[i] = accumLeft[trimStart + i] / divisor
-            outRight[i] = accumRight[trimStart + i] / divisor
+        let frames = left.count
+        for i in 0..<paddedLength {
+            let divisor = weightSum[i] > 1e-8 ? weightSum[i] : 1
+            accumLeft[i] /= divisor
+            accumRight[i] /= divisor
         }
 
+        progress(0.86, "计算伴奏增益")
         let gain = try instrumentalGain(mixLeft: left, mixRight: right,
-                                        left: outLeft, right: outRight)
-        var instLeft = outLeft
-        var instRight = outRight
-        for i in 0..<instLeft.count { instLeft[i] *= gain }
-        for i in 0..<instRight.count { instRight[i] *= gain }
-
-        // 人声 = 原混音 − 未加增益的伴奏。掩码是互补的，两条音轨相加可还原原曲。
-        var vocalLeft = left
-        var vocalRight = right
-        for i in 0..<vocalLeft.count { vocalLeft[i] -= outLeft[i] }
-        for i in 0..<vocalRight.count { vocalRight[i] -= outRight[i] }
-
-        return Stems(instrumentalLeft: instLeft, instrumentalRight: instRight,
-                     vocalLeft: vocalLeft, vocalRight: vocalRight)
+                                        bedLeft: accumLeft, bedRight: accumRight,
+                                        offset: trimStart, frames: frames)
+        progress(0.90, "写入双轨")
+        try writeWavPair(instrumentalURL: instrumentalURL, vocalURL: vocalURL,
+                         frames: frames, mixLeft: left, mixRight: right,
+                         bedLeft: accumLeft, bedRight: accumRight,
+                         bedOffset: trimStart, gain: gain)
     }
 
-    static func instrumentalGain(mixLeft: [Float], mixRight: [Float],
-                                 left: [Float], right: [Float]) throws -> Float {
-        let mixRMS = rms(mixLeft, mixRight)
-        let instRMS = rms(left, right)
-        let rmsMatch = instRMS > 1e-6 ? mixRMS / instRMS : 1
+    private static func instrumentalGain(mixLeft: [Float], mixRight: [Float],
+                                         bedLeft: [Float], bedRight: [Float],
+                                         offset: Int, frames: Int) throws -> Float {
+        var mixSum = 0.0
+        var bedSum = 0.0
+        var peak: Float = 0
+        for i in 0..<frames {
+            let ml = mixLeft[i], mr = mixRight[i]
+            guard ml.isFinite, mr.isFinite else { throw Failure.nonFiniteOutput }
+            mixSum += Double(ml * ml) + Double(mr * mr)
+        }
+        for i in 0..<frames {
+            let bl = bedLeft[offset + i], br = bedRight[offset + i]
+            guard bl.isFinite, br.isFinite else { throw Failure.nonFiniteOutput }
+            bedSum += Double(bl * bl) + Double(br * br)
+            peak = max(peak, abs(bl), abs(br))
+        }
+        let mixRMS = Float((mixSum / max(2.0 * Double(frames), 1)).squareRoot())
+        let bedRMS = Float((bedSum / max(2.0 * Double(frames), 1)).squareRoot())
+        let rmsMatch = bedRMS > 1e-6 ? mixRMS / bedRMS : 1
         let flat = Float(pow(10, Double(instrumentalGainDB) / 20))
         let desired = rmsMatch * flat
-        var peak: Float = 0
-        for i in left.indices {
-            guard left[i].isFinite, right[i].isFinite else { throw Failure.nonFiniteOutput }
-            peak = max(peak, abs(left[i]), abs(right[i]))
-        }
         return peak <= 1e-8 ? 1 : min(min(max(desired, 0.5), 2), 0.98 / peak)
     }
 
-    private static func rms(_ left: [Float], _ right: [Float]) -> Float {
-        var sum = 0.0
-        for i in left.indices {
-            sum += Double(left[i]) * Double(left[i]) + Double(right[i]) * Double(right[i])
+    private static func writeWavPair(instrumentalURL: URL, vocalURL: URL,
+                                     frames: Int, mixLeft: [Float], mixRight: [Float],
+                                     bedLeft: [Float], bedRight: [Float],
+                                     bedOffset: Int, gain: Float) throws {
+        let fm = FileManager.default
+        let instPart = instrumentalURL.appendingPathExtension("part")
+        let vocalPart = vocalURL.appendingPathExtension("part")
+        for url in [instrumentalURL, vocalURL, instPart, vocalPart] { try? fm.removeItem(at: url) }
+        for url in [instrumentalURL, vocalURL] {
+            try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         }
-        return Float((sum / max(2.0 * Double(left.count), 1)).squareRoot())
+        guard fm.createFile(atPath: instPart.path, contents: nil),
+              fm.createFile(atPath: vocalPart.path, contents: nil) else { throw Failure.write }
+        let instHandle = try FileHandle(forWritingTo: instPart)
+        let vocalHandle = try FileHandle(forWritingTo: vocalPart)
+        do {
+            let header = StereoWav.header(frames: frames, sampleRate: Int(sampleRate))
+            try instHandle.write(contentsOf: Data(header))
+            try vocalHandle.write(contentsOf: Data(header))
+
+            var start = 0
+            while start < frames {
+                let end = min(start + 65_536, frames)
+                let count = end - start
+                var instBytes = [UInt8](repeating: 0, count: count * 4)
+                var vocalBytes = [UInt8](repeating: 0, count: count * 4)
+                var o = 0
+                for i in start..<end {
+                    let bedL = bedLeft[bedOffset + i]
+                    let bedR = bedRight[bedOffset + i]
+                    let instL = clamp(bedL * gain)
+                    let instR = clamp(bedR * gain)
+                    let vocL = clamp(mixLeft[i] - bedL)
+                    let vocR = clamp(mixRight[i] - bedR)
+                    StereoWav.appendPCM16(instL, to: &instBytes, at: &o)
+                    StereoWav.appendPCM16(instR, to: &instBytes, at: &o)
+                    var vo = (i - start) * 4
+                    StereoWav.appendPCM16(vocL, to: &vocalBytes, at: &vo)
+                    StereoWav.appendPCM16(vocR, to: &vocalBytes, at: &vo)
+                }
+                try instHandle.write(contentsOf: Data(instBytes))
+                try vocalHandle.write(contentsOf: Data(vocalBytes))
+                start = end
+            }
+            try instHandle.close()
+            try vocalHandle.close()
+        } catch {
+            try? instHandle.close()
+            try? vocalHandle.close()
+            try? fm.removeItem(at: instPart)
+            try? fm.removeItem(at: vocalPart)
+            throw Failure.write
+        }
+        try? fm.removeItem(at: instrumentalURL)
+        try? fm.removeItem(at: vocalURL)
+        try fm.moveItem(at: instPart, to: instrumentalURL)
+        try fm.moveItem(at: vocalPart, to: vocalURL)
+    }
+
+    private static func clamp(_ value: Float) -> Float {
+        min(max(value.isFinite ? value : 0, -1), 1)
     }
 
     /// 和电脑端 MDX 相同的互补掩码：1 − √(vocal / mix) × smoothstep((f − 55) / 95)。
@@ -234,7 +291,7 @@ enum MDXSeparator {
     }
 }
 
-/// vDSP 的复数 DFT；6144 = 3 × 2¹¹ 是 vDSP_DFT 支持的长度。
+/// vDSP 的复数 DFT；4096 = 2¹² 是 vDSP_DFT 支持的长度。
 final class VDSPTransform {
     let size: Int
     private let forward: vDSP_DFT_Setup
@@ -295,17 +352,11 @@ enum StereoWav {
         return out
     }
 
-    static func pcm16(left: [Float], right: [Float], range: Range<Int>, gain: Float = 1) -> [UInt8] {
-        var out = [UInt8](repeating: 0, count: range.count * 4)
-        var o = 0
-        for i in range {
-            for value in [left[i], right[i]] {
-                let sample = Int16(truncatingIfNeeded: Int(min(max(value * gain, -1), 1) * Float(Int16.max)))
-                out[o] = UInt8(truncatingIfNeeded: UInt16(bitPattern: sample))
-                out[o + 1] = UInt8(truncatingIfNeeded: UInt16(bitPattern: sample) >> 8)
-                o += 2
-            }
-        }
-        return out
+    @inline(__always)
+    static func appendPCM16(_ value: Float, to bytes: inout [UInt8], at offset: inout Int) {
+        let sample = Int16(truncatingIfNeeded: Int(value * Float(Int16.max)))
+        bytes[offset] = UInt8(truncatingIfNeeded: UInt16(bitPattern: sample))
+        bytes[offset + 1] = UInt8(truncatingIfNeeded: UInt16(bitPattern: sample) >> 8)
+        offset += 2
     }
 }

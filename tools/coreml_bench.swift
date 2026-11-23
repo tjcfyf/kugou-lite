@@ -9,9 +9,10 @@ configuration.computeUnits = .all
 let model = try MLModel(contentsOf: url, configuration: configuration)
 print("model loaded: \(model.modelDescription.inputDescriptionsByName.keys) -> \(model.modelDescription.outputDescriptionsByName.keys)")
 
-let shape: [NSNumber] = [1, 4, 3072, 256]
+let dimF = args.count > 2 ? Int(args[2]) ?? 3072 : 3072
+let shape: [NSNumber] = [1, 4, NSNumber(value: dimF), 256]
 let input = try MLMultiArray(shape: shape, dataType: .float32)
-let count = 4 * 3072 * 256
+let count = 4 * dimF * 256
 let p = input.dataPointer.assumingMemoryBound(to: Float.self)
 for i in 0..<count { p[i] = Float((i % 97) - 48) / 48.0 }
 

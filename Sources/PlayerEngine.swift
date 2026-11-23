@@ -349,7 +349,7 @@ final class PlayerEngine: NSObject, ObservableObject {
                     Preferences.aiSeparationEnabled = false
                     self.showToast("MDX 模型加载失败：\(AIOfflineSeparator.shared.lastError ?? "未知原因")")
                 } else {
-                    self.showToast("UVR-MDX-Net 已就绪；首次分离需要一点时间")
+                    self.showToast("UVR-MDX-Net 已就绪；首次分离约 20–30 秒")
                 }
                 if self.karaokeEnabled, self.current != nil {
                     self.reloadForKaraoke()
@@ -664,7 +664,9 @@ final class PlayerEngine: NSObject, ObservableObject {
                 } catch {
                     aiSeparationProgress = nil
                     aiSeparationStatus = nil
-                    showToast("MDX 分离失败，已退回声道模式")
+                    let detail = AIOfflineSeparator.shared.lastError ?? "未知原因"
+                    NSLog("[Sonora] MDX separation failed: %@", detail)
+                    showToast("MDX 分离失败：\(detail)")
                 }
             }
         }

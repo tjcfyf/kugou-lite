@@ -27,10 +27,10 @@ jobs:
         run: |
           mkdir -p Resources/CoreML
           curl -fsSL --retry 3 -o /tmp/mdx-coreml.tar \
-            "https://github.com/tjcfyf/kugou-lite/releases/download/models-v2/mdx_net_voc_ft_iOS15.mlpackage.tar"
+            "https://github.com/tjcfyf/kugou-lite/releases/download/models-v3/MdxNetFast9703_iOS15.mlpackage.tar"
           mkdir -p /tmp/mdx-coreml
           tar -xf /tmp/mdx-coreml.tar -C /tmp/mdx-coreml
-          xcrun coremlc compile /tmp/mdx-coreml/MdxNetVocFT_iOS15.mlpackage Resources/CoreML
+          xcrun coremlc compile /tmp/mdx-coreml/MdxNetFast9703_iOS15.mlpackage Resources/CoreML
           ls -lh Resources/CoreML
 
       - name: Generate Xcode project
@@ -86,10 +86,10 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.128
-          name: Sonora 1.0.128
+          tag_name: v1.0.129
+          name: Sonora 1.0.129
           body: |
-            Sonora 1.0.128 unsigned IPA
+            Sonora 1.0.129 unsigned IPA
             - 评论楼中楼回复
-            - 本地 UVR-MDX-NET-Voc_FT 双轨分离（Core ML，iOS15 可用）
+            - UVR_MDXNET_9703 快速双轨分离（Core ML，iOS15）
           files: KugouLite-iOS15-unsigned.ipa
