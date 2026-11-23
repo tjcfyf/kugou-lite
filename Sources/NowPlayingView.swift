@@ -1,6 +1,27 @@
 import SwiftUI
 import UIKit
 
+/// PlayerPanelFrame 为了做窗口形变会 ignoresSafeArea，所以播放页内部必须
+/// 自己补回状态栏和 Home Indicator 的安全区，否则顶部按钮会压到系统状态栏。
+private enum PlayerWindowInsets {
+    static var top: CGFloat {
+        guard let window = keyWindow else { return 20 }
+        return max(window.safeAreaInsets.top, 20)
+    }
+
+    static var bottom: CGFloat {
+        guard let window = keyWindow else { return 0 }
+        return window.safeAreaInsets.bottom
+    }
+
+    private static var keyWindow: UIWindow? {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first(where: { $0.isKeyWindow })
+    }
+}
+
 struct PlayerCoverFramePreferenceKey: PreferenceKey {
     static var defaultValue: CGRect = .zero
     static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
@@ -53,6 +74,13 @@ struct NowPlayingView: View {
     private var playerAccent: Color { Theme.accent }
     private var playerAccentForeground: Color { Theme.onAccent }
 
+    /// 面板形变期间（展开/拖动/收回）关闭最贵的全屏磨砂与逐行模糊，
+    /// 只保留静态渐变和文字；这些效果在 260ms 的收起动画里几乎看不出来，
+    /// 但会让每一帧都做一次离屏合成，是「一卡一卡」的主要来源。
+    private var isPanelMoving: Bool {
+        visualProgress < 0.995
+    }
+
     private var artworkSize: CGFloat {
         min(UIScreen.main.bounds.width - 72, 330)
     }
@@ -97,7 +125,7 @@ struct NowPlayingView: View {
             coverMorphOverlay
         }
         .coordinateSpace(name: "playerPage")
-        .animation(M3Motion.expressive, value: showLyrics)
+        .animation(.easeInOut(duration: 0.22), value: showLyrics)
         .animation(.easeOut(duration: 0.22), value: player.toast)
         .onPreferenceChange(PlayerCoverFramePreferenceKey.self) { coverFrame = $0 }
         .onChange(of: player.current?.FileHash) { _ in
@@ -128,41 +156,24 @@ struct NowPlayingView: View {
             background
 
             VStack(spacing: 0) {
-                if showLyrics {
-                    lyricsTopBar
-                        .transition(.opacity)
-                    lyricView
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .transition(.opacity)
-                } else {
-                    topBar
-                        .transition(.opacity)
-
-                    Spacer(minLength: 14)
-
-                    artwork
-                        .transition(.opacity)
-
-                    Spacer(minLength: 16)
-
-                    titleBlock
-                        .transition(.opacity)
-                    progress
-                        .padding(.horizontal, 24)
-                        .padding(.top, 16)
-                        .transition(.opacity)
+                // 固定内容区，不把 topBar / 歌词 / 封面控件直接塞进同一个
+                // 会随 showLyrics 重排的 VStack。这样底部操作栏不会跟着
+                // 歌词切换上下跳，收回歌词时也不会整页重新 layout。
+                ZStack {
+                    if showLyrics {
+                        lyricsContent
+                            .transition(.opacity)
+                    } else {
+                        playerContent
+                            .transition(.opacity)
+                    }
                 }
-
-                if !showLyrics {
-                    controls
-                        .padding(.top, 18)
-                        .transition(.opacity)
-                }
-
-                Spacer(minLength: 8)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 bottomActions
             }
+            .padding(.top, PlayerWindowInsets.top)
+            .padding(.bottom, PlayerWindowInsets.bottom)
             .contentShape(Rectangle())
             .simultaneousGesture(dismissGesture)
             .allowsHitTesting(!isClosing)
@@ -186,6 +197,36 @@ struct NowPlayingView: View {
             }
         }
         .background(Theme.background.ignoresSafeArea())
+    }
+
+    private var playerContent: some View {
+        VStack(spacing: 0) {
+            topBar
+
+            Spacer(minLength: 14)
+
+            artwork
+
+            Spacer(minLength: 16)
+
+            titleBlock
+            progress
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+
+            controls
+                .padding(.top, 18)
+
+            Spacer(minLength: 8)
+        }
+    }
+
+    private var lyricsContent: some View {
+        VStack(spacing: 0) {
+            lyricsTopBar
+            lyricView
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 
     /// 封面飞行层：从底栏圆盘里的 44pt 封面飞到自己 318pt 的封面槽位。
@@ -246,8 +287,10 @@ struct NowPlayingView: View {
                         .frame(width: geo.size.width, height: geo.size.height)
                 }
 
-                NativeFrostedGlass(style: colorScheme == .dark ? .systemThinMaterialDark : .systemThinMaterialLight)
-                    .frame(width: geo.size.width, height: geo.size.height)
+                if !isPanelMoving {
+                    NativeFrostedGlass(style: colorScheme == .dark ? .systemThinMaterialDark : .systemThinMaterialLight)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                }
 
                 if showLyrics && lyricPhotoMode, let url = player.current?.coverURL {
                     CoverImage(url: url, size: max(geo.size.width, geo.size.height), radius: 0, showsBorder: false)
@@ -341,8 +384,8 @@ struct NowPlayingView: View {
 
             moreMenu
         }
-        .padding(.horizontal, 12)
-        .frame(height: 42)
+        .padding(.horizontal, 16)
+        .frame(height: 52)
     }
 
     private var lyricsTopBar: some View {
@@ -377,7 +420,7 @@ struct NowPlayingView: View {
             moreMenu
         }
         .padding(.horizontal, 16)
-        .frame(height: 58)
+        .frame(height: 52)
     }
 
     private var moreMenu: some View {
@@ -683,8 +726,8 @@ struct NowPlayingView: View {
                 activeSheet = .comments(song)
             }
         }
-        .padding(.horizontal, 32)
-        .padding(.top, 2)
+        .padding(.horizontal, 28)
+        .padding(.top, 4)
         .padding(.bottom, 8)
     }
 
@@ -747,7 +790,7 @@ struct NowPlayingView: View {
                             let active = index == player.lyricIndex
                             VStack(alignment: .leading, spacing: 5) {
                                 Group {
-                                    if active, !line.words.isEmpty, player.isPlaying {
+                                    if active, !line.words.isEmpty, player.isPlaying, !isPanelMoving {
                                         TimelineView(.periodic(from: .now, by: 0.08)) { context in
                                             lyricText(line, active: true, timeOverride: lyricClock(context.date))
                                         }
@@ -783,9 +826,10 @@ struct NowPlayingView: View {
                             // 这里不能给 active 加 opacity 动画：旧行淡出 + 新行淡入
                             // 会在滚动动画期间同时留下两份半透明歌词，看起来就是“虚影”。
                             .compositingGroup()
-                            .blur(radius: active ? 0 : 2.0)
-                            .opacity(active ? 1 : 0.58)
+                            .blur(radius: (active || isPanelMoving) ? 0 : 2.0)
+                            .opacity(active ? 1 : (isPanelMoving ? 0.72 : 0.58))
                             .animation(nil, value: active)
+                            .animation(nil, value: isPanelMoving)
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 player.seek(to: max(0, line.time - Double(player.lyricOffsetMs) / 1000))
