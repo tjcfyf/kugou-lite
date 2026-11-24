@@ -462,7 +462,7 @@ enum KGService {
         var lastError: Error?
         do {
             let all = try await allPlaylists(type: 2)
-            if !all.isEmpty { return all }
+            if !all.isEmpty { return CloudPlaylistOrdering.newestFirst(all) }
         } catch { lastError = error }
 
         // 少数账号 type 2 只返回单一类型，按 0/1 再补一次。
@@ -479,7 +479,7 @@ enum KGService {
         }
         add(created)
         add(collected)
-        if !order.isEmpty { return order.compactMap { merged[$0] } }
+        if !order.isEmpty { return CloudPlaylistOrdering.newestFirst(order.compactMap { merged[$0] }) }
         if let lastError = lastError { throw lastError }
         return []
     }
@@ -573,6 +573,18 @@ enum KGService {
                 ?? stringValue(item["userid"])
                 ?? stringValue(item["user_id"])
                 ?? stringValue(item["owner_id"])
+            let createdAt = Song.intValue(item["list_create_time"])
+                ?? Song.intValue(item["listCreateTime"])
+                ?? Song.intValue(item["create_time"])
+                ?? Song.intValue(item["createTime"])
+                ?? Song.intValue(item["collect_time"])
+                ?? Song.intValue(item["collectTime"])
+                ?? Song.intValue(item["subscribe_time"])
+                ?? Song.intValue(item["update_time"])
+                ?? Song.intValue(item["updateTime"])
+                ?? Song.intValue(item["add_time"])
+                ?? Song.intValue(item["addTime"])
+                ?? Song.intValue(item["addtime"])
             let reportedType = Song.intValue(item["type"]) ?? pair.hint
             var resolvedType = reportedType
             if resolvedType != 1, let creatorID = creator, creatorID != String(KGApi.shared.userid) {
@@ -581,7 +593,8 @@ enum KGService {
             }
             if resolvedType == 2 { resolvedType = 0 }
             return CloudPlaylist(id: id, name: name, count: count, cover: cover,
-                                 listid: listid, type: resolvedType, creatorID: creator)
+                                 listid: listid, type: resolvedType, creatorID: creator,
+                                 createdAt: createdAt)
         }
     }
 
@@ -665,7 +678,7 @@ enum KGService {
         // 官方「我喜欢」在云歌单里按 type=0 处理，收藏分组只是接口返回的位置。
         return CloudPlaylist(id: playlist.id, name: playlist.name, count: playlist.count,
                              cover: playlist.cover, listid: listid, type: 0,
-                             creatorID: playlist.creatorID)
+                             creatorID: playlist.creatorID, createdAt: playlist.createdAt)
     }
 
     private static func listIDFromGlobalID(_ raw: String) -> String? {
@@ -859,6 +872,25 @@ enum KGService {
             return try await playlistSongs(id: gid)
         }
         return []
+    }
+
+    /// 歌单详情按“最新加入在最上面”展示。
+    /// 酷狗云歌单接口按加入时间正序返回（第 1 页是最早加入的），所以从最后一页
+    /// 往前取，并把每页内部倒序：第 1 次加载拿到的是最后 30 首里最新的那批。
+    static func playlistSongsNewestFirst(playlist: CloudPlaylist,
+                                         page: Int,
+                                         pageSize: Int = 30) async throws -> [Song] {
+        let size = max(pageSize, 1)
+        let total = max(playlist.count, 0)
+        guard total > 0 else {
+            // 极少数账号拿不到 count，退回接口顺序，至少保证分页能继续。
+            return try await playlistSongs(playlist: playlist, page: page, pageSize: size)
+        }
+        let totalPages = (total + size - 1) / size
+        let apiPage = totalPages - (page - 1)
+        guard apiPage >= 1 else { return [] }
+        let batch = try await playlistSongs(playlist: playlist, page: apiPage, pageSize: size)
+        return Array(batch.reversed())
     }
 
     static func playlistSongs(id: String) async throws -> [Song] {

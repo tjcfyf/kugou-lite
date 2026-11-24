@@ -172,9 +172,13 @@ struct CloudPlaylist: Identifiable, Equatable {
     let listid: String?
     let type: Int
     let creatorID: String?
+    /// 云歌单的创建/收藏/最后更新时间（秒）。接口字段名在不同账号上不稳定，
+    /// 解析时兼容多种写法；拿不到时为 nil，排序保持接口原顺序。
+    let createdAt: Int?
 
     init(id: String, name: String, count: Int, cover: String?,
-         listid: String? = nil, type: Int = 0, creatorID: String? = nil) {
+         listid: String? = nil, type: Int = 0, creatorID: String? = nil,
+         createdAt: Int? = nil) {
         self.id = id
         self.name = name
         self.count = count
@@ -182,6 +186,7 @@ struct CloudPlaylist: Identifiable, Equatable {
         self.listid = listid
         self.type = type
         self.creatorID = creatorID
+        self.createdAt = createdAt
     }
 
     var isCollected: Bool { type == 1 }
@@ -190,6 +195,26 @@ struct CloudPlaylist: Identifiable, Equatable {
         if let listid = listid, id != listid, !id.isEmpty { return id }
         if id.hasPrefix("collection_") { return id }
         return nil
+    }
+}
+
+/// 云歌单排序：接口默认按创建/收藏顺序返回，资料库需要把最新加入的放最上面。
+/// 有时间的排前面并按时间倒序；完全拿不到时间时保持接口原顺序，避免乱跳。
+enum CloudPlaylistOrdering {
+    static func newestFirst(_ list: [CloudPlaylist]) -> [CloudPlaylist] {
+        guard list.contains(where: { $0.createdAt != nil }) else { return list }
+        return list.enumerated().sorted { lhs, rhs in
+            switch (lhs.element.createdAt, rhs.element.createdAt) {
+            case let (left?, right?) where left != right:
+                return left > right
+            case (.some, .none):
+                return true
+            case (.none, .some):
+                return false
+            default:
+                return lhs.offset < rhs.offset
+            }
+        }.map { $0.element }
     }
 }
 

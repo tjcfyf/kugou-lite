@@ -594,7 +594,7 @@ struct RankDetailSheet: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
+            LazyVStack(spacing: 0) {
                 ZStack(alignment: .bottom) {
                     CollectionHero(coverURL: coverURL, height: headerHeight)
                     info
@@ -643,22 +643,20 @@ struct RankDetailSheet: View {
                     }
 
                     if hasMore {
-                        Button {
-                            Task { await loadMore() }
-                        } label: {
-                            HStack(spacing: 6) {
-                                if loadingMore {
-                                    ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.text))
-                                }
-                                Text(loadingMore ? "加载中…" : "加载更多")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(Theme.secondaryText)
+                        HStack(spacing: 6) {
+                            if loadingMore {
+                                ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
+                            Text(loadingMore ? "正在加载…" : "继续上滑自动加载")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(Theme.secondaryText)
                         }
-                        .buttonStyle(GlassPressButtonStyle())
-                        .disabled(loadingMore)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .onAppear {
+                            guard !loadingMore else { return }
+                            Task { await loadMore() }
+                        }
                     } else if !message.isEmpty {
                         Text(message)
                             .font(.system(size: 11))
@@ -846,7 +844,7 @@ struct PlaylistDetailSheet: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
+            LazyVStack(spacing: 0) {
                 ZStack(alignment: .bottom) {
                     CollectionHero(coverURL: coverURL, height: headerHeight)
                     info
@@ -910,21 +908,21 @@ struct PlaylistDetailSheet: View {
                     }
 
                     if !loading && !songs.isEmpty && hasMore {
-                        Button {
-                            Task { await loadMore() }
-                        } label: {
-                            HStack(spacing: 6) {
-                                if loadingMore { ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.text)) }
-                                Text(loadingMore ? "加载中…" : "加载更多")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(Theme.secondaryText)
+                        HStack(spacing: 6) {
+                            if loadingMore {
+                                ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
+                            Text(loadingMore ? "正在加载…" : "继续上滑自动加载")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(Theme.secondaryText)
                         }
-                        .buttonStyle(GlassPressButtonStyle())
-                        .disabled(loadingMore)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
                         .id("playlist-more-\(songs.count)")
+                        .onAppear {
+                            guard !loadingMore else { return }
+                            Task { await loadMore() }
+                        }
                     } else if !loading && !message.isEmpty && !songs.isEmpty {
                         Text(message)
                             .font(.system(size: 11))
@@ -1092,19 +1090,22 @@ struct PlaylistDetailSheet: View {
         loadingMore = true
         if page == 1 { message = "" }
         do {
-            let newSongs = try await KGService.playlistSongs(playlist: playlist, page: page, pageSize: 30)
+            let previousCount = songs.count
+            let newSongs = try await KGService.playlistSongsNewestFirst(playlist: playlist, page: page, pageSize: 30)
             if page == 1 {
                 songs = newSongs
             } else {
                 let existing = Set(songs.map { $0.id })
                 songs.append(contentsOf: newSongs.filter { !existing.contains($0.id) })
             }
-            if newSongs.isEmpty || newSongs.count < 30 || (page == 1 && newSongs.count > 30) {
+            // 接口总数不准或翻页重复时，只要这一页没有新增就立刻停下，
+            // 避免底部自动加载陷入死循环。
+            if newSongs.isEmpty || songs.count == previousCount {
                 hasMore = false
-            } else if playlist.count > 0, songs.count >= playlist.count {
-                hasMore = false
+            } else if playlist.count > 0 {
+                hasMore = songs.count < playlist.count
             } else {
-                hasMore = true
+                hasMore = newSongs.count >= 30
             }
             page += 1
             loading = false
