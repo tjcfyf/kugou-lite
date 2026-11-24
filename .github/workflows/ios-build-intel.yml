@@ -76,10 +76,10 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.136
-          name: Sonora 1.0.136
+          tag_name: v1.0.137
+          name: Sonora 1.0.137
           body: |
-            Sonora 1.0.136 unsigned IPA
+            Sonora 1.0.137 unsigned IPA
             - 评论区楼中楼回复
             - AI 分离改回最初 4.7MB MSS 4-stem 实时模型，播放中即时处理，不再离线等整首
             - 播放页下拉收起与手指 1:1 跟手，整页快照弹簧收尾
@@ -93,7 +93,7 @@ jobs:
             - 播放页点歌词不再整页插值/逐行 blur，修复刚打开歌曲时点歌词卡死
             - 设置关闭伴唱后播放页同步隐藏「分离」按钮
             - 进度条改为波形，副歌区间用暖色标记，去掉圆形进度点
-            - 波形未播放段也保持可见起伏，整条进度都是波浪
+            - 播放进度改为细直线轨道 + 已播放段波浪，取消圆形进度点
             - 现在就听/资料库/搜索顶栏改成自上而下逐渐清晰的渐变模糊
             - 副歌改用酷狗 climax 接口（start_time/end_time），本地重复句检测作为兜底
           files: KugouLite-iOS15-unsigned.ipa
