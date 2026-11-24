@@ -554,8 +554,12 @@ private final class DSPTapContext {
             }
         }
 
-        guard let separated = engine.process(interleaved: input, frames: n),
-              separated.producedFrames >= n else { return }
+        guard let separated = engine.process(interleaved: input, frames: n) else { return }
+        // ring 里不足一整块时，只写实际产出的帧，剩余部分保留原音。
+        // 之前要求 producedFrames >= n，否则整段丢弃，会在 AI/原音之间
+        // 反复切换，听感就是周期性的卡顿和音色跳变。
+        let produced = min(n, separated.producedFrames)
+        guard produced > 0 else { return }
 
         let vocalGain = karaoke.vocal
         let accompanimentGain = karaoke.accompaniment
@@ -568,7 +572,7 @@ private final class DSPTapContext {
             guard abl.count > 0, let raw = abl[0].mData else { return }
             if floatFormat {
                 let data = raw.assumingMemoryBound(to: Float.self)
-                for f in 0..<n {
+                for f in 0..<produced {
                     let base = f * channels
                     let left = separated.vocal[2 * f] * vocalGain + separated.accompaniment[2 * f] * accompanimentGain
                     let right = separated.vocal[2 * f + 1] * vocalGain + separated.accompaniment[2 * f + 1] * accompanimentGain
@@ -577,7 +581,7 @@ private final class DSPTapContext {
                 }
             } else {
                 let data = raw.assumingMemoryBound(to: Int16.self)
-                for f in 0..<n {
+                for f in 0..<produced {
                     let base = f * channels
                     let left = separated.vocal[2 * f] * vocalGain + separated.accompaniment[2 * f] * accompanimentGain
                     let right = separated.vocal[2 * f + 1] * vocalGain + separated.accompaniment[2 * f + 1] * accompanimentGain
@@ -595,7 +599,7 @@ private final class DSPTapContext {
                 } else {
                     rightData = nil
                 }
-                for f in 0..<n {
+                for f in 0..<produced {
                     let left = separated.vocal[2 * f] * vocalGain + separated.accompaniment[2 * f] * accompanimentGain
                     let right = separated.vocal[2 * f + 1] * vocalGain + separated.accompaniment[2 * f + 1] * accompanimentGain
                     leftData[f] = left
@@ -609,7 +613,7 @@ private final class DSPTapContext {
                 } else {
                     rightData = nil
                 }
-                for f in 0..<n {
+                for f in 0..<produced {
                     let left = separated.vocal[2 * f] * vocalGain + separated.accompaniment[2 * f] * accompanimentGain
                     let right = separated.vocal[2 * f + 1] * vocalGain + separated.accompaniment[2 * f + 1] * accompanimentGain
                     leftData[f] = toPCM16(left)

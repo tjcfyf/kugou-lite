@@ -61,6 +61,7 @@ struct NowPlayingView: View {
     @State private var lyricSize: LyricTextSize = Preferences.lyricSize
     @State private var showRemaining = true
     @State private var showLyrics = false
+    @State private var chorusRanges: [ClosedRange<Double>] = []
     @AppStorage(Preferences.lyricFollowKey) private var lyricAutoFollow = true
     @AppStorage(Preferences.lyricTranslationKey) private var showTranslation = false
     @AppStorage(Preferences.lyricRomanizationKey) private var showRomanization = false
@@ -141,8 +142,18 @@ struct NowPlayingView: View {
             coverMorphOverlay
         }
         .coordinateSpace(name: "playerPage")
-        .animation(Motion.standard, value: showLyrics)
+        // 不在这里整体 animation(showLyrics)：整页布局 + 歌词懒加载一起插值
+        // 会在刚进播放页时点歌词直接卡死。切换改为瞬时完成，只保留行内状态动画。
         .animation(.easeOut(duration: 0.22), value: player.toast)
+        .onChange(of: player.lyric) { _ in refreshChorusRanges() }
+        .onChange(of: player.duration) { _ in refreshChorusRanges() }
+        .onChange(of: player.current?.FileHash) { _ in
+            chorusRanges = []
+            refreshChorusRanges()
+        }
+        .onChange(of: player.karaokeEnabled) { enabled in
+            if !enabled { showKaraokeSheet = false }
+        }
         .onPreferenceChange(PlayerCoverFramePreferenceKey.self) { coverFrame = $0 }
         .onChange(of: visualProgress) { value in
             // 播放页现在会常驻视图树，收起结束时把页内状态复位，
@@ -670,16 +681,14 @@ struct NowPlayingView: View {
                 let width = max(geo.size.width, 1)
                 let ratio = player.duration > 0 ? min(max(displayedTime / player.duration, 0), 1) : 0
                 ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(playerPrimary.opacity(colorScheme == .dark ? 0.22 : 0.16))
-                        .frame(height: 2.5)
-                    Capsule()
-                        .fill(playerPrimary.opacity(0.92))
-                        .frame(width: width * ratio, height: 2.5)
-                    Circle()
-                        .fill(playerPrimary)
-                        .frame(width: 9, height: 9)
-                        .offset(x: width * ratio - 4.5)
+                    WaveformProgressView(
+                        progress: ratio,
+                        duration: max(player.duration, 1),
+                        seed: player.current?.FileHash ?? "",
+                        chorusRanges: chorusRanges,
+                        normalColor: playerPrimary,
+                        chorusColor: Color(red: 1.0, green: 0.42, blue: 0.34)
+                    )
 
                     if isScrubbing {
                         Text(format(displayedTime))
@@ -799,11 +808,13 @@ struct NowPlayingView: View {
                 showLyrics.toggle()
             }
             Spacer(minLength: 0)
-            bottomAction(title: "分离", icon: "music.mic", active: player.karaokeEnabled,
-                         disabled: player.current == nil) {
-                showKaraokeSheet = true
+            if player.karaokeEnabled {
+                bottomAction(title: "分离", icon: "music.mic", active: true,
+                             disabled: player.current == nil) {
+                    showKaraokeSheet = true
+                }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
             bottomAction(title: "评论", icon: "text.bubble", disabled: player.current == nil) {
                 guard let song = player.current else { return }
                 activeSheet = .comments(song)
@@ -908,8 +919,8 @@ struct NowPlayingView: View {
                             // 非当前行整行做模糊；活动行保持完全清晰。
                             // 这里不能给 active 加 opacity 动画：旧行淡出 + 新行淡入
                             // 会在滚动动画期间同时留下两份半透明歌词，看起来就是“虚影”。
-                            .compositingGroup()
-                            .blur(radius: (active || isPanelMoving) ? 0 : 2.0)
+                            // 不逐行 blur：100+ 行同时离屏合成会在进入歌词页第一帧
+                            // 直接占满主线程，表现就是点歌词后整个页面卡死。
                             .opacity(active ? 1 : (isPanelMoving ? 0.72 : 0.58))
                             .animation(nil, value: active)
                             .animation(nil, value: isPanelMoving)
@@ -927,6 +938,7 @@ struct NowPlayingView: View {
             .onAppear {
                 lyricClockTime = player.currentTime
                 lyricClockDate = Date()
+                refreshChorusRanges()
                 guard !player.lyric.isEmpty else { return }
                 proxy.scrollTo(player.lyricIndex, anchor: .center)
             }
@@ -1026,6 +1038,12 @@ struct NowPlayingView: View {
         } catch {
             player.showToast((error as? LocalizedError)?.errorDescription ?? "加入歌单失败")
         }
+    }
+
+    private func refreshChorusRanges() {
+        let ranges = ChorusDetector.ranges(from: player.lyric,
+                                           duration: max(player.duration, 0))
+        if ranges != chorusRanges { chorusRanges = ranges }
     }
 
     private func format(_ seconds: Double) -> String {

@@ -533,7 +533,7 @@ struct CollectionHero: View {
                 CoverImage(url: coverURL, size: max(width, height), radius: 0, showsBorder: false)
                     .frame(width: width, height: height)
                     .scaleEffect(1.12)
-                    .blur(radius: 24)
+                    .blur(radius: 18)
                     .clipped()
 
                 CoverImage(url: coverURL, size: max(width, height), radius: 0, showsBorder: false)
@@ -567,6 +567,9 @@ struct CollectionHero: View {
             .frame(width: width, height: height)
             .clipped()
             .compositingGroup()
+            // 头图是静态的，把双层封面 + blur 一次性栅格化，
+            // 列表滚动时不再逐帧重算离屏模糊。
+            .drawingGroup()
         }
         .frame(height: height)
     }
@@ -829,6 +832,8 @@ struct PlaylistDetailSheet: View {
     @State private var showTargetPicker = false
     @State private var adding = false
     @State private var toast = ""
+    @State private var actionSong: Song?
+    @State private var showActionMenu = false
 
     private var selectedSongs: [Song] {
         songs.filter { selectedHashes.contains($0.id) }
@@ -892,7 +897,18 @@ struct PlaylistDetailSheet: View {
                                         SongRow(song: song, showsMore: false)
                                     }
                                     .buttonStyle(GlassPressButtonStyle())
-                                    SongMoreMenu(song: song)
+                                    Button {
+                                        actionSong = song
+                                        showActionMenu = true
+                                    } label: {
+                                        Image(systemName: "ellipsis")
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundColor(Theme.tertiaryText)
+                                            .frame(width: 34, height: 34)
+                                            .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(GlassPressButtonStyle())
+                                    .accessibilityLabel("歌曲操作")
                                 }
                             }
                             .padding(.horizontal, 16)
@@ -961,6 +977,31 @@ struct PlaylistDetailSheet: View {
             PlaylistTargetPicker { target in
                 Task { await addSelected(to: target) }
             }
+        }
+        .confirmationDialog("歌曲操作", isPresented: $showActionMenu, titleVisibility: .hidden) {
+            if let song = actionSong {
+                Button("下一首播放") {
+                    PlayerEngine.shared.playNext(song)
+                }
+                Button("加入播放列表末尾") {
+                    PlayerEngine.shared.appendToQueue(song)
+                }
+                Button(LibraryStore.shared.isFavorite(song) ? "取消我喜欢" : "我喜欢") {
+                    Task {
+                        let added = await LibraryStore.shared.toggleFavorite(song)
+                        if let added = added {
+                            PlayerEngine.shared.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
+                        } else {
+                            PlayerEngine.shared.showToast(LibraryStore.shared.favoritesMessage)
+                        }
+                    }
+                }
+                Button("复制歌名和歌手") {
+                    UIPasteboard.general.string = "\(song.SongName) - \(song.artist)"
+                    PlayerEngine.shared.showToast("已复制歌曲信息")
+                }
+            }
+            Button("取消", role: .cancel) {}
         }
     }
 

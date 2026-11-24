@@ -22,7 +22,10 @@ final class MSSRunner {
 
         guard let options = TfLiteInterpreterOptionsCreate() else { return nil }
         self.options = options
-        let threads = Int32(min(max(ProcessInfo.processInfo.activeProcessorCount / 2, 2), 6))
+        // iPhone 12 的 6 核上给 XNNPACK 4 线程：3 线程时单块推理
+        // 经常压不进 4096 帧的实时窗口，伴唱会周期性掉回原音。
+        let cores = ProcessInfo.processInfo.activeProcessorCount
+        let threads = Int32(min(max(cores >= 6 ? 4 : cores / 2, 2), 6))
         TfLiteInterpreterOptionsSetNumThreads(options, threads)
 
         var xnnOptions = TfLiteXNNPackDelegateOptionsDefault()

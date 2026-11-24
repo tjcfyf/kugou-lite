@@ -50,6 +50,10 @@ final class MSSEngine {
     private var ringR = 0
     private var ringN = 0
     private var ringOff = 0
+    private var outputStarted = false
+    /// 先攒两块再开始出声，避免 ring 只有 1 块时播完立刻掉回原音，
+    /// 听感上会变成周期性的一卡一卡。
+    private let preRollBlocks = 2
 
     private var re = [Float](repeating: 0, count: Constants.nfft)
     private var im = [Float](repeating: 0, count: Constants.nfft)
@@ -114,6 +118,7 @@ final class MSSEngine {
         ringR = 0
         ringN = 0
         ringOff = 0
+        outputStarted = false
     }
 
     /// 送入交错立体声。返回的数组长度与输入帧数一致，但可能只填了前 producedFrames 帧；
@@ -133,8 +138,12 @@ final class MSSEngine {
         for i in 0..<n { inQ[inLen + i] = interleaved[i] }
         inLen += n
 
-        while inLen >= 2 * Constants.win && ringN < Constants.ring {
+        // 一次音频回调最多跑一块模型。之前 ring 为空时会连续跑最多 8 块，
+        // 单次回调被占住几百毫秒，表现就是歌曲突然卡一下。
+        var blocksThisCallback = 0
+        while inLen >= 2 * Constants.win && ringN < Constants.ring && blocksThisCallback < 1 {
             if !runBlock() { break }
+            blocksThisCallback += 1
             let keep = inLen - 2 * Constants.chunk
             if keep <= 0 {
                 inLen = 0
@@ -142,6 +151,11 @@ final class MSSEngine {
                 for i in 0..<keep { inQ[i] = inQ[i + 2 * Constants.chunk] }
                 inLen = keep
             }
+        }
+
+        if !outputStarted {
+            guard ringN >= preRollBlocks else { return nil }
+            outputStarted = true
         }
 
         var vocal = [Float](repeating: 0, count: n)

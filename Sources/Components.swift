@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import Combine
+import ImageIO
 
 /// 底栏播放封面圆盘在屏幕坐标系中的真实矩形。
 /// 播放页展开时用它作为 `PlayerPanelFrame` 的起点，不再用固定 15% 位移。
@@ -156,7 +157,45 @@ struct GlassPressButtonStyle: ButtonStyle {
 
 private final class CoverCache {
     static let shared = CoverCache()
-    let cache = NSCache<NSString, UIImage>()
+    let cache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        // 歌单一次可能出现 300 行封面。限制缓存数量和总像素成本，
+        // 避免缩略图把内存顶满后系统频繁清缓存，滚动反而更卡。
+        cache.countLimit = 500
+        cache.totalCostLimit = 48 * 1024 * 1024
+        return cache
+    }()
+
+    /// 小图先在 ImageIO 里缩到目标像素再解码，避免把 1000×1000 封面
+    /// 整张解码后只显示 56pt；这是歌单滚动掉帧的主要来源。
+    func thumbnail(data: Data, maxPixelSize: Int) -> UIImage? {
+        guard maxPixelSize > 0,
+              let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+        ]
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return nil
+        }
+        return UIImage(cgImage: cgImage)
+    }
+}
+
+private func coverCacheKey(url: URL, size: CGFloat) -> NSString {
+    // 40...120pt 的行封面按屏幕倍率生成缩略图缓存；大图/隐藏取色图仍缓存原图。
+    if size >= 40, size <= 120 {
+        let pixel = Int((size * UIScreen.main.scale).rounded(.up))
+        return "\(url.absoluteString)|thumb-\(pixel)" as NSString
+    }
+    return "\(url.absoluteString)|full" as NSString
+}
+
+private func coverThumbnailPixels(size: CGFloat) -> Int {
+    guard size >= 40, size <= 120 else { return 0 }
+    return Int((size * UIScreen.main.scale).rounded(.up))
 }
 
 struct CoverImage: View {
@@ -186,9 +225,13 @@ struct CoverImage: View {
                 onLoad?(nil, nil)
                 return
             }
-            let key = url.absoluteString as NSString
+            let key = coverCacheKey(url: url, size: size)
             if let cached = CoverCache.shared.cache.object(forKey: key) {
-                withAnimation(.easeInOut(duration: 0.24)) { image = cached }
+                if size < 120 {
+                    image = cached
+                } else {
+                    withAnimation(.easeInOut(duration: 0.24)) { image = cached }
+                }
                 onLoad?(url, cached)
                 return
             }
@@ -196,10 +239,19 @@ struct CoverImage: View {
             request.timeoutInterval = 12
             request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X)", forHTTPHeaderField: "User-Agent")
             guard let (data, response) = try? await URLSession.shared.data(for: request),
-                  let http = response as? HTTPURLResponse, http.statusCode == 200,
-                  let decoded = UIImage(data: data) else { return }
-            CoverCache.shared.cache.setObject(decoded, forKey: key)
-            withAnimation(.easeInOut(duration: 0.26)) { image = decoded }
+                  let http = response as? HTTPURLResponse, http.statusCode == 200 else { return }
+            let thumbPixels = coverThumbnailPixels(size: size)
+            let decoded = thumbPixels > 0
+                ? (CoverCache.shared.thumbnail(data: data, maxPixelSize: thumbPixels) ?? UIImage(data: data))
+                : UIImage(data: data)
+            guard let decoded else { return }
+            let cost = Int(decoded.size.width * decoded.size.height * 4)
+            CoverCache.shared.cache.setObject(decoded, forKey: key, cost: cost)
+            if size < 120 {
+                image = decoded
+            } else {
+                withAnimation(.easeInOut(duration: 0.26)) { image = decoded }
+            }
             onLoad?(url, decoded)
         }
         .frame(width: size, height: size)
@@ -570,7 +622,9 @@ struct ToastView: View {
 struct SongRow: View {
     let song: Song
     var showsMore: Bool = false
-    @EnvironmentObject private var player: PlayerEngine
+    // 不在这里 @EnvironmentObject PlayerEngine：PlayerEngine 每 0.25 秒发布
+    // currentTime，300 行的歌单会因此每次播放进度变化都重算所有行，滚动直接卡死。
+    // 这里只读玩家单例，播放/队列操作仍能正常执行，但不建立响应式订阅。
     @ObservedObject private var library = LibraryStore.shared
 
     private var isFavorite: Bool {
@@ -622,12 +676,12 @@ struct SongRow: View {
         .animation(Motion.quick, value: isFavorite)
         .contextMenu {
             Button {
-                player.playNext(song)
+                PlayerEngine.shared.playNext(song)
             } label: {
                 Label("下一首播放", systemImage: "arrow.up.forward")
             }
             Button {
-                player.appendToQueue(song)
+                PlayerEngine.shared.appendToQueue(song)
             } label: {
                 Label("加入播放列表", systemImage: "text.badge.plus")
             }
@@ -635,9 +689,9 @@ struct SongRow: View {
                 Task {
                     let added = await library.toggleFavorite(song)
                     if let added = added {
-                        player.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
+                        PlayerEngine.shared.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
                     } else {
-                        player.showToast(library.favoritesMessage)
+                        PlayerEngine.shared.showToast(library.favoritesMessage)
                     }
                 }
             } label: {
@@ -646,7 +700,7 @@ struct SongRow: View {
             }
             Button {
                 UIPasteboard.general.string = "\(song.SongName) - \(song.artist)"
-                player.showToast("已复制歌曲信息")
+                PlayerEngine.shared.showToast("已复制歌曲信息")
             } label: {
                 Label("复制歌名和歌手", systemImage: "doc.on.doc")
             }
