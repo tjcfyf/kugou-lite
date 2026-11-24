@@ -1091,7 +1091,9 @@ struct PlaylistDetailSheet: View {
         if page == 1 { message = "" }
         do {
             let previousCount = songs.count
-            let newSongs = try await KGService.playlistSongsNewestFirst(playlist: playlist, page: page, pageSize: 30)
+            // 云歌单接口单页最多 300 首。大多数歌单一次就能取完，
+            // 用户不用滚到底等第二页；超过 300 首才继续自动翻页。
+            let newSongs = try await KGService.playlistSongsNewestFirst(playlist: playlist, page: page, pageSize: 300)
             if page == 1 {
                 songs = newSongs
             } else {
@@ -1105,7 +1107,7 @@ struct PlaylistDetailSheet: View {
             } else if playlist.count > 0 {
                 hasMore = songs.count < playlist.count
             } else {
-                hasMore = newSongs.count >= 30
+                hasMore = newSongs.count >= 300
             }
             page += 1
             loading = false
