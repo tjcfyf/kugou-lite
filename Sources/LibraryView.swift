@@ -76,6 +76,7 @@ struct RecommendView: View {
             }
         }
         .background(AppBackground())
+        .gradientNavigationBlur()
         .animation(Motion.standard, value: isSearching)
         .task {
             historyWords = Preferences.searchHistory
@@ -1309,6 +1310,7 @@ struct ProfileView: View {
             .padding(.bottom, 136)
         }
         .background(AppBackground())
+        .gradientNavigationBlur()
         .sheet(isPresented: $showLogin) {
             LoginView().environmentObject(player).environmentObject(auth)
         }

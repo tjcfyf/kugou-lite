@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 /// 播放页进度：用一条会随播放进度点亮的高低波形代替直线 + 圆点。
@@ -16,8 +17,8 @@ struct WaveformProgressView: View {
 
     var body: some View {
         Canvas { context, size in
-            let count = max(Int(size.width / 4.2), 30)
-            let barWidth: CGFloat = 2.4
+            let count = max(Int(size.width / 4.6), 30)
+            let barWidth: CGFloat = 2.8
             let gap = max((size.width - CGFloat(count) * barWidth) / CGFloat(max(count - 1, 1)), 1)
             let seedValue = Self.seedValue(seed)
 
@@ -29,9 +30,11 @@ struct WaveformProgressView: View {
                 let chorus = chorusRanges.contains { $0.contains(time) }
                 let color: Color
                 if chorus {
-                    color = chorusColor.opacity(played ? 1.0 : 0.38)
+                    color = chorusColor.opacity(played ? 1.0 : 0.58)
                 } else {
-                    color = normalColor.opacity(played ? 0.92 : 0.22)
+                    // 未播放段也保留可见高度，整条都是波浪，而不是一条直线
+                    // 只在已播放段露出波形。
+                    color = normalColor.opacity(played ? 0.92 : 0.42)
                 }
                 let rect = CGRect(x: x,
                                   y: (size.height - height) / 2,
@@ -64,6 +67,6 @@ struct WaveformProgressView: View {
         let phase = Double(seed % 97) / 97.0 * Double.pi * 2
         let wave = 0.5 + 0.5 * sin(Double(index) / Double(max(count, 1)) * Double.pi * 8 + phase)
         let envelope = 0.45 + 0.55 * wave
-        return CGFloat(4.0 + 15.0 * random * envelope)
+        return CGFloat(3.5 + 18.5 * pow(random, 0.72) * envelope)
     }
 }

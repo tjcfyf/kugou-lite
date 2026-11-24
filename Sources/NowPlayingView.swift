@@ -62,6 +62,7 @@ struct NowPlayingView: View {
     @State private var showRemaining = true
     @State private var showLyrics = false
     @State private var chorusRanges: [ClosedRange<Double>] = []
+    @State private var chorusRequestHash = ""
     @AppStorage(Preferences.lyricFollowKey) private var lyricAutoFollow = true
     @AppStorage(Preferences.lyricTranslationKey) private var showTranslation = false
     @AppStorage(Preferences.lyricRomanizationKey) private var showRomanization = false
@@ -149,6 +150,7 @@ struct NowPlayingView: View {
         .onChange(of: player.duration) { _ in refreshChorusRanges() }
         .onChange(of: player.current?.FileHash) { _ in
             chorusRanges = []
+            chorusRequestHash = ""
             refreshChorusRanges()
         }
         .onChange(of: player.karaokeEnabled) { enabled in
@@ -1041,9 +1043,21 @@ struct NowPlayingView: View {
     }
 
     private func refreshChorusRanges() {
-        let ranges = ChorusDetector.ranges(from: player.lyric,
-                                           duration: max(player.duration, 0))
-        if ranges != chorusRanges { chorusRanges = ranges }
+        // 先用本地重复句兜底，保证没有网络时也有颜色；
+        // 酷狗 climax 接口回来后再用官方高能段替换，精度更高。
+        let fallback = ChorusDetector.ranges(from: player.lyric,
+                                             duration: max(player.duration, 0))
+        if !fallback.isEmpty, chorusRanges.isEmpty {
+            chorusRanges = fallback
+        }
+        guard let hash = player.current?.FileHash, !hash.isEmpty,
+              hash != chorusRequestHash else { return }
+        chorusRequestHash = hash
+        Task { @MainActor in
+            let remote = await KGService.climaxRanges(hash: hash)
+            guard !remote.isEmpty, player.current?.FileHash == hash else { return }
+            chorusRanges = remote
+        }
     }
 
     private func format(_ seconds: Double) -> String {

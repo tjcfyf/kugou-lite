@@ -1393,6 +1393,43 @@ enum KGService {
         return nil
     }
 
+    /// 酷狗「歌曲高潮」接口，返回高能段（通常是副歌）的起止时间，单位为秒。
+    /// 端点与签名来自概念版客户端；接口不可用时由歌词重复行推断兜底。
+    static func climaxRanges(hash: String) async -> [ClosedRange<Double>] {
+        guard !hash.isEmpty else { return [] }
+        climaxLock.lock()
+        let cached = climaxCache[hash]
+        climaxLock.unlock()
+        if let cached = cached { return cached }
+
+        let payload = "[{\"hash\":\"\(hash)\"}]"
+        guard let data = try? await KGApi.shared.get(
+            path: "/v1/audio_climax/audio",
+            host: "https://expendablekmrcdn.kugou.com",
+            params: ["data": payload]
+        ),
+        let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let list = root["data"] as? [[String: Any]] else {
+            return []
+        }
+
+        var ranges: [ClosedRange<Double>] = []
+        for item in list {
+            guard let start = doubleValue(item["start_time"]),
+                  let end = doubleValue(item["end_time"]),
+                  end > start + 1 else { continue }
+            let lower = start / 1000.0
+            let upper = end / 1000.0
+            ranges.append(lower...upper)
+        }
+        if !ranges.isEmpty {
+            climaxLock.lock()
+            climaxCache[hash] = ranges
+            climaxLock.unlock()
+        }
+        return ranges
+    }
+
     /// 返回当前歌曲可选的歌词来源；优先标题精确匹配，再补歌手+标题候选。
     static func lyricCandidates(hash: String, title: String, artist: String = "") async throws -> [LyricCandidate] {
         let keywords = [title, artist.isEmpty ? title : "\(artist) \(title)"]
@@ -1482,6 +1519,18 @@ enum KGService {
               let decoded = Data(base64Encoded: content, options: .ignoreUnknownCharacters),
               !decoded.isEmpty else { return nil }
         return decoded
+    }
+
+
+    private static var climaxCache: [String: [ClosedRange<Double>]] = [:]
+    private static let climaxLock = NSLock()
+
+    private static func doubleValue(_ raw: Any?) -> Double? {
+        if let value = raw as? Double { return value }
+        if let value = raw as? Int { return Double(value) }
+        if let value = raw as? NSNumber { return value.doubleValue }
+        if let value = raw as? String { return Double(value) }
+        return nil
     }
 
 }

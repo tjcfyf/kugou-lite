@@ -16,6 +16,7 @@ struct SearchPageView: View {
             searchBody
         }
         .background(AppBackground())
+        .gradientNavigationBlur()
         .task {
             historyWords = Preferences.searchHistory
             if hotKeywords.isEmpty {
