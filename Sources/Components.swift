@@ -619,17 +619,31 @@ struct ToastView: View {
     }
 }
 
+private struct FavoriteHeart: View {
+    let song: Song
+    @ObservedObject private var library = LibraryStore.shared
+
+    private var isFavorite: Bool { library.isFavorite(song) }
+
+    var body: some View {
+        Group {
+            if isFavorite {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Theme.accent)
+                    .transition(.scale(scale: 0.72).combined(with: .opacity))
+            }
+        }
+        .animation(Motion.quick, value: isFavorite)
+    }
+}
+
 struct SongRow: View {
     let song: Song
     var showsMore: Bool = false
-    // 不在这里 @EnvironmentObject PlayerEngine：PlayerEngine 每 0.25 秒发布
-    // currentTime，300 行的歌单会因此每次播放进度变化都重算所有行，滚动直接卡死。
-    // 这里只读玩家单例，播放/队列操作仍能正常执行，但不建立响应式订阅。
-    @ObservedObject private var library = LibraryStore.shared
-
-    private var isFavorite: Bool {
-        library.isFavorite(song)
-    }
+    // 不订阅 PlayerEngine（currentTime 4Hz 会让 300 行全部重算）。
+    // 也不订阅 LibraryStore：收藏状态交给下面极小的 FavoriteHeart，
+    // 歌单里收藏变化时只重画爱心，不重画整行文字和封面。
 
     var body: some View {
         HStack(spacing: 12) {
@@ -659,11 +673,7 @@ struct SongRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
-            if isFavorite {
-                Image(systemName: "heart.fill")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(Theme.accent)
-            }
+            FavoriteHeart(song: song)
             if showsMore {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 15, weight: .medium))
@@ -673,7 +683,6 @@ struct SongRow: View {
         }
         .padding(.vertical, 9)
         .contentShape(Rectangle())
-        .animation(Motion.quick, value: isFavorite)
         .contextMenu {
             Button {
                 PlayerEngine.shared.playNext(song)
@@ -687,6 +696,7 @@ struct SongRow: View {
             }
             Button {
                 Task {
+                    let library = LibraryStore.shared
                     let added = await library.toggleFavorite(song)
                     if let added = added {
                         PlayerEngine.shared.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
@@ -695,8 +705,8 @@ struct SongRow: View {
                     }
                 }
             } label: {
-                Label(isFavorite ? "取消我喜欢" : "我喜欢",
-                      systemImage: isFavorite ? "heart.fill" : "heart")
+                Label(LibraryStore.shared.isFavorite(song) ? "取消我喜欢" : "我喜欢",
+                      systemImage: LibraryStore.shared.isFavorite(song) ? "heart.fill" : "heart")
             }
             Button {
                 UIPasteboard.general.string = "\(song.SongName) - \(song.artist)"

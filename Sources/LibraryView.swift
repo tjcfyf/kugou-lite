@@ -32,18 +32,23 @@ struct RecommendView: View {
     let onSelectSearch: (Song) -> Void
     let onOpenPlayer: () -> Void
 
-    @ObservedObject private var library = LibraryStore.shared
     @State private var ranks: [RankItem] = []
     @State private var sheetTarget: DiscoverSheet?
     @FocusState private var searchFocused: Bool
     @State private var historyWords: [String] = Preferences.searchHistory
     @State private var hotKeywords: [String] = []
 
-    private var todayLabel: String {
+    private static let todayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.dateFormat = "M月d日 EEEE"
-        return formatter.string(from: Date())
+        return formatter
+    }()
+
+    private var todayLabel: String {
+        // DateFormatter 创建成本很高；之前每次 body 重算都 new 一个，
+        // 搜索输入/收藏变化时首页会跟着卡。这里复用同一个 formatter。
+        Self.todayFormatter.string(from: Date())
     }
 
     /// 从每日推荐歌曲里提取真实专辑：按 AlbumID 去重，只保留有专辑名的条目。
@@ -83,7 +88,7 @@ struct RecommendView: View {
             if hotKeywords.isEmpty {
                 hotKeywords = (try? await KGService.hotSearch()) ?? []
             }
-            await library.enrichMissingCovers()
+            await LibraryStore.shared.enrichMissingCovers()
             if ranks.isEmpty { ranks = (try? await KGService.ranks()) ?? [] }
         }
         .onChange(of: searchModel.query) { _ in
@@ -243,7 +248,7 @@ struct RecommendView: View {
         }
         .refreshable {
             await model.load(force: true)
-            await library.enrichMissingCovers()
+            await LibraryStore.shared.enrichMissingCovers()
             ranks = (try? await KGService.ranks()) ?? ranks
         }
     }

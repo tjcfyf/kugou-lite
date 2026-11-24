@@ -689,6 +689,8 @@ struct NowPlayingView: View {
                         chorusRanges: chorusRanges,
                         normalColor: playerPrimary
                     )
+                    // 播放进度 4Hz 更新，线性插值到 60fps，细线走起来才不会一格一格跳。
+                    .animation(isScrubbing ? nil : .linear(duration: 0.24), value: ratio)
 
                     if isScrubbing {
                         Text(format(displayedTime))
@@ -880,7 +882,8 @@ struct NowPlayingView: View {
                     .padding(.top, 24)
                 } else {
                     LazyVStack(alignment: .leading, spacing: 28) {
-                        ForEach(Array(player.lyric.enumerated()), id: \.offset) { index, line in
+                        ForEach(player.lyric.indices, id: \.self) { index in
+                            let line = player.lyric[index]
                             let active = index == player.lyricIndex
                             VStack(alignment: .leading, spacing: 5) {
                                 Group {

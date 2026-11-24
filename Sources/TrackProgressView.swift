@@ -1,14 +1,19 @@
 import Foundation
 import SwiftUI
 
-/// 播放页进度：完全照酷狗概念版的细直线样式。
-/// 整体一条细线；已播放部分变亮，未播放部分是低透明度。
-/// 副歌/高潮只在同一条线上加粗高亮，不换任何颜色。
-struct TrackProgressView: View {
-    let progress: Double
+/// 播放页进度：酷狗概念版同款细直线。
+/// 整体 2pt 线；已播放段更亮，高潮段只在同一条线上提高亮度，
+/// 不加粗、不换颜色、不画圆点。
+struct TrackProgressView: View, Animatable {
+    var progress: Double
     let duration: Double
     let chorusRanges: [ClosedRange<Double>]
     let normalColor: Color
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
 
     private var safeDuration: Double { max(duration, 1) }
     private var safeProgress: Double { min(max(progress, 0), 1) }
@@ -19,53 +24,63 @@ struct TrackProgressView: View {
             let width = size.width
             let progressX = width * CGFloat(safeProgress)
 
-            // 整体轨道：一条 2pt 细直线。
-            var track = Path()
-            track.move(to: CGPoint(x: 0, y: centerY))
-            track.addLine(to: CGPoint(x: width, y: centerY))
-            context.stroke(track,
-                           with: .color(normalColor.opacity(0.28)),
-                           style: StrokeStyle(lineWidth: 2, lineCap: .round))
+            // 轨道整段：低亮度细线。
+            drawLine(context: context,
+                     from: 0,
+                     to: width,
+                     y: centerY,
+                     color: normalColor.opacity(0.24))
 
-            // 未播放到的高潮段：同色，加粗一点，提前露出高亮位置。
+            // 高潮段在未播放区域也只是同一条线变亮，不加粗。
             for range in chorusRanges {
                 let startX = x(for: max(range.lowerBound, 0), width: width)
                 let endX = x(for: min(range.upperBound, safeDuration), width: width)
-                guard endX > startX else { continue }
-                let rect = CGRect(x: startX,
-                                  y: centerY - 2,
-                                  width: max(endX - startX, 2),
-                                  height: 4)
-                context.fill(Path(roundedRect: rect, cornerRadius: 2),
-                             with: .color(normalColor.opacity(0.52)))
+                guard endX > startX + 1 else { continue }
+                drawLine(context: context,
+                         from: startX,
+                         to: endX,
+                         y: centerY,
+                         color: normalColor.opacity(0.60))
             }
 
-            // 已播放段：同一条线变亮，不改变线宽。
+            // 已播放段：整段提亮。
             guard progressX > 1 else { return }
-            var played = Path()
-            played.move(to: CGPoint(x: 0, y: centerY))
-            played.addLine(to: CGPoint(x: progressX, y: centerY))
-            context.stroke(played,
-                           with: .color(normalColor.opacity(0.96)),
-                           style: StrokeStyle(lineWidth: 2, lineCap: .round))
+            drawLine(context: context,
+                     from: 0,
+                     to: progressX,
+                     y: centerY,
+                     color: normalColor.opacity(0.94))
 
-            // 已播放部分里的高潮段：仍用同色，只加粗到 4pt。
+            // 已播放到的高潮段：再亮一点，线宽完全不变。
             for range in chorusRanges {
                 let startX = x(for: max(range.lowerBound, 0), width: width)
                 let endX = min(x(for: min(range.upperBound, safeDuration), width: width), progressX)
                 guard endX > startX + 1 else { continue }
-                let rect = CGRect(x: startX,
-                                  y: centerY - 2,
-                                  width: endX - startX,
-                                  height: 4)
-                context.fill(Path(roundedRect: rect, cornerRadius: 2),
-                             with: .color(normalColor.opacity(0.96)))
+                drawLine(context: context,
+                         from: startX,
+                         to: endX,
+                         y: centerY,
+                         color: normalColor.opacity(1.0))
             }
         }
-        .frame(height: 22)
+        .frame(height: 20)
         .accessibilityElement()
         .accessibilityLabel("播放进度")
         .accessibilityValue("\(Int(safeProgress * 100))%")
+    }
+
+    private func drawLine(context: GraphicsContext,
+                          from startX: CGFloat,
+                          to endX: CGFloat,
+                          y: CGFloat,
+                          color: Color) {
+        guard endX > startX else { return }
+        var path = Path()
+        path.move(to: CGPoint(x: startX, y: y))
+        path.addLine(to: CGPoint(x: endX, y: y))
+        context.stroke(path,
+                       with: .color(color),
+                       style: StrokeStyle(lineWidth: 2, lineCap: .round))
     }
 
     private func x(for seconds: Double, width: CGFloat) -> CGFloat {
