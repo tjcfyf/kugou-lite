@@ -683,13 +683,11 @@ struct NowPlayingView: View {
                 let width = max(geo.size.width, 1)
                 let ratio = player.duration > 0 ? min(max(displayedTime / player.duration, 0), 1) : 0
                 ZStack(alignment: .leading) {
-                    WaveformProgressView(
+                    TrackProgressView(
                         progress: ratio,
                         duration: max(player.duration, 1),
-                        seed: player.current?.FileHash ?? "",
                         chorusRanges: chorusRanges,
-                        normalColor: playerPrimary,
-                        chorusColor: Color(red: 1.0, green: 0.42, blue: 0.34)
+                        normalColor: playerPrimary
                     )
 
                     if isScrubbing {
