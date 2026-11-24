@@ -573,18 +573,7 @@ enum KGService {
                 ?? stringValue(item["userid"])
                 ?? stringValue(item["user_id"])
                 ?? stringValue(item["owner_id"])
-            let createdAt = Song.intValue(item["list_create_time"])
-                ?? Song.intValue(item["listCreateTime"])
-                ?? Song.intValue(item["create_time"])
-                ?? Song.intValue(item["createTime"])
-                ?? Song.intValue(item["collect_time"])
-                ?? Song.intValue(item["collectTime"])
-                ?? Song.intValue(item["subscribe_time"])
-                ?? Song.intValue(item["update_time"])
-                ?? Song.intValue(item["updateTime"])
-                ?? Song.intValue(item["add_time"])
-                ?? Song.intValue(item["addTime"])
-                ?? Song.intValue(item["addtime"])
+            let createdAt = playlistCreatedAt(item)
             let reportedType = Song.intValue(item["type"]) ?? pair.hint
             var resolvedType = reportedType
             if resolvedType != 1, let creatorID = creator, creatorID != String(KGApi.shared.userid) {
@@ -978,6 +967,20 @@ enum KGService {
 
     private static func stripAudioExtension(_ raw: String) -> String {
         Song.cleanTitle(raw)
+    }
+
+    /// 云歌单时间字段在不同账号/接口版本里命名不一致。
+    /// 拆成逐项查找，避免一长串 `??` 让 Swift 类型检查器超时。
+    private static func playlistCreatedAt(_ item: [String: Any]) -> Int? {
+        let keys = ["list_create_time", "listCreateTime",
+                    "create_time", "createTime",
+                    "collect_time", "collectTime",
+                    "subscribe_time", "update_time", "updateTime",
+                    "add_time", "addTime", "addtime"]
+        for key in keys {
+            if let value = Song.intValue(item[key]) { return value }
+        }
+        return nil
     }
 
     private static func stringValue(_ value: Any?) -> String? {
