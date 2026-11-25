@@ -163,6 +163,9 @@ enum KGUser {
         guard KGApi.shared.token != nil, KGApi.shared.userid != 0 else { return nil }
 
         if let concept = await conceptVipText() { return concept }
+        if let end = KGVIP.adFreeEndTime, end > Date() {
+            return "畅听权益至 \(KGVIP.shortTime(end))（广告奖励）"
+        }
         guard let data = try? await KGApi.shared.get(
             path: "/v1/get_union_vip",
             host: "https://kugouvip.kugou.com",

@@ -533,13 +533,17 @@ struct LoginView: View {
 
         let deviceReply = await KGDevice.registerIfNeeded()
         player.showToast(deviceReply)
-        player.showToast("正在领取今日会员…")
+        player.showToast("正在领取畅听权益…")
 
         let claim = await KGVIP.claimIfNeeded()
         if claim == .claimed {
-            player.showToast("已自动领取今日会员")
+            player.showToast(KGVIP.lastMessage.isEmpty ? "已领取畅听权益" : KGVIP.lastMessage)
+        } else if claim == .alreadyClaimed {
+            if !KGVIP.lastMessage.isEmpty { player.showToast(KGVIP.lastMessage) }
         } else if claim == .failed {
-            player.showToast("今日会员领取失败，下次播放会再试")
+            player.showToast(KGVIP.lastMessage.isEmpty ? "畅听权益领取失败，下次播放会再试" : KGVIP.lastMessage)
+        } else {
+            player.showToast("登录已失效，请重新登录")
         }
         vipText = await KGUser.vipText() ?? "未获取到会员信息"
 

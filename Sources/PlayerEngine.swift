@@ -521,11 +521,11 @@ final class PlayerEngine: NSObject, ObservableObject {
                 self.refreshNowPlayingPlayback()
                 self.prefetchNext()
 
-                // 概念版的做法：播放时顺手领一次当日会员，每天一次。
+                // 概念版的做法：播放时顺手领一次广告畅听权益。
                 Task {
                     let result = await KGVIP.claimIfNeeded()
                     if result == .claimed {
-                        self.showToast("已自动领取今日会员")
+                        self.showToast(KGVIP.lastMessage.isEmpty ? "已领取畅听权益" : KGVIP.lastMessage)
                     }
                 }
             } catch {
