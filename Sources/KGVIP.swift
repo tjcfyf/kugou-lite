@@ -182,7 +182,8 @@ enum KGVIP {
     }
 
     private static func receive(sourceId: Int?) async -> Reward {
-        var params: [String: String] = [:]
+        // 5.2.9 概念版当前版本号；新广告奖励在低版本 clientver 下会被旧活动逻辑拦截。
+        var params: [String: String] = ["clientver": "11590"]
         if let sourceId = sourceId, sourceId > 0 {
             params["source_id"] = "\(sourceId)"
         }
@@ -201,7 +202,7 @@ enum KGVIP {
         let now = Int(Date().timeIntervalSince1970 * 1000)
         let data = try? await KGApi.shared.post(
             path: "/youth/v2/ad/play_report",
-            params: ["is_gradient": "1"],
+            params: ["is_gradient": "1", "clientver": "11590"],
             body: [
                 "ad_id": "12307537187",
                 "play_start": now - 30000,
@@ -217,7 +218,7 @@ enum KGVIP {
         let now = Int(Date().timeIntervalSince1970 * 1000)
         let data = try? await KGApi.shared.post(
             path: "/youth/v1/ad/play_report",
-            params: [:],
+            params: ["clientver": "11590"],
             body: [
                 "ad_id": 12307537187,
                 "play_start": now - 30000,
