@@ -700,22 +700,15 @@ struct NowPlayingView: View {
                     // 播放进度 4Hz 更新，线性插值到 60fps，细线走起来才不会一格一格跳。
                     .animation(isScrubbing ? nil : .linear(duration: 0.24), value: ratio)
 
-                    // 已播放段顶端跟一个透明圆块。用材质而不是实心圆点，
-                    // 不挡后面的线，也不改变 2pt 细线的粗细和颜色。
+                    // 已播放顶端只放一个和线宽相同的 2pt 全透明圆球，
+                    // 不加材质、不加填充、不加描边、不叠加任何东西；
+                    // 它本身不可见，只负责跟随播放位置。
                     if ratio > 0.002 {
                         Circle()
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                Circle()
-                                    .fill(playerPrimary.opacity(0.05))
-                            )
-                            .overlay(
-                                Circle()
-                                    .stroke(playerPrimary.opacity(0.22), lineWidth: 0.5)
-                            )
-                            .frame(width: 16, height: 16)
+                            .fill(Color.clear)
+                            .frame(width: 2, height: 2)
                             .position(
-                                x: min(max(width * CGFloat(ratio), 8), max(width - 8, 8)),
+                                x: min(max(width * CGFloat(ratio), 1), max(width - 1, 1)),
                                 y: 11
                             )
                             .animation(isScrubbing ? nil : .linear(duration: 0.24), value: ratio)

@@ -76,12 +76,12 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.144
-          name: Sonora 1.0.144
+          tag_name: v1.0.145
+          name: Sonora 1.0.145
           body: |
-            Sonora 1.0.144 unsigned IPA
-            - 播放进度条已播放段顶端加透明材质圆块，跟随进度逐帧移动；不改变 2pt 细线、不加粗、不换色
-            - 圆块用 ultraThinMaterial + 极低透明度主色填充 + 0.5pt 描边，透明不遮挡轨道线
-            - 歌词行点击 seek 也改为下一轮 runloop 执行，避免和进度条一样在手势事务里同步 seek
-            - 保留 v143 的进度条卡死修复、v142 的歌词页封面不闪空与整体过渡优化
+            Sonora 1.0.145 unsigned IPA
+            - 进度条顶端圆球改为与 2pt 线宽同直径的 2pt 圆球
+            - 圆球 fill 为 Color.clear，全透明；不加材质、不加填充、不加描边、不叠加任何额外东西
+            - 圆球仍跟随已播放顶端位置；因为全透明，本身不会产生可见像素
+            - 保留 v143/v144 的进度条卡死修复、歌词页封面不闪空与整体过渡优化
           files: KugouLite-iOS15-unsigned.ipa
