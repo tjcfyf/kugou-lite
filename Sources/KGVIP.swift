@@ -61,7 +61,7 @@ enum KGVIP {
 
         // 听歌上报只为把当前歌曲记进任务；没有当前歌曲时不要用假 ID。
         if KGApi.shared.lastMixSongID > 0 {
-            _ = await reportListen(mixSongID: KGApi.shared.lastMixSongID)
+            _ = await reportListen(mixsongID: KGApi.shared.lastMixSongID)
         }
 
         // 先补广告播放记录，再走真实播放页广告奖励。
@@ -101,16 +101,19 @@ enum KGVIP {
         lines.append("本地畅听 " + (adFreeEndTime.map { "有效至 \(shortTime($0))" } ?? "无记录"))
 
         let adReward = await receive(sourceId: adRewardSource)
+        if adReward.ok { store(adReward) }
         lines.append("① 播放页广告奖励 source=90154 " + adReward.text)
 
         let directReward = await receive(sourceId: nil)
+        if directReward.ok { store(directReward) }
         lines.append("② 直接广告奖励 source=0 " + directReward.text)
 
         let checkIn = await receive(sourceId: dailyCheckInSource)
+        if checkIn.ok { store(checkIn) }
         lines.append("③ 每日签到 source=90139 " + checkIn.text)
 
         let listen = KGApi.shared.lastMixSongID > 0
-            ? await reportListen(mixSongID: KGApi.shared.lastMixSongID)
+            ? await reportListen(mixsongID: KGApi.shared.lastMixSongID)
             : Reply(ok: false, text: "listen 当前没有歌曲，跳过")
         lines.append("④ 听歌上报 " + listen.text)
 
