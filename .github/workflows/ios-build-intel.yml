@@ -76,12 +76,12 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.143
-          name: Sonora 1.0.143
+          tag_name: v1.0.144
+          name: Sonora 1.0.144
           body: |
-            Sonora 1.0.143 unsigned IPA
-            - 修复点击播放进度条后播放页卡死：seek 不再在 SwiftUI 手势回调里同步执行 AVPlayer seek 与 @Published 状态写入，改到下一轮 runloop 执行
-            - 歌词页收起后不再让隐藏的歌词 ScrollView 继续跟随 lyricIndex 做 scrollTo，避免点进度条时在后台布局 100+ 行歌词占住主线程
-            - 歌词页只在实际可见时刷新逐字歌词时钟；收起后停止后台刷新
-            - 保留 v142 的歌词页封面不闪空、tab 交叉淡入、迷你播放卡滑入与全局弹簧 blendDuration
+            Sonora 1.0.144 unsigned IPA
+            - 播放进度条已播放段顶端加透明材质圆块，跟随进度逐帧移动；不改变 2pt 细线、不加粗、不换色
+            - 圆块用 ultraThinMaterial + 极低透明度主色填充 + 0.5pt 描边，透明不遮挡轨道线
+            - 歌词行点击 seek 也改为下一轮 runloop 执行，避免和进度条一样在手势事务里同步 seek
+            - 保留 v143 的进度条卡死修复、v142 的歌词页封面不闪空与整体过渡优化
           files: KugouLite-iOS15-unsigned.ipa

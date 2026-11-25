@@ -700,6 +700,28 @@ struct NowPlayingView: View {
                     // 播放进度 4Hz 更新，线性插值到 60fps，细线走起来才不会一格一格跳。
                     .animation(isScrubbing ? nil : .linear(duration: 0.24), value: ratio)
 
+                    // 已播放段顶端跟一个透明圆块。用材质而不是实心圆点，
+                    // 不挡后面的线，也不改变 2pt 细线的粗细和颜色。
+                    if ratio > 0.002 {
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                Circle()
+                                    .fill(playerPrimary.opacity(0.05))
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(playerPrimary.opacity(0.22), lineWidth: 0.5)
+                            )
+                            .frame(width: 16, height: 16)
+                            .position(
+                                x: min(max(width * CGFloat(ratio), 8), max(width - 8, 8)),
+                                y: 11
+                            )
+                            .animation(isScrubbing ? nil : .linear(duration: 0.24), value: ratio)
+                            .allowsHitTesting(false)
+                    }
+
                     if isScrubbing {
                         Text(format(displayedTime))
                             .font(.system(size: 10, weight: .semibold))
@@ -944,7 +966,11 @@ struct NowPlayingView: View {
                             .animation(nil, value: isPanelMoving)
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                player.seek(to: max(0, line.time - Double(player.lyricOffsetMs) / 1000))
+                                let target = max(0, line.time - Double(player.lyricOffsetMs) / 1000)
+                                // 和进度条一样，不在手势事务里同步 seek。
+                                DispatchQueue.main.async {
+                                    player.seek(to: target)
+                                }
                             }
                             .id(index)
                         }
