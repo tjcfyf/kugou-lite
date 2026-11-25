@@ -61,9 +61,6 @@ struct NowPlayingView: View {
     @State private var lyricSize: LyricTextSize = Preferences.lyricSize
     @State private var showRemaining = true
     @State private var showLyrics = false
-    // 歌词页首次打开后常驻。来回切换时只做透明度交叉淡入，
-    // 不再销毁/重建 playerContent，封面也不会重新等一次缓存。
-    @State private var hasShownLyrics = false
     @State private var chorusRanges: [ClosedRange<Double>] = []
     @State private var chorusRequestHash = ""
     @AppStorage(Preferences.lyricFollowKey) private var lyricAutoFollow = true
@@ -156,9 +153,6 @@ struct NowPlayingView: View {
             chorusRequestHash = ""
             refreshChorusRanges()
         }
-        .onChange(of: showLyrics) { value in
-            if value { hasShownLyrics = true }
-        }
         .onChange(of: player.karaokeEnabled) { enabled in
             if !enabled { showKaraokeSheet = false }
         }
@@ -213,10 +207,8 @@ struct NowPlayingView: View {
                         .opacity(showLyrics ? 0 : 1)
                         .allowsHitTesting(!showLyrics)
 
-                    if showLyrics || hasShownLyrics {
+                    if showLyrics {
                         lyricsContent
-                            .opacity(showLyrics ? 1 : 0)
-                            .allowsHitTesting(showLyrics)
                             .transition(.opacity)
                     }
                 }
@@ -732,9 +724,15 @@ struct NowPlayingView: View {
                             let point = min(max(value.location.x / width, 0), 1)
                             let target = Double(point) * max(player.duration, 1)
                             scrubTime = target
-                            player.seek(to: target)
-                            isScrubbing = false
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            // 不在手势回调里同步 seek：AVPlayer 的 seek 和
+                            // @Published currentTime/lyricIndex 一起改，会让
+                            // SwiftUI 在视图更新事务里再次触发布局，严重时直接卡死。
+                            // 先让进度条停在新位置，下一轮 runloop 再真正 seek。
+                            DispatchQueue.main.async {
+                                player.seek(to: target)
+                                isScrubbing = false
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            }
                         }
                 )
             }
@@ -823,7 +821,6 @@ struct NowPlayingView: View {
     private var bottomActions: some View {
         HStack(spacing: 0) {
             bottomAction(title: "歌词", icon: "music.note", active: showLyrics) {
-                hasShownLyrics = true
                 showLyrics.toggle()
             }
             Spacer(minLength: 0)
@@ -905,7 +902,7 @@ struct NowPlayingView: View {
                             let active = index == player.lyricIndex
                             VStack(alignment: .leading, spacing: 5) {
                                 Group {
-                                    if active, !line.words.isEmpty, player.isPlaying, !isPanelMoving {
+                                    if active, !line.words.isEmpty, player.isPlaying, !isPanelMoving, showLyrics {
                                         TimelineView(.periodic(from: .now, by: 0.08)) { context in
                                             lyricText(line, active: true, timeOverride: lyricClock(context.date))
                                         }
@@ -964,17 +961,20 @@ struct NowPlayingView: View {
                 proxy.scrollTo(player.lyricIndex, anchor: .center)
             }
             .onChange(of: player.currentTime) { time in
+                // 歌词页收起后不要继续更新隐藏的滚动视图，避免点进度条时
+                // 在后台对 100+ 行歌词做一次 scrollTo 把主线程占住。
+                guard showLyrics else { return }
                 lyricClockTime = time
                 lyricClockDate = Date()
             }
             .onChange(of: player.lyricIndex) { index in
-                guard lyricAutoFollow else { return }
+                guard showLyrics, lyricAutoFollow else { return }
                 withAnimation(.easeInOut(duration: 0.22)) {
                     proxy.scrollTo(index, anchor: .center)
                 }
             }
             .onChange(of: lyricAutoFollow) { enabled in
-                guard enabled else { return }
+                guard showLyrics, enabled else { return }
                 withAnimation(.easeInOut(duration: 0.22)) {
                     proxy.scrollTo(player.lyricIndex, anchor: .center)
                 }
