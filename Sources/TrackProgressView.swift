@@ -3,7 +3,8 @@ import SwiftUI
 
 /// 播放页进度：酷狗概念版同款细直线。
 /// 整体 2pt 线；已播放段更亮，高潮段只在同一条线上提高亮度，
-/// 不加粗、不换颜色、不画圆点。
+/// 不加粗、不换颜色。已播放顶端有一个 2pt 全透明跟随球，
+/// 球所在位置把下方进度条整段挖空，不显示线。
 struct TrackProgressView: View, Animatable {
     var progress: Double
     let duration: Double
@@ -62,6 +63,18 @@ struct TrackProgressView: View, Animatable {
                          y: centerY,
                          color: normalColor.opacity(1.0))
             }
+
+            // 透明球所在位置把进度条挖空：球直径 2pt，与线宽一致。
+            // 用 destinationOut 擦掉 Canvas 已经画出的线，露出页面背景，
+            // 所以球经过的地方不显示轨道、不显示已播放线、也不显示高潮高亮。
+            let ballCenterX = min(max(progressX, 1), max(width - 1, 1))
+            let ballRect = CGRect(x: ballCenterX - 1,
+                                  y: centerY - 1,
+                                  width: 2,
+                                  height: 2)
+            context.blendMode = .destinationOut
+            context.fill(Path(ellipseIn: ballRect), with: .color(.black))
+            context.blendMode = .normal
         }
         .frame(height: 20)
         .accessibilityElement()

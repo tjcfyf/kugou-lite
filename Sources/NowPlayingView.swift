@@ -1081,13 +1081,9 @@ struct NowPlayingView: View {
     }
 
     private func refreshChorusRanges() {
-        // 先用本地重复句兜底，保证没有网络时也有颜色；
-        // 酷狗 climax 接口回来后再用官方高能段替换，精度更高。
-        let fallback = ChorusDetector.ranges(from: player.lyric,
-                                             duration: max(player.duration, 0))
-        if !fallback.isEmpty, chorusRanges.isEmpty {
-            chorusRanges = fallback
-        }
+        // 不再先画本地重复句兜底：本地猜测的位置和官方 climax 不一致，
+        // 刚进播放页那 0.5 秒会先亮错位置，等接口回来又跳一次。
+        // 这里只等官方高潮段，没有就不画高亮，避免任何错误位置闪现。
         guard let hash = player.current?.FileHash, !hash.isEmpty,
               hash != chorusRequestHash else { return }
         chorusRequestHash = hash
