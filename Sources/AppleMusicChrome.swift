@@ -22,6 +22,12 @@ struct AppleMusicBottomBar: View {
                 // Apple Music 式悬浮迷你播放卡：不跟底栏焊在一起，
                 // 留 8pt 边距和 14pt 圆角，底栏玻璃从卡片四周透出来。
                 AppleMusicMiniPlayer(onOpenPlayer: onOpenPlayer)
+                    .transition(
+                        .asymmetric(
+                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                            removal: .opacity.combined(with: .scale(scale: 0.98, anchor: .bottom))
+                        )
+                    )
                     .background(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(.ultraThinMaterial)
@@ -58,6 +64,9 @@ struct AppleMusicBottomBar: View {
                 .fill(AppleMusicTheme.hairline)
                 .frame(height: 0.5)
         }
+        // 第一首歌开始播放时，迷你播放卡从底栏里滑上来；底栏高度一起
+        // 做弹簧过渡，列表不会被硬生生顶一下。
+        .animation(Motion.silky, value: player.current?.id)
     }
 
     private func tabButton(title: String, icon: String, tag: Int) -> some View {

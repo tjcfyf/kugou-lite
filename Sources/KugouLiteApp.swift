@@ -72,22 +72,31 @@ struct RootView: View {
                 discoverTab
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .opacity(tab == 0 ? 1 : 0)
+                    .scaleEffect(tab == 0 ? 1 : 0.985)
+                    .offset(y: tab == 0 ? 0 : 7)
                     .allowsHitTesting(tab == 0)
                     .zIndex(tab == 0 ? 1 : 0)
 
                 profileTab
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .opacity(tab == 1 ? 1 : 0)
+                    .scaleEffect(tab == 1 ? 1 : 0.985)
+                    .offset(y: tab == 1 ? 0 : 7)
                     .allowsHitTesting(tab == 1)
                     .zIndex(tab == 1 ? 1 : 0)
 
                 searchTab
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .opacity(tab == 2 ? 1 : 0)
+                    .scaleEffect(tab == 2 ? 1 : 0.985)
+                    .offset(y: tab == 2 ? 0 : 7)
                     .allowsHitTesting(tab == 2)
                     .zIndex(tab == 2 ? 1 : 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // 三个 tab 常驻，切换只做透明度 + 极小缩放的交叉淡入。
+            // 之前 tab 是瞬切，虽然不闪黑，但画面没有过渡，观感很硬。
+            .animation(Motion.silky, value: tab)
 
             AppleMusicBottomBar(tab: $tab, onOpenPlayer: { openPlayer() })
                 .zIndex(10)
@@ -176,7 +185,8 @@ struct RootView: View {
         hidePlayerForCollapse = false
 
         DispatchQueue.main.async {
-            withAnimation(.spring(response: 0.48, dampingFraction: 0.88)) {
+            // 和 HalfSheet 共用同一组面板弹簧，连续开关时速度可以互相接续。
+            withAnimation(M3Motion.panelExpand) {
                 playerProgress = 1
             }
         }

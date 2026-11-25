@@ -31,13 +31,16 @@ targets:
       path: Info.plist
       properties:
         CFBundleDisplayName: Sonora
-        CFBundleShortVersionString: "1.0.141"
-        CFBundleVersion: "141"
+        CFBundleShortVersionString: "1.0.142"
+        CFBundleVersion: "142"
         UILaunchScreen: {}
         UIBackgroundModes:
           - audio
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        # 允许 ProMotion 设备按屏幕刷新率出帧；iPhone 12 仍是 60Hz，
+        # 但所有过渡动画都按显示刷新节奏走，不再被系统默认 60Hz 上限截断。
+        CADisableMinimumFrameDurationOnPhone: true
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
         LSApplicationQueriesSchemes:

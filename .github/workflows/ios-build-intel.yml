@@ -76,14 +76,15 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.141
-          name: Sonora 1.0.141
+          tag_name: v1.0.142
+          name: Sonora 1.0.142
           body: |
-            Sonora 1.0.141 unsigned IPA
-            - 修复会员领取：改用概念版 5.2.9 真实播放页广告奖励 source_id=90154，不再走已下线的 90139 签到与 upgrade_vip_reward
-            - 领取成功按 ad_vip_num / ad_vip_end_time 记录畅听到期时间，不再把 131001 当成功写当天缓存
-            - 领取后会员状态与设置页文案同步显示畅听到期时间；旧 claimedDate 缓存自动迁移清除
-            - 听歌上报改用概念版专用 UA，补广告上报 v2（is_gradient=1 + JSON body）
-            - 诊断页拆成 90154 / source=0 / 90139 三条领取链路，直接显示 ad_vip_num 与到期时间
-            - 授权链路仍受酷狗网关 502 影响时会在诊断页区分请求步骤，便于下次定位
+            Sonora 1.0.142 unsigned IPA
+            - 修复歌词页切回播放页时约 0.5 秒专辑封面空白：CoverImage 建视图时同步命中缓存，播放页在歌词页打开后常驻，不再销毁重建
+            - CrossfadeArtwork 支持父视图已解码封面兜底，封面切换失败时也不会露出占位图
+            - 歌词页与播放页改为同层交叉淡入，封面、标题、进度条全部连续；连续开关会带着上一段动画速度继续走
+            - 首页三个 tab 改为常驻交叉淡入 + 极小缩放/位移，切换不再瞬切
+            - 第一首歌开始播放时迷你播放卡从底栏滑入，底栏高度弹簧过渡
+            - 全局弹簧补 blendDuration，连续点击/连续切页时不会从零速度重新起步
+            - 开启 CADisableMinimumFrameDurationOnPhone，过渡动画按显示刷新率出帧
           files: KugouLite-iOS15-unsigned.ipa

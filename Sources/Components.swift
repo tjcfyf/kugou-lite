@@ -207,6 +207,25 @@ struct CoverImage: View {
 
     @State private var image: UIImage?
 
+    init(url: URL?,
+         size: CGFloat = 44,
+         radius: CGFloat = 8,
+         showsBorder: Bool = true,
+         onLoad: ((URL?, UIImage?) -> Void)? = nil) {
+        self.url = url
+        self.size = size
+        self.radius = radius
+        self.showsBorder = showsBorder
+        self.onLoad = onLoad
+
+        // 先同步命中缓存再建视图。播放页从歌词页切回来时，playerContent 会
+        // 重新创建，原来要等 .task 下一次 runloop 才读缓存，于是先闪 0.2~0.5 秒占位图。
+        let cached = url.flatMap {
+            CoverCache.shared.cache.object(forKey: coverCacheKey(url: $0, size: size))
+        }
+        _image = State(initialValue: cached)
+    }
+
     var body: some View {
         Group {
             if let image = image {

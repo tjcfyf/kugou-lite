@@ -61,6 +61,9 @@ struct NowPlayingView: View {
     @State private var lyricSize: LyricTextSize = Preferences.lyricSize
     @State private var showRemaining = true
     @State private var showLyrics = false
+    // 歌词页首次打开后常驻。来回切换时只做透明度交叉淡入，
+    // 不再销毁/重建 playerContent，封面也不会重新等一次缓存。
+    @State private var hasShownLyrics = false
     @State private var chorusRanges: [ClosedRange<Double>] = []
     @State private var chorusRequestHash = ""
     @AppStorage(Preferences.lyricFollowKey) private var lyricAutoFollow = true
@@ -143,8 +146,8 @@ struct NowPlayingView: View {
             coverMorphOverlay
         }
         .coordinateSpace(name: "playerPage")
-        // 不在这里整体 animation(showLyrics)：整页布局 + 歌词懒加载一起插值
-        // 会在刚进播放页时点歌词直接卡死。切换改为瞬时完成，只保留行内状态动画。
+        // 歌词开关只在内容区做交叉淡入（见 pageContent），不在这里对整个
+        // 播放页加隐式动画，避免底部操作栏和背景一起被插值。
         .animation(.easeOut(duration: 0.22), value: player.toast)
         .onChange(of: player.lyric) { _ in refreshChorusRanges() }
         .onChange(of: player.duration) { _ in refreshChorusRanges() }
@@ -152,6 +155,9 @@ struct NowPlayingView: View {
             chorusRanges = []
             chorusRequestHash = ""
             refreshChorusRanges()
+        }
+        .onChange(of: showLyrics) { value in
+            if value { hasShownLyrics = true }
         }
         .onChange(of: player.karaokeEnabled) { enabled in
             if !enabled { showKaraokeSheet = false }
@@ -201,15 +207,23 @@ struct NowPlayingView: View {
                 // 会随 showLyrics 重排的 VStack。这样底部操作栏不会跟着
                 // 歌词切换上下跳，收回歌词时也不会整页重新 layout。
                 ZStack {
-                    if showLyrics {
+                    // 播放页常驻，不被歌词页替换掉。这样来回切换时封面、
+                    // 进度条和已解码的图层一直在，交叉淡入不会闪空。
+                    playerContent
+                        .opacity(showLyrics ? 0 : 1)
+                        .allowsHitTesting(!showLyrics)
+
+                    if showLyrics || hasShownLyrics {
                         lyricsContent
-                            .transition(.opacity)
-                    } else {
-                        playerContent
+                            .opacity(showLyrics ? 1 : 0)
+                            .allowsHitTesting(showLyrics)
                             .transition(.opacity)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // 歌词切换只让内容区交叉淡入；playerContent 常驻，
+                // 封面与标题不会重建，整段过渡由同一批显示帧推进。
+                .animation(Motion.silky, value: showLyrics)
 
                 bottomActions
             }
@@ -365,6 +379,7 @@ struct NowPlayingView: View {
                     CoverImage(url: url, size: max(geo.size.width, geo.size.height), radius: 0, showsBorder: false)
                         .frame(width: geo.size.width, height: geo.size.height)
                         .scaleEffect(1.02)
+                        .transition(.opacity)
                 }
 
                 // 只负责下载封面、缓存 UIImage 并提取三色，本身不显示。
@@ -392,6 +407,7 @@ struct NowPlayingView: View {
         }
         .ignoresSafeArea()
         .animation(.easeInOut(duration: 0.35), value: lyricPhotoMode)
+        .animation(Motion.silky, value: showLyrics)
     }
 
     private var dismissGesture: some Gesture {
@@ -631,7 +647,7 @@ struct NowPlayingView: View {
     }
 
     private var artwork: some View {
-        CrossfadeArtwork(url: player.current?.coverURL, size: artworkSize)
+        CrossfadeArtwork(url: player.current?.coverURL, size: artworkSize, fallbackImage: artworkImage)
             .background(
                 GeometryReader { proxy in
                     Color.clear
@@ -807,6 +823,7 @@ struct NowPlayingView: View {
     private var bottomActions: some View {
         HStack(spacing: 0) {
             bottomAction(title: "歌词", icon: "music.note", active: showLyrics) {
+                hasShownLyrics = true
                 showLyrics.toggle()
             }
             Spacer(minLength: 0)
@@ -837,6 +854,7 @@ struct NowPlayingView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(GlassPressButtonStyle())
+        .animation(Motion.quick, value: active)
         .accessibilityLabel(title)
         .disabled(disabled)
     }
@@ -1072,6 +1090,7 @@ struct NowPlayingView: View {
 private struct CrossfadeArtwork: View {
     let url: URL?
     let size: CGFloat
+    let fallbackImage: UIImage?
 
     @State private var frontURL: URL?
     @State private var currentImage: UIImage?
@@ -1079,11 +1098,16 @@ private struct CrossfadeArtwork: View {
     @State private var frontLoaded = true
     @State private var loadToken = UUID()
 
-    init(url: URL?, size: CGFloat) {
+    init(url: URL?, size: CGFloat, fallbackImage: UIImage? = nil) {
         self.url = url
         self.size = size
+        self.fallbackImage = fallbackImage
         _frontURL = State(initialValue: url)
-        _frontLoaded = State(initialValue: true)
+        // 有父视图已经解码好的封面时，先让旧图层露出；CoverImage 缓存命中
+        // 后 onLoad 再把上层淡入，不会用占位图把兜底图盖住。
+        _frontLoaded = State(initialValue: fallbackImage == nil)
+        _previousImage = State(initialValue: fallbackImage)
+        _currentImage = State(initialValue: fallbackImage)
     }
 
     var body: some View {
