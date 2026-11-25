@@ -76,13 +76,12 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.146
-          name: Sonora 1.0.146
+          tag_name: v1.0.147
+          name: Sonora 1.0.147
           body: |
-            Sonora 1.0.146 unsigned IPA
-            - 2pt 全透明圆球所在位置把进度条整段挖空：轨道线、已播放亮线、高潮高亮在球的位置都不显示
-            - 挖空用 Canvas destinationOut 擦除，球经过时只看到页面背景，不显示任何线
-            - 去掉刚进播放页时先画本地重复句、再被官方 climax 替换的 0.5 秒错误高亮
-            - 高潮高亮只认官方 climax 数据；接口没回来或没有结果时不画任何高亮，不再闪错位置
+            Sonora 1.0.147 unsigned IPA
+            - 球位置断开改为几何分段，不再依赖 destinationOut 擦除；轨道线、已播放线、高潮高亮都在球心左右各 1pt 直接不画
+            - 球位置形成真实的 2pt 背景缺口，线段用 butt cap 收口，不会被圆头重新接上
+            - 保留 v146 的高潮高亮修复：不再先画本地猜测位置，只认官方 climax 数据
             - 保留 v143 的进度条卡死修复与 v142 的整体过渡优化
           files: KugouLite-iOS15-unsigned.ipa
