@@ -88,7 +88,7 @@ struct AudioEQSheet: View {
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 7)
                                 .background(Theme.chip)
-                                .cornerRadius(9)
+                                .cornerRadius(12)
                         }
                         .buttonStyle(GlassPressButtonStyle())
                     }
@@ -101,7 +101,7 @@ struct AudioEQSheet: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
                             .background(Theme.chip)
-                            .cornerRadius(9)
+                            .cornerRadius(12)
                     }
                     .buttonStyle(GlassPressButtonStyle())
                 }

@@ -32,40 +32,42 @@ struct CommentRepliesView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(Theme.secondaryText)
-                    .frame(width: 40, height: 40)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(GlassPressButtonStyle())
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                        .frame(width: 36, height: 36)
+                        .liquidGlass(cornerRadius: 18)
+                }
+                .buttonStyle(AppleMusicPressStyle())
+                .accessibilityLabel("关闭回复")
 
-            Spacer()
+                Spacer()
 
-            VStack(spacing: 2) {
-                Text("回复")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(Theme.text)
-                Text(comment.userName + " · " + song.SongName)
-                    .font(.system(size: 10))
-                    .foregroundColor(Theme.secondaryText)
-                    .lineLimit(1)
-                    .frame(maxWidth: 210)
+                if total > 0 {
+                    Text("\(total) 条")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Theme.secondaryText)
+                }
             }
 
-            Spacer()
+            Text("回复")
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(Theme.text)
+                .padding(.top, 6)
 
-            Text(total > 0 ? "\(total)" : "")
-                .font(.system(size: 11, weight: .medium))
+            Text(comment.userName + " · " + song.SongName)
+                .font(.system(size: 13, weight: .medium))
                 .foregroundColor(Theme.secondaryText)
-                .frame(width: 40, alignment: .trailing)
+                .lineLimit(1)
         }
-        .padding(.horizontal, 16)
-        .frame(height: 54)
+        .padding(.horizontal, 18)
+        .padding(.top, 12)
+        .padding(.bottom, 14)
     }
 
     @ViewBuilder
@@ -98,7 +100,7 @@ struct CommentRepliesView: View {
                         .padding(.horizontal, 18)
                         .padding(.vertical, 9)
                         .background(Theme.accentGradient)
-                        .cornerRadius(10)
+                        .cornerRadius(12)
                 }
                 .buttonStyle(GlassPressButtonStyle())
             }

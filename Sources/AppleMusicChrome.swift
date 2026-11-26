@@ -15,17 +15,13 @@ struct AppleMusicFloatingChrome: View {
     let onOpenPlayer: () -> Void
     @EnvironmentObject private var player: PlayerEngine
     @ObservedObject private var chrome = ChromeState.shared
+    @Namespace private var selectionNamespace
 
     var body: some View {
         VStack(spacing: 10) {
             if player.current != nil {
                 AppleMusicMiniPlayer(onOpenPlayer: onOpenPlayer)
-                    .transition(
-                        .asymmetric(
-                            insertion: .move(edge: .bottom).combined(with: .opacity),
-                            removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom))
-                        )
-                    )
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
                     .padding(.horizontal, 2)
             }
 
@@ -38,7 +34,8 @@ struct AppleMusicFloatingChrome: View {
                 .frame(width: chrome.compact ? 116 : 200,
                        height: chrome.compact ? LiquidGlassMetrics.compactBarHeight : LiquidGlassMetrics.barHeight)
                 .liquidGlass(cornerRadius: chrome.compact ? 25 : LiquidGlassMetrics.barCorner)
-                .animation(Motion.silky, value: chrome.compact)
+                .animation(Motion.chromeMorph, value: chrome.compact)
+                .animation(Motion.quick, value: tab)
 
                 searchButton
             }
@@ -46,7 +43,7 @@ struct AppleMusicFloatingChrome: View {
         }
         .padding(.horizontal, 14)
         .padding(.bottom, LiquidGlassMetrics.bottomMargin)
-        .animation(Motion.silky, value: chrome.compact)
+        .animation(Motion.chromeMorph, value: chrome.compact)
         .animation(Motion.silky, value: player.current?.id)
     }
 
@@ -66,11 +63,23 @@ struct AppleMusicFloatingChrome: View {
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(selected ? AppleMusicTheme.accent : AppleMusicTheme.tabUnselected)
                         .lineLimit(1)
-                        .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .bottom)))
+                        .transition(.opacity)
                 }
             }
             .frame(width: chrome.compact ? 52 : 94,
                    height: chrome.compact ? LiquidGlassMetrics.compactBarHeight : LiquidGlassMetrics.barHeight)
+            .background(
+                Group {
+                    if selected {
+                        Capsule()
+                            .fill(AppleMusicTheme.accent.opacity(0.10))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 4)
+                            .matchedGeometryEffect(id: "selected-tab", in: selectionNamespace)
+                    }
+                },
+                alignment: .center
+            )
             .contentShape(Capsule())
         }
         .buttonStyle(AppleMusicPressStyle())
@@ -99,7 +108,7 @@ struct AppleMusicFloatingChrome: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: chrome.compact ? 25 : LiquidGlassMetrics.barCorner,
                                     style: .continuous))
-        .animation(Motion.silky, value: chrome.compact)
+        .animation(Motion.chromeMorph, value: chrome.compact)
         .accessibilityLabel("搜索")
     }
 }

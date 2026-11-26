@@ -90,7 +90,7 @@ struct RootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             // 三个 tab 常驻，切换只做透明度交叉淡入。不要加 scale/offset：
             // NavigationView 缩放后上下会露出窗口黑底，切换那 0.5 秒就是两条黑边。
-            .animation(Motion.silky, value: tab)
+            .animation(Motion.tabSwitch, value: tab)
 
             AppleMusicFloatingChrome(tab: $tab, onOpenPlayer: { openPlayer() })
                 .zIndex(10)
@@ -288,7 +288,9 @@ struct RootView: View {
     }
 
     private var discoverTab: some View {
-        DiscoverTab(isSearching: .constant(false), onOpenPlayer: { openPlayer() })
+        DiscoverTab(isSearching: .constant(false),
+                    onOpenPlayer: { openPlayer() },
+                    onOpenProfile: { tab = 1 })
             .background(AppBackground().ignoresSafeArea())
     }
 
@@ -327,6 +329,7 @@ struct RootView: View {
 private struct DiscoverTab: View {
     @Binding var isSearching: Bool
     let onOpenPlayer: () -> Void
+    let onOpenProfile: () -> Void
 
     @StateObject private var model = SearchModel()
     @StateObject private var recommendModel = RecommendModel()
@@ -349,6 +352,18 @@ private struct DiscoverTab: View {
             )
             .navigationTitle("现在就听")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        onOpenProfile()
+                    } label: {
+                        Image(systemName: "person.crop.circle")
+                            .font(.system(size: 22, weight: .medium))
+                            .foregroundColor(Theme.text.opacity(0.86))
+                    }
+                    .accessibilityLabel("账号与资料库")
+                }
+            }
             .task { await recommendModel.load() }
         }
         .navigationViewStyle(.stack)

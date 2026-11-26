@@ -75,7 +75,7 @@ struct SleepTimerSheet: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 11)
                             .background(Theme.chip)
-                            .cornerRadius(10)
+                            .cornerRadius(12)
                     }
                     .buttonStyle(GlassPressButtonStyle())
                 }
@@ -92,7 +92,7 @@ struct SleepTimerSheet: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(Theme.chip)
-                    .cornerRadius(10)
+                    .cornerRadius(12)
             }
             .buttonStyle(GlassPressButtonStyle())
         }

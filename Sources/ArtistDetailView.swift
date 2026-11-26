@@ -35,11 +35,20 @@ struct ArtistDetailSheet: View {
                 .padding(.bottom, 28)
             }
             .background(AppBackground())
-            .navigationTitle("歌手")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("关闭") { dismiss() }
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Theme.text)
+                            .frame(width: 32, height: 32)
+                            .liquidGlass(cornerRadius: 16)
+                    }
+                    .accessibilityLabel("关闭")
                 }
             }
         }
@@ -139,11 +148,20 @@ struct ArtistDetailSheet: View {
             .padding(.horizontal, 24)
         } else {
             ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                SongRowWithMenu(song: song, index: index + 1) {
-                    player.play(song, in: songs)
-                    dismiss()
+                VStack(spacing: 0) {
+                    SongRowWithMenu(song: song, index: index + 1) {
+                        player.play(song, in: songs)
+                        dismiss()
+                    }
+                    .padding(.horizontal, 14)
+
+                    if index < songs.count - 1 {
+                        Divider()
+                            .background(Theme.separator.opacity(0.42))
+                            .padding(.leading, 80)
+                            .padding(.trailing, 14)
+                    }
                 }
-                .padding(.horizontal, 16)
             }
 
             if hasMore {

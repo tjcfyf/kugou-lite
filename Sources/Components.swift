@@ -141,6 +141,18 @@ struct GlassPressButtonStyle: ButtonStyle {
     }
 }
 
+/// Apple Music 列表行按压：不缩放整行，只用一层很薄的底色高亮。
+struct AppleMusicListRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                Rectangle()
+                    .fill(Theme.text.opacity(configuration.isPressed ? 0.055 : 0))
+            )
+            .animation(Motion.tap, value: configuration.isPressed)
+    }
+}
+
 private final class CoverCache {
     static let shared = CoverCache()
     let cache: NSCache<NSString, UIImage> = {
@@ -436,7 +448,7 @@ struct SongRowWithMenu: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(GlassPressButtonStyle())
+            .buttonStyle(AppleMusicListRowButtonStyle())
             SongMoreMenu(song: song)
         }
     }
@@ -650,9 +662,16 @@ struct SongRow: View {
     // 也不订阅 LibraryStore：收藏状态交给下面极小的 FavoriteHeart，
     // 歌单里收藏变化时只重画爱心，不重画整行文字和封面。
 
+    var showsFavorite: Bool = false
+
+    private var durationText: String? {
+        guard let duration = song.Duration, duration > 0 else { return nil }
+        return String(format: "%d:%02d", duration / 60, duration % 60)
+    }
+
     var body: some View {
         HStack(spacing: 12) {
-            CoverImage(url: song.coverURL, size: 56, radius: 6)
+            CoverImage(url: song.coverURL, size: 52, radius: 9)
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
@@ -677,8 +696,16 @@ struct SongRow: View {
                     .foregroundColor(Theme.secondaryText)
                     .lineLimit(1)
             }
-            Spacer(minLength: 8)
-            FavoriteHeart(song: song)
+            Spacer(minLength: 6)
+            if let durationText {
+                Text(durationText)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundColor(Theme.tertiaryText)
+                    .monospacedDigit()
+            }
+            if showsFavorite {
+                FavoriteHeart(song: song)
+            }
             if showsMore {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 15, weight: .medium))
@@ -686,7 +713,7 @@ struct SongRow: View {
                     .frame(width: 24, height: 30)
             }
         }
-        .padding(.vertical, 9)
+        .padding(.vertical, 8)
         .contentShape(Rectangle())
         .contextMenu {
             Button {

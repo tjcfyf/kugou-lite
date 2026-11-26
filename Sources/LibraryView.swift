@@ -121,7 +121,7 @@ struct RecommendView: View {
                 searchFocused = false
             }
         }
-        .sheet(item: $sheetTarget) { target in
+        .fullScreenCover(item: $sheetTarget) { target in
             switch target {
             case .playlist(let playlist):
                 PlaylistDetailSheet(playlist: playlist) { song, list in
@@ -278,13 +278,26 @@ struct RecommendView: View {
 
                 if !model.songs.isEmpty {
                     dailyHeader
-                    ForEach(model.songs, id: \.recommendRowID) { song in
-                        SongRowWithMenu(song: song) {
-                            onSelect(song, model.songs)
+
+                    VStack(spacing: 0) {
+                        ForEach(Array(model.songs.enumerated()), id: \.element.recommendRowID) { index, song in
+                            SongRowWithMenu(song: song) {
+                                onSelect(song, model.songs)
+                            }
+                            .padding(.horizontal, 12)
+
+                            if index < model.songs.count - 1 {
+                                Divider()
+                                    .background(Theme.separator.opacity(0.42))
+                                    .padding(.leading, 76)
+                            }
                         }
-                        .padding(.horizontal, 16)
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
                     }
+                    .padding(.vertical, 2)
+                    .appSurface(cornerRadius: 24)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 2)
+                    .transition(.opacity.combined(with: .offset(y: 8)))
                 }
             }
             .padding(.bottom, 178)
@@ -705,18 +718,20 @@ struct RankDetailSheet: View {
                                     }
                                 } label: {
                                     SongRow(song: song, showsMore: false)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .contentShape(Rectangle())
                                 }
-                                .buttonStyle(GlassPressButtonStyle())
+                                .buttonStyle(AppleMusicListRowButtonStyle())
                                 SongMoreMenu(song: song)
                             }
-                            .padding(.horizontal, 16)
+                            .padding(.horizontal, 14)
 
                             if index < songs.count - 1 {
                                 Rectangle()
-                                    .fill(Theme.separator.opacity(0.55))
+                                    .fill(Theme.separator.opacity(0.42))
                                     .frame(height: 0.5)
-                                    .padding(.leading, 64)
-                                    .padding(.trailing, 16)
+                                    .padding(.leading, 76)
+                                    .padding(.trailing, 14)
                             }
                         }
                     }
@@ -979,7 +994,7 @@ struct PlaylistDetailSheet: View {
                                             SongRow(song: song, showsMore: false)
                                         }
                                     }
-                                    .buttonStyle(GlassPressButtonStyle())
+                                    .buttonStyle(AppleMusicListRowButtonStyle())
                                 } else {
                                     Button {
                                         dismiss()
@@ -988,8 +1003,10 @@ struct PlaylistDetailSheet: View {
                                         }
                                     } label: {
                                         SongRow(song: song, showsMore: false)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .contentShape(Rectangle())
                                     }
-                                    .buttonStyle(GlassPressButtonStyle())
+                                    .buttonStyle(AppleMusicListRowButtonStyle())
                                     Button {
                                         actionSong = song
                                         showActionMenu = true
@@ -1000,18 +1017,18 @@ struct PlaylistDetailSheet: View {
                                             .frame(width: 34, height: 34)
                                             .contentShape(Rectangle())
                                     }
-                                    .buttonStyle(GlassPressButtonStyle())
+                                    .buttonStyle(AppleMusicPressStyle())
                                     .accessibilityLabel("歌曲操作")
                                 }
                             }
-                            .padding(.horizontal, 16)
+                            .padding(.horizontal, 14)
 
                             if index < songs.count - 1 {
                                 Rectangle()
-                                    .fill(Theme.separator.opacity(0.55))
+                                    .fill(Theme.separator.opacity(0.42))
                                     .frame(height: 0.5)
-                                    .padding(.leading, 64)
-                                    .padding(.trailing, 16)
+                                    .padding(.leading, 76)
+                                    .padding(.trailing, 14)
                             }
                         }
                     }
@@ -1155,7 +1172,7 @@ struct PlaylistDetailSheet: View {
                 .opacity(songs.isEmpty ? 0.48 : 1)
 
                 Button {
-                    withAnimation(.easeOut(duration: 0.18)) {
+                    withAnimation(Motion.quick) {
                         isSelecting.toggle()
                         selectedHashes.removeAll()
                     }
@@ -1194,7 +1211,7 @@ struct PlaylistDetailSheet: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 9)
                 .background(selectedHashes.isEmpty ? Theme.secondaryText.opacity(0.35) : Theme.accent)
-                .cornerRadius(10)
+                .cornerRadius(12)
             }
             .buttonStyle(GlassPressButtonStyle())
             .disabled(selectedHashes.isEmpty || adding)
@@ -1287,49 +1304,50 @@ struct PlaylistTargetPicker: View {
                         ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
                         Text("读取歌单…").font(.system(size: 12)).foregroundColor(Theme.secondaryText)
                     }
-                    .listRowBackground(Theme.card)
+                    .listRowBackground(Color.clear)
                 } else if !message.isEmpty {
                     Text(message)
                         .font(.system(size: 12))
                         .foregroundColor(Theme.secondaryText)
-                        .listRowBackground(Theme.card)
+                        .listRowBackground(Color.clear)
                 } else if playlists.isEmpty {
                     Text("没有可写入的自建歌单，先在酷狗创建或取消收藏后再试")
                         .font(.system(size: 12))
                         .foregroundColor(Theme.secondaryText)
-                        .listRowBackground(Theme.card)
+                        .listRowBackground(Color.clear)
                 } else {
                     ForEach(playlists) { playlist in
                         Button {
                             dismiss()
                             onPick(playlist)
                         } label: {
-                            HStack(spacing: 10) {
-                                CoverImage(url: playlist.cover.flatMap(URL.init(string:)), size: 44, radius: 8)
+                            HStack(spacing: 12) {
+                                CoverImage(url: playlist.cover.flatMap(URL.init(string:)), size: 52, radius: 9)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(playlist.name)
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.system(size: 16, weight: .semibold))
                                         .foregroundColor(Theme.text)
                                         .lineLimit(1)
                                     Text("\(playlist.count) 首")
-                                        .font(.system(size: 11))
+                                        .font(.system(size: 13))
                                         .foregroundColor(Theme.secondaryText)
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.system(size: 12, weight: .semibold))
                                     .foregroundColor(Theme.tertiaryText)
                             }
+                            .padding(.vertical, 4)
                         }
-                        .buttonStyle(GlassPressButtonStyle())
-                        .listRowBackground(Theme.card)
+                        .buttonStyle(AppleMusicListRowButtonStyle())
+                        .listRowBackground(Color.clear)
                     }
                 }
             }
-            .listStyle(.insetGrouped)
+            .listStyle(.plain)
             .background(AppBackground())
-            .navigationTitle("选择歌单")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("选择播放列表")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) { Button("关闭") { dismiss() } }
             }
@@ -1429,21 +1447,21 @@ struct ProfileView: View {
         .sheet(isPresented: $showImport) {
             PlaylistImportView()
         }
-        .sheet(item: $libraryTarget) { kind in
+        .fullScreenCover(item: $libraryTarget) { kind in
             LibrarySongsView(kind: kind)
         }
-        .sheet(item: $albumTarget) { album in
+        .fullScreenCover(item: $albumTarget) { album in
             AlbumDetailSheet(target: album)
                 .environmentObject(player)
         }
-        .sheet(item: $selectedPlaylist) { playlist in
+        .fullScreenCover(item: $selectedPlaylist) { playlist in
             PlaylistDetailSheet(playlist: playlist) { song, list in
                 selectedPlaylist = nil
                 player.play(song, in: list)
                 onOpenPlayer()
             }
         }
-        .sheet(item: $selectedImported) { playlist in
+        .fullScreenCover(item: $selectedImported) { playlist in
             ImportedPlaylistDetailSheet(playlist: playlist) { song, list in
                 selectedImported = nil
                 player.play(song, in: list)
@@ -1598,7 +1616,7 @@ struct ProfileView: View {
     private var playlistsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Text("我的歌单")
+                Text("播放列表")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(Theme.text)
                 Text("\(playlists.count + importedStore.playlists.count) 个")
@@ -1688,7 +1706,7 @@ struct ProfileView: View {
                         }
                     }
                 }
-                .appSurface(cornerRadius: 22)
+                .appSurface(cornerRadius: 24)
             }
         }
         .padding(.top, 2)
@@ -1696,8 +1714,8 @@ struct ProfileView: View {
 
     private var divider: some View {
         Divider()
-            .background(Theme.separator.opacity(0.55))
-            .padding(.leading, 78)
+            .background(Theme.separator.opacity(0.46))
+            .padding(.leading, 88)
     }
 
     private func importedRow(_ playlist: ImportedPlaylist) -> some View {
@@ -1706,10 +1724,10 @@ struct ProfileView: View {
         } label: {
             HStack(spacing: 12) {
                 artworkView(url: playlist.coverURL)
-                    .frame(width: 52, height: 52)
-                VStack(alignment: .leading, spacing: 3) {
+                    .frame(width: 60, height: 60)
+                VStack(alignment: .leading, spacing: 4) {
                     Text(playlist.name)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(Theme.text)
                         .lineLimit(1)
                     HStack(spacing: 5) {
@@ -1723,20 +1741,20 @@ struct ProfileView: View {
                                     .fill(Theme.accent.opacity(0.12))
                             )
                         Text("\(playlist.songs.count) 首")
-                            .font(.system(size: 12))
+                            .font(.system(size: 13))
                             .foregroundColor(Theme.secondaryText)
                     }
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(Theme.tertiaryText)
             }
             .padding(.horizontal, 14)
-            .frame(minHeight: 70)
+            .frame(minHeight: 78)
             .contentShape(Rectangle())
         }
-        .buttonStyle(GlassPressButtonStyle())
+        .buttonStyle(AppleMusicListRowButtonStyle())
         .contextMenu {
             Button(role: .destructive) {
                 importedStore.remove(playlist)
@@ -1752,26 +1770,26 @@ struct ProfileView: View {
         } label: {
             HStack(spacing: 12) {
                 artworkView(url: playlist.cover.flatMap(URL.init(string:)))
-                    .frame(width: 52, height: 52)
-                VStack(alignment: .leading, spacing: 3) {
+                    .frame(width: 60, height: 60)
+                VStack(alignment: .leading, spacing: 4) {
                     Text(playlist.name)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(Theme.text)
                         .lineLimit(1)
                     Text("\(playlist.count) 首 · 酷狗云歌单")
-                        .font(.system(size: 12))
+                        .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(Theme.tertiaryText)
             }
             .padding(.horizontal, 14)
-            .frame(minHeight: 70)
+            .frame(minHeight: 78)
             .contentShape(Rectangle())
         }
-        .buttonStyle(GlassPressButtonStyle())
+        .buttonStyle(AppleMusicListRowButtonStyle())
     }
 
     private func artworkView(url: URL?) -> some View {
@@ -1786,7 +1804,7 @@ struct ProfileView: View {
                 artworkPlaceholder
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private var artworkPlaceholder: some View {
@@ -1964,7 +1982,7 @@ struct ProfileView: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
                             .background(Theme.chip)
-                            .cornerRadius(9)
+                            .cornerRadius(12)
                     }
                     .buttonStyle(GlassPressButtonStyle())
                 }
@@ -1987,7 +2005,7 @@ struct ProfileView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
                         .background(Theme.accentGradient)
-                        .cornerRadius(9)
+                        .cornerRadius(12)
                 }
                 .buttonStyle(GlassPressButtonStyle())
             }
@@ -2075,6 +2093,48 @@ struct LibrarySongsView: View {
     var body: some View {
         NavigationView {
             List {
+                if !songs.isEmpty {
+                    HStack(spacing: 10) {
+                        Text("\(songs.count) 首")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Theme.secondaryText)
+
+                        Spacer(minLength: 0)
+
+                        Button {
+                            if let first = songs.first { player.play(first, in: songs) }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "play.fill")
+                                Text("播放")
+                            }
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.onAccent)
+                            .frame(width: 98, height: 38)
+                            .background(Theme.accent)
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(AppleMusicPressStyle())
+
+                        Button {
+                            guard !songs.isEmpty else { return }
+                            let shuffled = songs.shuffled()
+                            if let first = shuffled.first { player.play(first, in: shuffled) }
+                        } label: {
+                            Image(systemName: "shuffle")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(Theme.text)
+                                .frame(width: 40, height: 38)
+                                .liquidGlass(cornerRadius: 19)
+                        }
+                        .buttonStyle(AppleMusicPressStyle())
+                    }
+                    .padding(.vertical, 8)
+                    .listRowInsets(EdgeInsets(top: 2, leading: 18, bottom: 6, trailing: 18))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
+
                 if kind == .favorites && library.favoritesLoading && songs.isEmpty {
                     HStack(spacing: 8) {
                         ProgressView()
@@ -2095,15 +2155,21 @@ struct LibrarySongsView: View {
                         .listRowBackground(Color.clear)
                 } else {
                     ForEach(songs, id: \.rowIdentity) { song in
-                        HStack(spacing: 8) {
-                            SongRow(song: song, showsMore: false)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    player.play(song, in: songs)
-                                }
+                        HStack(spacing: 4) {
+                            Button {
+                                player.play(song, in: songs)
+                            } label: {
+                                SongRow(song: song, showsMore: false)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(AppleMusicListRowButtonStyle())
+
                             SongMoreMenu(song: song)
                         }
+                        .listRowInsets(EdgeInsets(top: 0, leading: 14, bottom: 0, trailing: 10))
                         .listRowBackground(Color.clear)
+                        .listRowSeparatorTint(Theme.separator.opacity(0.42))
                     }
                     .onDelete(perform: deleteSongs)
                 }
@@ -2111,17 +2177,9 @@ struct LibrarySongsView: View {
             .listStyle(.plain)
             .background(AppBackground())
             .navigationTitle(kind.title)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索\(kind.title)")
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        if let first = songs.first { player.play(first, in: songs) }
-                    } label: {
-                        Label("播放全部", systemImage: "play.fill")
-                    }
-                    .disabled(songs.isEmpty)
-                }
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Menu {
                         ForEach(LibrarySongSort.allCases) { option in
@@ -2131,15 +2189,30 @@ struct LibrarySongsView: View {
                                 Text((sort == option ? "✓ " : "") + option.title)
                             }
                         }
+                        if kind != .favorites {
+                            Divider()
+                            Button(role: .destructive) {
+                                showClearConfirm = true
+                            } label: {
+                                Label("清空记录", systemImage: "trash")
+                            }
+                            .disabled(songs.isEmpty)
+                        }
                     } label: {
                         Image(systemName: "arrow.up.arrow.down")
+                            .font(.system(size: 15, weight: .semibold))
                     }
                     .disabled(songs.isEmpty)
-                    if kind != .favorites {
-                        Button("清空") { showClearConfirm = true }
-                            .disabled(songs.isEmpty)
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 32, height: 32)
+                            .liquidGlass(cornerRadius: 16)
                     }
-                    Button("关闭") { dismiss() }
+                    .accessibilityLabel("关闭")
                 }
             }
             .confirmationDialog("确定清空\(kind.title)？", isPresented: $showClearConfirm, titleVisibility: .visible) {
@@ -2192,64 +2265,69 @@ struct QueueView: View {
     var body: some View {
         NavigationView {
             List {
-                if !player.queueSongs.isEmpty {
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack {
-                            Text("共 \(player.queueSongs.count) 首")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(Theme.text)
-                            Spacer()
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("播放队列")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(Theme.text)
+                    HStack(spacing: 6) {
+                        Text("\(player.queueSongs.count) 首")
+                        if totalSeconds > 0 {
+                            Text("·")
+                            Text("总时长 \(durationText(totalSeconds))")
+                        }
+                        if player.currentIndex < player.queueSongs.count {
+                            Text("·")
                             Text("正在播放第 \(player.currentIndex + 1) 首")
-                                .font(.system(size: 10))
                                 .foregroundColor(Theme.accent)
                         }
-                        if totalSeconds > 0 {
-                            Text("总时长 \(durationText(totalSeconds)) · 剩余 \(durationText(remainingSeconds))")
-                                .font(.system(size: 10))
-                                .foregroundColor(Theme.secondaryText)
-                        }
                     }
-                    .padding(.vertical, 8)
-                    .listRowBackground(Color.clear)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Theme.secondaryText)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 2)
+                .listRowInsets(EdgeInsets(top: 6, leading: 18, bottom: 8, trailing: 18))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
 
                 ForEach(Array(player.queueSongs.enumerated()), id: \.element.id) { index, song in
-                    Button {
-                        player.jump(to: index)
-                    } label: {
-                        HStack(spacing: 10) {
-                            Text("\(index + 1)")
-                                .font(.system(size: 11))
-                                .foregroundColor(Theme.secondaryText)
-                                .frame(width: 20)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(song.SongName)
-                                    .font(.system(size: 14, weight: player.currentIndex == index ? .semibold : .regular))
-                                    .foregroundColor(player.currentIndex == index ? Theme.accent : Theme.text)
-                                    .lineLimit(1)
-                                Text(song.artist)
-                                    .font(.system(size: 11))
-                                    .foregroundColor(Theme.secondaryText)
-                                    .lineLimit(1)
+                    HStack(spacing: 4) {
+                        Button {
+                            player.jump(to: index)
+                        } label: {
+                            HStack(spacing: 8) {
+                                ZStack {
+                                    if player.currentIndex == index {
+                                        Capsule()
+                                            .fill(Theme.accent)
+                                            .frame(width: 3, height: 26)
+                                    }
+                                }
+                                .frame(width: 4)
+
+                                SongRow(song: song, showsMore: false)
                             }
-                            Spacer()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
                         }
-                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                        .contentShape(Rectangle())
+                        .buttonStyle(AppleMusicListRowButtonStyle())
+
+                        SongMoreMenu(song: song)
                     }
-                    .buttonStyle(GlassPressButtonStyle())
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 14, bottom: 0, trailing: 10))
+                    .listRowBackground(player.currentIndex == index ? Theme.accent.opacity(0.07) : Color.clear)
+                    .listRowSeparatorTint(Theme.separator.opacity(0.42))
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) {
-                            withAnimation(.easeInOut(duration: 0.24)) {
+                            withAnimation(Motion.standard) {
                                 player.removeFromQueue(at: index)
                             }
                         } label: { Label("移除", systemImage: "trash") }
                     }
                 }
                 .onMove { source, destination in
-                    withAnimation(.easeInOut(duration: 0.24)) {
+                    withAnimation(Motion.standard) {
                         player.moveQueue(from: source, to: destination)
                     }
                 }
@@ -2257,31 +2335,52 @@ struct QueueView: View {
             .environment(\.editMode, $editMode)
             .listStyle(.plain)
             .background(AppBackground())
-            .navigationTitle("播放列表")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("关闭") { dismiss() }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(editMode == .active ? "完成" : "编辑") {
+                        withAnimation(Motion.quick) {
+                            editMode = editMode == .active ? .inactive : .active
+                        }
+                    }
+                    .foregroundColor(Theme.accent)
                 }
-                ToolbarItemGroup(placement: .navigationBarLeading) {
-                    Button(editMode == .active ? "完成" : "排序") {
-                        withAnimation { editMode = editMode == .active ? .inactive : .active }
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button {
+                            player.shuffleUpcomingQueue()
+                        } label: {
+                            Label("随机播放接下来的歌曲", systemImage: "shuffle")
+                        }
+                        .disabled(player.queueSongs.count <= player.currentIndex + 1)
+                        Button(role: .destructive) {
+                            showClearConfirm = true
+                        } label: {
+                            Label("清空播放队列", systemImage: "trash")
+                        }
+                        .disabled(player.queueSongs.isEmpty)
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.system(size: 18, weight: .semibold))
                     }
                     Button {
-                        player.shuffleUpcomingQueue()
+                        dismiss()
                     } label: {
-                        Image(systemName: "shuffle")
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Theme.text)
+                            .frame(width: 32, height: 32)
+                            .liquidGlass(cornerRadius: 16)
                     }
-                    .disabled(player.queueSongs.count <= player.currentIndex + 1)
-                    Button("清空") { showClearConfirm = true }
-                        .disabled(player.queueSongs.isEmpty)
+                    .accessibilityLabel("关闭播放队列")
                 }
             }
         }
         .navigationViewStyle(.stack)
         .confirmationDialog("确定清空播放列表？", isPresented: $showClearConfirm, titleVisibility: .visible) {
             Button("清空并停止播放", role: .destructive) {
-                withAnimation(.easeInOut(duration: 0.24)) {
+                withAnimation(Motion.standard) {
                     player.clearQueue()
                 }
             }
@@ -2316,7 +2415,7 @@ struct ImportedPlaylistDetailSheet: View {
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundColor(Theme.accent)
                             Text(playlist.name)
-                                .font(.system(size: 26, weight: .bold))
+                                .font(.system(size: 28, weight: .bold))
                                 .foregroundColor(Theme.text)
                                 .lineLimit(3)
                             Text("\(playlist.songs.count) 首 · 导入歌单")
@@ -2375,17 +2474,28 @@ struct ImportedPlaylistDetailSheet: View {
                         .background(Theme.separator.opacity(0.55))
                         .padding(.horizontal, 16)
 
-                    ForEach(playlist.songs) { song in
-                        Button {
-                            dismiss()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
-                                onSelect(song, playlist.songs)
+                    ForEach(Array(playlist.songs.enumerated()), id: \.element.id) { index, song in
+                        VStack(spacing: 0) {
+                            Button {
+                                dismiss()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+                                    onSelect(song, playlist.songs)
+                                }
+                            } label: {
+                                SongRow(song: song, showsMore: false)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .contentShape(Rectangle())
+                                    .padding(.horizontal, 14)
                             }
-                        } label: {
-                            SongRow(song: song, showsMore: false)
-                                .padding(.horizontal, 16)
+                            .buttonStyle(AppleMusicListRowButtonStyle())
+
+                            if index < playlist.songs.count - 1 {
+                                Divider()
+                                    .background(Theme.separator.opacity(0.42))
+                                    .padding(.leading, 76)
+                                    .padding(.trailing, 14)
+                            }
                         }
-                        .buttonStyle(GlassPressButtonStyle())
                     }
                 }
                 .padding(.bottom, 24)
@@ -2401,6 +2511,8 @@ struct ImportedPlaylistDetailSheet: View {
                         Image(systemName: "xmark")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(Theme.text)
+                            .frame(width: 32, height: 32)
+                            .liquidGlass(cornerRadius: 16)
                     }
                 }
             }

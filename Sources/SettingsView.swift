@@ -75,7 +75,7 @@ struct LyricOffsetSettingsCard: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(Theme.chip)
-                        .cornerRadius(9)
+                        .cornerRadius(12)
                 }
                 .buttonStyle(GlassPressButtonStyle())
                 .disabled(player.lyricOffsetMs <= -3000)
@@ -89,7 +89,7 @@ struct LyricOffsetSettingsCard: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(Theme.chip)
-                        .cornerRadius(9)
+                        .cornerRadius(12)
                 }
                 .buttonStyle(GlassPressButtonStyle())
 
@@ -102,7 +102,7 @@ struct LyricOffsetSettingsCard: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(Theme.chip)
-                        .cornerRadius(9)
+                        .cornerRadius(12)
                 }
                 .buttonStyle(GlassPressButtonStyle())
                 .disabled(player.lyricOffsetMs >= 3000)
@@ -200,10 +200,19 @@ struct SettingsView: View {
             }
             .background(AppBackground())
             .navigationTitle("设置")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("关闭") { dismiss() }
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Theme.text)
+                            .frame(width: 32, height: 32)
+                            .liquidGlass(cornerRadius: 16)
+                    }
+                    .accessibilityLabel("关闭设置")
                 }
             }
             .overlay(alignment: .top) {
@@ -253,7 +262,7 @@ struct SettingsView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(player.playMode == mode ? Theme.accent : Theme.chip)
-                        .cornerRadius(9)
+                        .cornerRadius(12)
                     }
                     .buttonStyle(GlassPressButtonStyle())
                 }
@@ -274,7 +283,7 @@ struct SettingsView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 9)
                             .background(player.playbackRate == item.rawValue ? Theme.accent : Theme.chip)
-                            .cornerRadius(9)
+                            .cornerRadius(12)
                     }
                     .buttonStyle(GlassPressButtonStyle())
                 }
@@ -455,7 +464,7 @@ struct SettingsView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(lyricSize == item ? Theme.accent : Theme.chip)
-                        .cornerRadius(9)
+                        .cornerRadius(12)
                     }
                     .buttonStyle(GlassPressButtonStyle())
                 }
@@ -486,7 +495,7 @@ struct SettingsView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background(Theme.accentGradient)
-                        .cornerRadius(9)
+                        .cornerRadius(12)
                 }
                 .buttonStyle(GlassPressButtonStyle())
                 .disabled(player.current == nil)
@@ -516,7 +525,7 @@ struct SettingsView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(Theme.accentGradient)
-                        .cornerRadius(9)
+                        .cornerRadius(12)
                 }
                 .buttonStyle(GlassPressButtonStyle())
 
@@ -532,7 +541,7 @@ struct SettingsView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(Theme.chip)
-                        .cornerRadius(9)
+                        .cornerRadius(12)
                 }
                 .buttonStyle(GlassPressButtonStyle())
             }
@@ -585,7 +594,7 @@ struct SettingsView: View {
                             .padding(.horizontal, 10)
                             .padding(.vertical, 7)
                             .background(Theme.chip)
-                            .cornerRadius(9)
+                            .cornerRadius(12)
                     }
                     .buttonStyle(GlassPressButtonStyle())
                 }
@@ -609,7 +618,7 @@ struct SettingsView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
                         .background(Theme.accentGradient)
-                        .cornerRadius(9)
+                        .cornerRadius(12)
                 }
                 .buttonStyle(GlassPressButtonStyle())
             }
@@ -733,10 +742,19 @@ struct PlayerSettingsView: View {
             }
             .background(AppBackground())
             .navigationTitle("播放设置")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("关闭") { dismiss() }
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Theme.text)
+                            .frame(width: 32, height: 32)
+                            .liquidGlass(cornerRadius: 16)
+                    }
+                    .accessibilityLabel("关闭播放设置")
                 }
             }
         }
@@ -771,7 +789,7 @@ struct PlayerSettingsView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
                             .background(Theme.chip)
-                            .cornerRadius(9)
+                            .cornerRadius(12)
                     }
                     .buttonStyle(GlassPressButtonStyle())
                 }
@@ -792,7 +810,7 @@ struct PlayerSettingsView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                         .background(Theme.accentGradient)
-                        .cornerRadius(9)
+                        .cornerRadius(12)
                 }
                 .buttonStyle(GlassPressButtonStyle())
             }
@@ -816,7 +834,7 @@ struct PlayerSettingsView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(player.playMode == mode ? Theme.accent : Theme.chip)
-                        .cornerRadius(9)
+                        .cornerRadius(12)
                     }
                     .buttonStyle(GlassPressButtonStyle())
                 }
@@ -837,7 +855,7 @@ struct PlayerSettingsView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
                             .background(player.playbackRate == item.rawValue ? Theme.accent : Theme.chip)
-                            .cornerRadius(9)
+                            .cornerRadius(12)
                     }
                     .buttonStyle(GlassPressButtonStyle())
                 }
@@ -892,7 +910,7 @@ struct PlayerSettingsView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 9)
                             .background(lyricSize == item ? Theme.accent : Theme.chip)
-                            .cornerRadius(9)
+                            .cornerRadius(12)
                     }
                     .buttonStyle(GlassPressButtonStyle())
                 }

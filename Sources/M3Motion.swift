@@ -40,4 +40,11 @@ enum Motion {
     /// 整页级交叉淡入/交叉位移。blendDuration 让连续切 tab、连续开关
     /// 歌词时新动画带着旧动画的速度继续走，而不是从 0 速度重新起步。
     static let silky = Animation.spring(response: 0.46, dampingFraction: 0.91, blendDuration: 0.22)
+
+    /// Apple Music 的 tab 切换是短促的交叉淡入，不做整页弹簧。
+    static let tabSwitch = Animation.easeOut(duration: 0.17)
+    /// 浮动底栏展开/收起的胶囊形变；比整页弹簧快一档。
+    static let chromeMorph = Animation.spring(response: 0.34, dampingFraction: 0.88, blendDuration: 0.10)
+    /// 全屏详情页从卡片/底部进入时的统一步调。
+    static let pagePresent = Animation.spring(response: 0.40, dampingFraction: 0.90, blendDuration: 0.12)
 }

@@ -28,11 +28,19 @@ struct PlaylistImportView: View {
             }
             .background(AppBackground())
             .navigationTitle("导入歌单")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                        .foregroundColor(Theme.accent)
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Theme.text)
+                            .frame(width: 32, height: 32)
+                            .liquidGlass(cornerRadius: 16)
+                    }
+                    .accessibilityLabel("关闭导入")
                 }
             }
         }
@@ -42,8 +50,8 @@ struct PlaylistImportView: View {
     private var sourcePicker: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("来源")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Theme.secondaryText)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(Theme.text)
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 ForEach(PlaylistImportSource.allCases) { item in
@@ -70,7 +78,7 @@ struct PlaylistImportView: View {
                         .frame(height: 46)
                         .appSurface(cornerRadius: 20)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
                                 .stroke(source == item ? Theme.accent.opacity(0.45) : Color.clear, lineWidth: 1)
                         )
                     }
@@ -83,8 +91,8 @@ struct PlaylistImportView: View {
     private var inputCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(source == .soda ? "歌单链接或歌曲列表" : "歌单链接 / ID")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Theme.secondaryText)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(Theme.text)
 
             ZStack(alignment: .topLeading) {
                 if input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

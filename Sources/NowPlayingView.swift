@@ -145,7 +145,7 @@ struct NowPlayingView: View {
         .coordinateSpace(name: "playerPage")
         // 歌词开关只在内容区做交叉淡入（见 pageContent），不在这里对整个
         // 播放页加隐式动画，避免底部操作栏和背景一起被插值。
-        .animation(.easeOut(duration: 0.22), value: player.toast)
+        .animation(Motion.quick, value: player.toast)
         .onChange(of: player.lyric) { _ in refreshChorusRanges() }
         .onChange(of: player.duration) { _ in refreshChorusRanges() }
         .onChange(of: player.current?.FileHash) { _ in
@@ -167,7 +167,7 @@ struct NowPlayingView: View {
             activeSheet = nil
         }
         .onChange(of: player.current?.FileHash) { _ in
-            withAnimation(.easeInOut(duration: 0.28)) {
+            withAnimation(Motion.standard) {
                 artworkPalette = []
                 artworkImage = nil
             }
@@ -378,15 +378,15 @@ struct NowPlayingView: View {
                 if let url = player.current?.coverURL {
                     CoverImage(url: url, size: 2, radius: 0, showsBorder: false) { _, image in
                         guard let image else {
-                            withAnimation(.easeInOut(duration: 0.35)) {
+                            withAnimation(Motion.standard) {
                                 artworkPalette = []
                                 artworkImage = nil
                             }
                             return
                         }
-                        withAnimation(.easeInOut(duration: 0.35)) { artworkImage = image }
+                        withAnimation(Motion.standard) { artworkImage = image }
                         let colors = ArtworkPalette.colors(from: image)
-                        withAnimation(.easeInOut(duration: 0.45)) { artworkPalette = colors }
+                        withAnimation(Motion.gentle) { artworkPalette = colors }
                     }
                     .frame(width: 2, height: 2)
                     .opacity(0.01)
@@ -398,7 +398,7 @@ struct NowPlayingView: View {
             .clipped()
         }
         .ignoresSafeArea()
-        .animation(.easeInOut(duration: 0.35), value: lyricPhotoMode)
+        .animation(Motion.gentle, value: lyricPhotoMode)
         .animation(Motion.silky, value: showLyrics)
     }
 
@@ -895,7 +895,7 @@ struct NowPlayingView: View {
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 7)
                                 .background(Theme.accentGradient)
-                                .cornerRadius(9)
+                                .cornerRadius(12)
                             }
                             .buttonStyle(GlassPressButtonStyle())
                         } else if !player.lyricLoading {
@@ -1191,7 +1191,7 @@ private struct CrossfadeArtwork: View {
     private func completeLoad() {
         let token = UUID()
         loadToken = token
-        withAnimation(.easeInOut(duration: 0.32)) {
+        withAnimation(Motion.quick) {
             frontLoaded = true
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.38) {
