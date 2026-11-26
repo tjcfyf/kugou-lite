@@ -33,7 +33,8 @@ struct GradientNavigationBlur: UIViewControllerRepresentable {
 
             let bar = navigation.navigationBar
             // 只让这三棵根导航栈透明；详情页 push 进来也沿用同一层渐变模糊。
-            let appearance = bar.standardAppearance.copy()
+            let appearance = UINavigationBarAppearance()
+            appearance.configureWithTransparentBackground()
             appearance.backgroundEffect = nil
             appearance.backgroundColor = .clear
             appearance.shadowColor = .clear
@@ -52,7 +53,12 @@ struct GradientNavigationBlur: UIViewControllerRepresentable {
             blur.tag = backdropTag
             blur.isUserInteractionEnabled = false
             blur.backgroundColor = .clear
-            navigation.view.insertSubview(blur, belowSubview: bar)
+            blur.autoresizingMask = [.flexibleWidth]
+            // addSubview 后再把导航栏提到最前，确保模糊层在滚动内容之上、
+            // 导航标题之下。原来 insert(belowSubview:) 在部分层级里会落到内容下面，
+            // 结果完全看不到模糊，只剩 NavigationBar 的白底。
+            navigation.view.addSubview(blur)
+            navigation.view.bringSubviewToFront(bar)
             layoutBackdrop()
         }
 
@@ -76,20 +82,23 @@ struct GradientNavigationBlur: UIViewControllerRepresentable {
 }
 
 /// 模糊层 + 垂直 alpha 遮罩，底部完全透明，滚动内容从这里过渡到清晰。
-final class GradientBlurBackdrop: UIVisualEffectView {
+/// 用容器 view 承载 UIVisualEffectView，遮罩加在容器 layer 上；
+/// 直接给 UIVisualEffectView 自己加 mask 时，部分系统版本只遮住内容层，
+/// 模糊效果本身仍然整块铺满，看起来就像一层白色罩。
+final class GradientBlurBackdrop: UIView {
+    private let blurView: UIVisualEffectView
     private let fadeMask = CAGradientLayer()
 
-    override init(effect: UIVisualEffect?) {
-        super.init(effect: effect)
-        setup()
-    }
+    init(effect: UIBlurEffect?) {
+        blurView = UIVisualEffectView(effect: effect)
+        super.init(frame: .zero)
 
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        setup()
-    }
+        backgroundColor = .clear
+        isUserInteractionEnabled = false
+        blurView.backgroundColor = .clear
+        blurView.isUserInteractionEnabled = false
+        addSubview(blurView)
 
-    private func setup() {
         fadeMask.colors = [
             UIColor.black.cgColor,
             UIColor.black.withAlphaComponent(0.72).cgColor,
@@ -101,8 +110,13 @@ final class GradientBlurBackdrop: UIVisualEffectView {
         layer.mask = fadeMask
     }
 
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
+        blurView.frame = bounds
         fadeMask.frame = bounds
     }
 }

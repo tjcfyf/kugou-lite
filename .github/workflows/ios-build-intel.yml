@@ -76,11 +76,12 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.148
-          name: Sonora 1.0.148
+          tag_name: v1.0.149
+          name: Sonora 1.0.149
           body: |
-            Sonora 1.0.148 unsigned IPA
-            - 修复主页 tab 切换时上下各出现 0.5 秒黑条：去掉 tab 的 scaleEffect 和 offset，只保留透明度交叉淡入
-            - 缩放会让 NavigationView 上下露出窗口黑底，现在 tab 始终满屏，不再出现黑边
-            - 保留 v147 的进度条球位置 2pt 真实断口、v146 的高潮只认官方数据与 v143 的卡死修复
+            Sonora 1.0.149 unsigned IPA
+            - 重做主页三棵导航栈的顶栏渐变磨砂：模糊层改为容器承载，遮罩加在容器 layer 上，修复只看到白色罩、没有真正模糊的问题
+            - 模糊层用 addSubview 后再把导航栏提到最前，确保它覆盖滚动内容而不是落到内容下面
+            - 导航栏改为完全透明外观，避免 NavigationBar 自带白底盖住模糊
+            - 渐变遮罩顶部全模糊、向下过渡到透明清晰，保留顶栏磨砂到内容清晰的过渡
           files: KugouLite-iOS15-unsigned.ipa
