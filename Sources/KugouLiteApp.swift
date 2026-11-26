@@ -113,7 +113,7 @@ struct RootView: View {
                         onInteractiveDismissEnded: { shouldClose in
                             self.endInteractiveDismiss(shouldClose)
                         },
-                        progressPublisher: player.playbackProgress.$time.eraseToAnyPublisher(),
+                        progressPublisher: PlayerEngine.shared.playbackProgress.$time.eraseToAnyPublisher(),
                         isVisible: isPlayerOpen
                     )
                 }
