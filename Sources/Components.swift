@@ -203,8 +203,9 @@ private final class CoverCache {
 }
 
 private func coverCacheKey(url: URL, size: CGFloat) -> NSString {
-    // 40...120pt 的行封面按屏幕倍率生成缩略图缓存；大图/隐藏取色图仍缓存原图。
-    if size >= 40, size <= 120 {
+    // 列表行、专辑网格、首页卡片的封面按实际显示像素生成缩略图；
+    // 只有全屏头图/播放页大图仍保留原图。
+    if size >= 40, size <= 300 {
         let pixel = Int((size * UIScreen.main.scale).rounded(.up))
         return "\(url.absoluteString)|thumb-\(pixel)" as NSString
     }
@@ -212,8 +213,20 @@ private func coverCacheKey(url: URL, size: CGFloat) -> NSString {
 }
 
 private func coverThumbnailPixels(size: CGFloat) -> Int {
-    guard size >= 40, size <= 120 else { return 0 }
+    guard size >= 40, size <= 300 else { return 0 }
     return Int((size * UIScreen.main.scale).rounded(.up))
+}
+
+/// 图片下载完不要在 SwiftUI 的 main actor 上解码；大图解码会让滚动卡一帧。
+private func decodeCoverData(_ data: Data, size: CGFloat) async -> UIImage? {
+    let pixels = coverThumbnailPixels(size: size)
+    return await Task.detached(priority: .userInitiated) {
+        if pixels > 0,
+           let thumbnail = CoverCache.shared.thumbnail(data: data, maxPixelSize: pixels) {
+            return thumbnail
+        }
+        return UIImage(data: data)
+    }.value
 }
 
 struct CoverImage: View {
@@ -221,6 +234,8 @@ struct CoverImage: View {
     var size: CGFloat = 44
     var radius: CGFloat = 8
     var showsBorder: Bool = true
+    var placeholderSymbol: String = "music.note"
+    var placeholderText: String? = nil
     var onLoad: ((URL?, UIImage?) -> Void)? = nil
 
     @State private var image: UIImage?
@@ -229,11 +244,15 @@ struct CoverImage: View {
          size: CGFloat = 44,
          radius: CGFloat = 8,
          showsBorder: Bool = true,
+         placeholderSymbol: String = "music.note",
+         placeholderText: String? = nil,
          onLoad: ((URL?, UIImage?) -> Void)? = nil) {
         self.url = url
         self.size = size
         self.radius = radius
         self.showsBorder = showsBorder
+        self.placeholderSymbol = placeholderSymbol
+        self.placeholderText = placeholderText
         self.onLoad = onLoad
 
         // 先同步命中缓存再建视图。播放页从歌词页切回来时，playerContent 会
@@ -277,11 +296,8 @@ struct CoverImage: View {
             request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X)", forHTTPHeaderField: "User-Agent")
             guard let (data, response) = try? await URLSession.shared.data(for: request),
                   let http = response as? HTTPURLResponse, http.statusCode == 200 else { return }
-            let thumbPixels = coverThumbnailPixels(size: size)
-            let decoded = thumbPixels > 0
-                ? (CoverCache.shared.thumbnail(data: data, maxPixelSize: thumbPixels) ?? UIImage(data: data))
-                : UIImage(data: data)
-            guard let decoded else { return }
+            guard let decoded = await decodeCoverData(data, size: size) else { return }
+            guard !Task.isCancelled else { return }
             let cost = Int(decoded.size.width * decoded.size.height * 4)
             CoverCache.shared.cache.setObject(decoded, forKey: key, cost: cost)
             if size < 120 {
@@ -304,9 +320,15 @@ struct CoverImage: View {
     private var placeholder: some View {
         ZStack {
             Theme.chip
-            Image(systemName: "music.note")
-                .font(.system(size: size * 0.32, weight: .medium))
-                .foregroundColor(Theme.tertiaryText)
+            if let placeholderText, !placeholderText.isEmpty {
+                Text(placeholderText)
+                    .font(.system(size: max(12, size * 0.32), weight: .semibold))
+                    .foregroundColor(Theme.secondaryText)
+            } else {
+                Image(systemName: placeholderSymbol)
+                    .font(.system(size: size * 0.32, weight: .medium))
+                    .foregroundColor(Theme.tertiaryText)
+            }
         }
     }
 }

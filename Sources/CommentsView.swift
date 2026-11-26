@@ -251,31 +251,12 @@ struct CommentAvatar: View {
     let name: String
 
     var body: some View {
-        Group {
-            if let url = url {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFill()
-                    default:
-                        placeholder
-                    }
-                }
-            } else {
-                placeholder
-            }
-        }
-        .frame(width: 36, height: 36)
-        .clipShape(Circle())
-        .overlay(Circle().stroke(Theme.separator, lineWidth: 0.5))
-    }
-
-    private var placeholder: some View {
-        ZStack {
-            Theme.chip
-            Text(String(name.prefix(1)))
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Theme.secondaryText)
-        }
+        CoverImage(url: url,
+                   size: 36,
+                   radius: 18,
+                   showsBorder: false,
+                   placeholderSymbol: "person.fill",
+                   placeholderText: String(name.prefix(1)))
+            .overlay(Circle().stroke(Theme.separator, lineWidth: 0.5))
     }
 }

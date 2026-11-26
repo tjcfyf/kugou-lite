@@ -9,14 +9,22 @@ enum KaraokeMode: String {
     case aiModel
 }
 
+/// 播放进度单独发布：只有播放页需要 4Hz 刷新，避免所有页面都跟着 currentTime 重算。
+final class PlaybackProgress: ObservableObject {
+    @Published fileprivate(set) var time: Double = 0
+}
+
 @MainActor
 final class PlayerEngine: NSObject, ObservableObject {
     static let shared = PlayerEngine()
 
+    let playbackProgress = PlaybackProgress()
+
     @Published private(set) var current: Song?
+    @Published private(set) var queueRevision = 0
     @Published private(set) var isPlaying = false
     @Published private(set) var isLoading = false
-    @Published private(set) var currentTime: Double = 0
+    private(set) var currentTime: Double = 0
     @Published private(set) var duration: Double = 0
     @Published private(set) var lyric: [LyricLine] = []
     @Published private(set) var lyricLoading = false
@@ -43,7 +51,9 @@ final class PlayerEngine: NSObject, ObservableObject {
 
     private let player = AVPlayer()
     private var timeObserver: Any?
-    private var queue: [Song] = []
+    private var queue: [Song] = [] {
+        didSet { queueRevision &+= 1 }
+    }
     private var index = 0
 
     var queueSongs: [Song] { queue }
@@ -391,9 +401,14 @@ final class PlayerEngine: NSObject, ObservableObject {
         player.seek(to: CMTime(seconds: clamped, preferredTimescale: 600))
         if isPlaying { player.rate = playbackRate }
         if karaokeMode == .aiModel { AudioEnhancer.shared.resetAI() }
-        currentTime = clamped
+        setCurrentTime(clamped)
         updateLyricIndex(clamped)
         refreshNowPlayingPlayback()
+    }
+
+    private func setCurrentTime(_ value: Double) {
+        currentTime = value
+        playbackProgress.time = value
     }
 
     // MARK: - Loading
@@ -415,7 +430,7 @@ final class PlayerEngine: NSObject, ObservableObject {
         lyricTranslationAvailable = false
         lyricIndex = 0
         lyricLoading = true
-        currentTime = 0
+        setCurrentTime(0)
         duration = Double(song.Duration ?? 0)
         isLoading = true
         errorMessage = nil
@@ -508,7 +523,7 @@ final class PlayerEngine: NSObject, ObservableObject {
                 if saved > 5, total <= 0 || saved < total - 5 {
                     _ = await self.player.seek(to: CMTime(seconds: saved, preferredTimescale: 600),
                                                toleranceBefore: .zero, toleranceAfter: .zero)
-                    self.currentTime = saved
+                    self.setCurrentTime(saved)
                 }
                 self.player.play()
                 self.player.rate = self.playbackRate
@@ -728,7 +743,7 @@ final class PlayerEngine: NSObject, ObservableObject {
         let seconds = time.seconds
         guard seconds.isFinite else { return }
         if !settingsVisible {
-            currentTime = seconds
+            setCurrentTime(seconds)
             if duration <= 0, let item = player.currentItem {
                 let value = item.duration.seconds
                 if value.isFinite, value > 0 { duration = value }

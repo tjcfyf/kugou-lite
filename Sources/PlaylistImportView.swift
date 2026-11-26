@@ -241,27 +241,7 @@ struct PlaylistImportView: View {
     }
 
     private func artwork(url: URL?) -> some View {
-        Group {
-            if let url {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    artworkPlaceholder
-                }
-            } else {
-                artworkPlaceholder
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-    }
-
-    private var artworkPlaceholder: some View {
-        ZStack {
-            Theme.card
-            Image(systemName: "music.note")
-                .font(.system(size: 19, weight: .medium))
-                .foregroundColor(Theme.secondaryText)
-        }
+        CoverImage(url: url, size: 62, radius: 7, showsBorder: false)
     }
 }
 

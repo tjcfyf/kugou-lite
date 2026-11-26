@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import UIKit
 
 /// PlayerPanelFrame 为了做窗口形变会 ignoresSafeArea，所以播放页内部必须
@@ -51,6 +52,8 @@ struct NowPlayingView: View {
     var onInteractiveDismissBegan: (() -> Bool)? = nil
     var onInteractiveDismissChanged: ((CGFloat) -> Void)? = nil
     var onInteractiveDismissEnded: ((Bool) -> Void)? = nil
+    let progressPublisher: AnyPublisher<Double, Never>
+    var isVisible: Bool = true
     @ObservedObject private var library = LibraryStore.shared
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
@@ -69,6 +72,7 @@ struct NowPlayingView: View {
     @AppStorage(Preferences.lyricPhotoModeKey) private var lyricPhotoMode = false
     @State private var isScrubbing = false
     @State private var scrubTime: Double = 0
+    @State private var progressTime: Double = 0
     @State private var lyricClockTime: Double = 0
     @State private var lyricClockDate = Date()
     @State private var isClosing = false
@@ -143,6 +147,19 @@ struct NowPlayingView: View {
             coverMorphOverlay
         }
         .coordinateSpace(name: "playerPage")
+        .onAppear {
+            progressTime = PlayerEngine.shared.playbackProgress.time
+        }
+        .onChange(of: isVisible) { visible in
+            guard visible else { return }
+            progressTime = PlayerEngine.shared.playbackProgress.time
+            lyricClockTime = progressTime
+            lyricClockDate = Date()
+        }
+        .onReceive(progressPublisher) { time in
+            guard isVisible else { return }
+            progressTime = time
+        }
         // 歌词开关只在内容区做交叉淡入（见 pageContent），不在这里对整个
         // 播放页加隐式动画，避免底部操作栏和背景一起被插值。
         .animation(Motion.quick, value: player.toast)
@@ -685,7 +702,7 @@ struct NowPlayingView: View {
     }
 
     private var displayedTime: Double {
-        isScrubbing ? scrubTime : player.currentTime
+        isScrubbing ? scrubTime : progressTime
     }
 
     private var progress: some View {
@@ -976,13 +993,13 @@ struct NowPlayingView: View {
                 }
             }
             .onAppear {
-                lyricClockTime = player.currentTime
+                lyricClockTime = progressTime
                 lyricClockDate = Date()
                 refreshChorusRanges()
                 guard !player.lyric.isEmpty else { return }
                 proxy.scrollTo(player.lyricIndex, anchor: .center)
             }
-            .onChange(of: player.currentTime) { time in
+            .onChange(of: progressTime) { time in
                 // 歌词页收起后不要继续更新隐藏的滚动视图，避免点进度条时
                 // 在后台对 100+ 行歌词做一次 scrollTo 把主线程占住。
                 guard showLyrics else { return }
@@ -1025,7 +1042,7 @@ struct NowPlayingView: View {
             return Text(plain)
         }
 
-        let time = (timeOverride ?? player.currentTime) + Double(player.lyricOffsetMs) / 1000
+        let time = (timeOverride ?? progressTime) + Double(player.lyricOffsetMs) / 1000
         var result = AttributedString()
 
         for word in line.words {

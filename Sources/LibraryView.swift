@@ -559,18 +559,13 @@ struct RankCard: View {
             RoundedRectangle(cornerRadius: 19, style: .continuous)
                 .fill(Theme.chip)
             if let url = rank.cover.flatMap(URL.init(string:)) {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    Image(systemName: "chart.bar.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(Theme.secondaryText)
-                }
-                .frame(width: side, height: side)
+                CoverImage(url: url, size: side, radius: 19, showsBorder: false,
+                           placeholderSymbol: "chart.bar.fill")
             } else {
                 Image(systemName: "chart.bar.fill")
                     .font(.system(size: 24))
                     .foregroundColor(Theme.secondaryText)
+                    .frame(width: side, height: side)
             }
 
             LinearGradient(
@@ -890,15 +885,8 @@ struct PlaylistCard: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Theme.chip)
                 if let url = playlist.cover.flatMap(URL.init(string:)) {
-                    AsyncImage(url: url) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        Image(systemName: "music.note.list")
-                            .font(.system(size: 22))
-                            .foregroundColor(Theme.secondaryText)
-                    }
-                    .frame(width: 148, height: 148)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    CoverImage(url: url, size: 148, radius: 9, showsBorder: false,
+                               placeholderSymbol: "music.note.list")
                 } else {
                     Image(systemName: "music.note.list")
                         .font(.system(size: 22))
@@ -1793,27 +1781,7 @@ struct ProfileView: View {
     }
 
     private func artworkView(url: URL?) -> some View {
-        Group {
-            if let url {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    artworkPlaceholder
-                }
-            } else {
-                artworkPlaceholder
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-
-    private var artworkPlaceholder: some View {
-        ZStack {
-            Theme.card
-            Image(systemName: "music.note")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundColor(Theme.secondaryText)
-        }
+        CoverImage(url: url, size: 60, radius: 12, showsBorder: false)
     }
 
     private func loadProfile() async {
@@ -2211,27 +2179,14 @@ struct LibrarySongsView: View {
 }
 
 struct QueueView: View {
-    @EnvironmentObject private var player: PlayerEngine
     @Environment(\.dismiss) private var dismiss
     @State private var editMode: EditMode = .inactive
     @State private var showClearConfirm = false
+    @State private var songs: [Song] = []
+    @State private var currentIndexValue = 0
 
     private var totalSeconds: Int {
-        player.queueSongs.reduce(0) { $0 + ($1.Duration ?? 0) }
-    }
-
-    private var remainingSeconds: Int {
-        var result = 0
-        for (index, song) in player.queueSongs.enumerated() {
-            let duration = song.Duration ?? 0
-            if index < player.currentIndex { continue }
-            if index == player.currentIndex {
-                result += max(0, duration - Int(player.currentTime))
-            } else {
-                result += duration
-            }
-        }
-        return result
+        songs.reduce(0) { $0 + ($1.Duration ?? 0) }
     }
 
     private func durationText(_ seconds: Int) -> String {
@@ -2239,6 +2194,11 @@ struct QueueView: View {
             return String(format: "%d:%02d:%02d", seconds / 3600, (seconds % 3600) / 60, seconds % 60)
         }
         return String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+
+    private func refreshQueue() {
+        songs = PlayerEngine.shared.queueSongs
+        currentIndexValue = PlayerEngine.shared.currentIndex
     }
 
     var body: some View {
@@ -2249,14 +2209,14 @@ struct QueueView: View {
                         .font(.system(size: 28, weight: .bold))
                         .foregroundColor(Theme.text)
                     HStack(spacing: 6) {
-                        Text("\(player.queueSongs.count) 首")
+                        Text("\(songs.count) 首")
                         if totalSeconds > 0 {
                             Text("·")
                             Text("总时长 \(durationText(totalSeconds))")
                         }
-                        if player.currentIndex < player.queueSongs.count {
+                        if currentIndexValue < songs.count {
                             Text("·")
-                            Text("正在播放第 \(player.currentIndex + 1) 首")
+                            Text("正在播放第 \(currentIndexValue + 1) 首")
                                 .foregroundColor(Theme.accent)
                         }
                     }
@@ -2270,14 +2230,15 @@ struct QueueView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
 
-                ForEach(Array(player.queueSongs.enumerated()), id: \.element.id) { index, song in
+                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
                     HStack(spacing: 4) {
                         Button {
-                            player.jump(to: index)
+                            PlayerEngine.shared.jump(to: index)
+                            refreshQueue()
                         } label: {
                             HStack(spacing: 8) {
                                 ZStack {
-                                    if player.currentIndex == index {
+                                    if currentIndexValue == index {
                                         Capsule()
                                             .fill(Theme.accent)
                                             .frame(width: 3, height: 26)
@@ -2295,20 +2256,22 @@ struct QueueView: View {
                         SongMoreMenu(song: song)
                     }
                     .listRowInsets(EdgeInsets(top: 0, leading: 14, bottom: 0, trailing: 10))
-                    .listRowBackground(player.currentIndex == index ? Theme.accent.opacity(0.07) : Color.clear)
+                    .listRowBackground(currentIndexValue == index ? Theme.accent.opacity(0.07) : Color.clear)
                     .listRowSeparatorTint(Theme.separator.opacity(0.42))
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) {
                             withAnimation(Motion.standard) {
-                                player.removeFromQueue(at: index)
+                                PlayerEngine.shared.removeFromQueue(at: index)
                             }
+                            refreshQueue()
                         } label: { Label("移除", systemImage: "trash") }
                     }
                 }
                 .onMove { source, destination in
                     withAnimation(Motion.standard) {
-                        player.moveQueue(from: source, to: destination)
+                        PlayerEngine.shared.moveQueue(from: source, to: destination)
                     }
+                    refreshQueue()
                 }
             }
             .environment(\.editMode, $editMode)
@@ -2328,17 +2291,18 @@ struct QueueView: View {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Menu {
                         Button {
-                            player.shuffleUpcomingQueue()
+                            PlayerEngine.shared.shuffleUpcomingQueue()
+                            refreshQueue()
                         } label: {
                             Label("随机播放接下来的歌曲", systemImage: "shuffle")
                         }
-                        .disabled(player.queueSongs.count <= player.currentIndex + 1)
+                        .disabled(songs.count <= currentIndexValue + 1)
                         Button(role: .destructive) {
                             showClearConfirm = true
                         } label: {
                             Label("清空播放队列", systemImage: "trash")
                         }
-                        .disabled(player.queueSongs.isEmpty)
+                        .disabled(songs.isEmpty)
                     } label: {
                         Image(systemName: "ellipsis.circle")
                             .font(.system(size: 18, weight: .semibold))
@@ -2357,16 +2321,21 @@ struct QueueView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .onAppear { refreshQueue() }
+        .onReceive(PlayerEngine.shared.$queueRevision) { _ in refreshQueue() }
+        .onReceive(PlayerEngine.shared.$current) { _ in refreshQueue() }
         .confirmationDialog("确定清空播放列表？", isPresented: $showClearConfirm, titleVisibility: .visible) {
             Button("清空并停止播放", role: .destructive) {
                 withAnimation(Motion.standard) {
-                    player.clearQueue()
+                    PlayerEngine.shared.clearQueue()
                 }
+                refreshQueue()
             }
             Button("取消", role: .cancel) {}
         }
     }
 }
+
 
 
 private extension Song {
