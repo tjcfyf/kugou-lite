@@ -54,12 +54,8 @@ struct UserAvatarView: View {
     var body: some View {
         Group {
             if let url {
-                AsyncImage(url: url) { phase in
-                    if let image = phase.image {
-                        image.resizable().scaledToFill()
-                    } else {
-                        placeholder
-                    }
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
                 } placeholder: {
                     placeholder
                 }
