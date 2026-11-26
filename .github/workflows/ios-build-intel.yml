@@ -76,12 +76,11 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.147
-          name: Sonora 1.0.147
+          tag_name: v1.0.148
+          name: Sonora 1.0.148
           body: |
-            Sonora 1.0.147 unsigned IPA
-            - 球位置断开改为几何分段，不再依赖 destinationOut 擦除；轨道线、已播放线、高潮高亮都在球心左右各 1pt 直接不画
-            - 球位置形成真实的 2pt 背景缺口，线段用 butt cap 收口，不会被圆头重新接上
-            - 保留 v146 的高潮高亮修复：不再先画本地猜测位置，只认官方 climax 数据
-            - 保留 v143 的进度条卡死修复与 v142 的整体过渡优化
+            Sonora 1.0.148 unsigned IPA
+            - 修复主页 tab 切换时上下各出现 0.5 秒黑条：去掉 tab 的 scaleEffect 和 offset，只保留透明度交叉淡入
+            - 缩放会让 NavigationView 上下露出窗口黑底，现在 tab 始终满屏，不再出现黑边
+            - 保留 v147 的进度条球位置 2pt 真实断口、v146 的高潮只认官方数据与 v143 的卡死修复
           files: KugouLite-iOS15-unsigned.ipa

@@ -72,30 +72,24 @@ struct RootView: View {
                 discoverTab
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .opacity(tab == 0 ? 1 : 0)
-                    .scaleEffect(tab == 0 ? 1 : 0.985)
-                    .offset(y: tab == 0 ? 0 : 7)
                     .allowsHitTesting(tab == 0)
                     .zIndex(tab == 0 ? 1 : 0)
 
                 profileTab
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .opacity(tab == 1 ? 1 : 0)
-                    .scaleEffect(tab == 1 ? 1 : 0.985)
-                    .offset(y: tab == 1 ? 0 : 7)
                     .allowsHitTesting(tab == 1)
                     .zIndex(tab == 1 ? 1 : 0)
 
                 searchTab
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .opacity(tab == 2 ? 1 : 0)
-                    .scaleEffect(tab == 2 ? 1 : 0.985)
-                    .offset(y: tab == 2 ? 0 : 7)
                     .allowsHitTesting(tab == 2)
                     .zIndex(tab == 2 ? 1 : 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // 三个 tab 常驻，切换只做透明度 + 极小缩放的交叉淡入。
-            // 之前 tab 是瞬切，虽然不闪黑，但画面没有过渡，观感很硬。
+            // 三个 tab 常驻，切换只做透明度交叉淡入。不要加 scale/offset：
+            // NavigationView 缩放后上下会露出窗口黑底，切换那 0.5 秒就是两条黑边。
             .animation(Motion.silky, value: tab)
 
             AppleMusicBottomBar(tab: $tab, onOpenPlayer: { openPlayer() })
