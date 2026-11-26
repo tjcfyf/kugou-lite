@@ -1,0 +1,31 @@
+name: Attach IPA to Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download unsigned IPA from build run
+        uses: actions/download-artifact@v4
+        with:
+          name: unsigned-ipa
+          run-id: 45862297438
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload IPA to v1.0.159 release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.159
+          name: Sonora 1.0.159
+          files: KugouLite-iOS15-unsigned.ipa
+          body: |
+            Sonora 1.0.159 unsigned IPA
+
+            修复点歌词偶发卡死：歌词页常驻、首次进入/跨段跳转不再继承动画、
+            异常超长歌词与逐字标签截断、逐字高亮退回整行保护。
