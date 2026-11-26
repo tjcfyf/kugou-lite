@@ -35,6 +35,14 @@ struct LyricLine: Identifiable, Equatable {
 /// LRC / 增强 LRC / KRC 的统一解析器。
 /// KRC 是酷狗服务端提供的逐字格式，结构接近 YRC，但不做格式名称上的偷换。
 enum LyricParser {
+    // 歌词页是带逐行模糊的 LazyVStack；异常歌词文件（几百上千行、单行几百个
+    // 逐字标签）会让首次滚动和逐字高亮直接占满主线程。正常歌曲远小于这些上限，
+    // 这里只是把损坏/恶意的 LRC/KRC 截断到可渲染的规模。
+    private static let maxLines = 500
+    private static let maxScannedSourceLines = 3000
+    private static let maxLineCharacters = 400
+    private static let maxKRCWords = 120
+
     private static let krcLineRegex = try! NSRegularExpression(pattern: "^\\[(\\d+),(\\d+)\\](.*)$")
     private static let krcWordRegex = try! NSRegularExpression(pattern: "<(\\d+),(\\d+),\\d+>([^<]*)")
     private static let yrcWordRegex = try! NSRegularExpression(pattern: "\\((\\d+),(\\d+),\\d+\\)([^(]*)")
@@ -56,8 +64,11 @@ enum LyricParser {
         let language = decodeLanguage(sourceLines)
         var lines: [LyricLine] = []
         var lastLRC: (index: Int, time: TimeInterval, text: String)?
+        var scanned = 0
 
         for sourceLine in sourceLines {
+            scanned += 1
+            guard scanned <= maxScannedSourceLines, lines.count < maxLines else { break }
             let line = sourceLine.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !line.isEmpty else { lastLRC = nil; continue }
             if line.hasPrefix("[language:") { continue }
@@ -79,19 +90,20 @@ enum LyricParser {
                previous.text != lrc.text,
                lines.indices.contains(previous.index),
                lines[previous.index].translation == nil {
-                lines[previous.index].translation = lrc.text
+                lines[previous.index].translation = String(lrc.text.prefix(maxLineCharacters))
                 lastLRC = nil
                 continue
             }
 
             let index = lines.count
-            if let words = lrc.words, !words.isEmpty {
+            let display = String(lrc.text.prefix(maxLineCharacters))
+            if let words = lrc.words, !words.isEmpty, words.count <= maxKRCWords {
                 lines.append(LyricLine(time: words[0].start,
-                                       text: lrc.text,
+                                       text: display,
                                        words: words,
                                        duration: max((words.last?.start ?? 0) + (words.last?.duration ?? 0) - words[0].start, 0.25)))
             } else {
-                lines.append(LyricLine(time: lrc.times[0], text: lrc.text))
+                lines.append(LyricLine(time: lrc.times[0], text: display))
             }
             lastLRC = (index, lrc.times[0], lrc.text)
         }
@@ -100,11 +112,11 @@ enum LyricParser {
         for index in lines.indices {
             if let value = language.translation[safe: index] ?? nil,
                !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                lines[index].translation = value
+                lines[index].translation = String(value.prefix(maxLineCharacters))
             }
             if let value = language.romanization[safe: index] ?? nil,
                !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                lines[index].romanization = value
+                lines[index].romanization = String(value.prefix(maxLineCharacters))
             }
         }
 
@@ -169,6 +181,7 @@ enum LyricParser {
     }
 
     private static func parseKRCLine(_ line: String) -> LyricLine? {
+        guard line.count <= 2000 else { return nil }
         let ns = line as NSString
         let range = NSRange(location: 0, length: ns.length)
         guard let match = krcLineRegex.firstMatch(in: line, range: range),
@@ -187,7 +200,7 @@ enum LyricParser {
         var words: [LyricWord] = []
         var text = ""
         var cursor = 0
-        for item in matches {
+        for item in matches.prefix(maxKRCWords) {
             if item.range.location > cursor {
                 text += contentNS.substring(with: NSRange(location: cursor,
                                                           length: item.range.location - cursor))
@@ -201,11 +214,12 @@ enum LyricParser {
             text += value
             cursor = item.range.location + item.range.length
         }
-        if cursor < contentNS.length {
+        if cursor < contentNS.length, matches.count <= maxKRCWords {
             text += contentNS.substring(from: cursor)
         }
 
-        let display = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let display = String(text.trimmingCharacters(in: .whitespacesAndNewlines)
+            .prefix(maxLineCharacters))
         guard !display.isEmpty else { return nil }
         if words.isEmpty {
             return LyricLine(time: lineStart / 1000,

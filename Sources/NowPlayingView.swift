@@ -65,6 +65,8 @@ struct NowPlayingView: View {
     @State private var lyricSize: LyricTextSize = Preferences.lyricSize
     @State private var showRemaining = true
     @State private var showLyrics = false
+    @State private var lyricsMounted = false
+    @State private var lastScrolledLyricIndex: Int?
     @State private var chorusRanges: [ClosedRange<Double>] = []
     @State private var chorusRequestHash = ""
     @AppStorage(Preferences.lyricFollowKey) private var lyricAutoFollow = true
@@ -175,6 +177,9 @@ struct NowPlayingView: View {
             if !enabled { showKaraokeSheet = false }
         }
         .onPreferenceChange(PlayerCoverFramePreferenceKey.self) { coverFrame = $0 }
+        .onChange(of: showLyrics) { visible in
+            if visible { lyricsMounted = true }
+        }
         .onChange(of: visualProgress) { value in
             // 播放页现在会常驻视图树，收起结束时把页内状态复位，
             // 下次打开不会还停留在歌词页或半开的 sheet。
@@ -225,8 +230,11 @@ struct NowPlayingView: View {
                         .opacity(showLyrics ? 0 : 1)
                         .allowsHitTesting(!showLyrics)
 
-                    if showLyrics {
+                    if lyricsMounted {
                         lyricsContent
+                            .opacity(showLyrics ? 1 : 0)
+                            .allowsHitTesting(showLyrics)
+                            .accessibilityHidden(!showLyrics)
                             .transition(.opacity)
                     }
                 }
@@ -1075,7 +1083,20 @@ struct NowPlayingView: View {
                 lyricClockDate = Date()
                 refreshChorusRanges()
                 guard !player.lyric.isEmpty else { return }
-                proxy.scrollTo(player.lyricIndex, anchor: .center)
+                lastScrolledLyricIndex = nil
+                // 歌词页插入时会继承 showLyrics 的淡入 transaction。若此时直接
+                // scrollTo，当前句靠后就会把整段滚动也做成 0.22s 动画，
+                // LazyVStack 会一次性实例化大量带 blur 的行，偶发卡死。
+                // 等页面完成一次布局后用无动画事务定位。
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) {
+                    scrollToLyric(proxy, index: player.lyricIndex, animated: false)
+                }
+            }
+            .onChange(of: showLyrics) { visible in
+                guard visible, !player.lyric.isEmpty else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) {
+                    scrollToLyric(proxy, index: player.lyricIndex, animated: false)
+                }
             }
             .onChange(of: progressTime) { time in
                 // 歌词页收起后不要继续更新隐藏的滚动视图，避免点进度条时
@@ -1086,15 +1107,11 @@ struct NowPlayingView: View {
             }
             .onChange(of: player.lyricIndex) { index in
                 guard showLyrics, lyricAutoFollow else { return }
-                withAnimation(.easeInOut(duration: 0.22)) {
-                    proxy.scrollTo(index, anchor: .center)
-                }
+                scrollToLyric(proxy, index: index, animated: true)
             }
             .onChange(of: lyricAutoFollow) { enabled in
                 guard showLyrics, enabled else { return }
-                withAnimation(.easeInOut(duration: 0.22)) {
-                    proxy.scrollTo(player.lyricIndex, anchor: .center)
-                }
+                scrollToLyric(proxy, index: player.lyricIndex, animated: false)
             }
         }
         .mask(
@@ -1106,13 +1123,39 @@ struct NowPlayingView: View {
         )
     }
 
+    /// 只有相邻行自动跟随时才做短滚动动画；点歌词跨段 seek 或首次进入
+    /// 歌词页时直接定位，避免 LazyVStack 从第 0 行一路实例化到当前行。
+    private func scrollToLyric(_ proxy: ScrollViewProxy, index: Int, animated: Bool) {
+        guard showLyrics, !player.lyric.isEmpty else { return }
+        let clamped = min(max(index, 0), player.lyric.count - 1)
+        let previous = lastScrolledLyricIndex
+        lastScrolledLyricIndex = clamped
+
+        if animated, let previous, abs(clamped - previous) <= 2 {
+            withAnimation(.easeInOut(duration: 0.22)) {
+                proxy.scrollTo(clamped, anchor: .center)
+            }
+        } else {
+            var transaction = Transaction()
+            transaction.animation = nil
+            withTransaction(transaction) {
+                proxy.scrollTo(clamped, anchor: .center)
+            }
+        }
+    }
+
     private func lyricClock(_ date: Date) -> Double {
         let elapsed = player.isPlaying ? max(0, date.timeIntervalSince(lyricClockDate)) : 0
         return lyricClockTime + elapsed
     }
 
     private func lyricText(_ line: LyricLine, active: Bool, timeOverride: Double? = nil) -> Text {
-        guard active, !line.words.isEmpty else {
+        // 个别 KRC 会在一行里塞进几百个逐字标签；逐字 AttributedString 每帧重建
+        // 会占满主线程。超过正常歌词规模时退回整行高亮，功能与排版不变。
+        guard active,
+              !line.words.isEmpty,
+              line.words.count <= 80,
+              line.text.count <= 240 else {
             var plain = AttributedString(line.text)
             plain.foregroundColor = active
                 ? playerPrimary
