@@ -2,120 +2,132 @@ import SwiftUI
 import UIKit
 
 enum AppleMusicTheme {
-    /// Apple Music 的选中态/链接红；播放控制仍然用白色。
-    static let accent = Color(red: 0.98, green: 0.20, blue: 0.28)
-    static let tabUnselected = Theme.text.opacity(0.62)
-    static let hairline = Theme.text.opacity(0.14)
+    /// Apple Music 的选中态/链接红。
+    static let accent = Theme.accent
+    static let tabUnselected = Theme.text.opacity(0.58)
+    static let hairline = Theme.text.opacity(0.12)
 }
 
-/// Apple Music 底部结构：全宽磨砂 tab bar + 上方的迷你播放条。
-/// 不再使用原来的悬浮胶囊，避免播放页收起时出现「首页上飘一张封面」。
-struct AppleMusicBottomBar: View {
+/// iOS 26 的浮动底栏：左侧两枚主 tab 的液态玻璃胶囊，右侧独立搜索玻璃圆钮。
+/// 向下滚动时胶囊收起成纯图标，回到顶部再展开；迷你播放器浮在整条底栏上方。
+struct AppleMusicFloatingChrome: View {
     @Binding var tab: Int
     let onOpenPlayer: () -> Void
     @EnvironmentObject private var player: PlayerEngine
-    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var chrome = ChromeState.shared
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 10) {
             if player.current != nil {
-                // Apple Music 式悬浮迷你播放卡：不跟底栏焊在一起，
-                // 留 8pt 边距和 14pt 圆角，底栏玻璃从卡片四周透出来。
                 AppleMusicMiniPlayer(onOpenPlayer: onOpenPlayer)
                     .transition(
                         .asymmetric(
                             insertion: .move(edge: .bottom).combined(with: .opacity),
-                            removal: .opacity.combined(with: .scale(scale: 0.98, anchor: .bottom))
+                            removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom))
                         )
                     )
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(AppleMusicTheme.hairline, lineWidth: 0.5)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .padding(.horizontal, 8)
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
+                    .padding(.horizontal, 2)
             }
 
-            HStack(spacing: 0) {
-                tabButton(title: "现在就听", icon: "play.rectangle", tag: 0)
-                tabButton(title: "资料库", icon: "music.note.list", tag: 1)
-                tabButton(title: "搜索", icon: "magnifyingglass", tag: 2)
+            HStack(spacing: 10) {
+                HStack(spacing: 2) {
+                    barButton(title: "现在就听", icon: "house.fill", tag: 0)
+                    barButton(title: "资料库", icon: "square.stack.fill", tag: 1)
+                }
+                .padding(.horizontal, 4)
+                .frame(width: chrome.compact ? 116 : 200,
+                       height: chrome.compact ? LiquidGlassMetrics.compactBarHeight : LiquidGlassMetrics.barHeight)
+                .liquidGlass(cornerRadius: chrome.compact ? 25 : LiquidGlassMetrics.barCorner)
+                .animation(Motion.silky, value: chrome.compact)
+
+                searchButton
             }
-            .frame(height: 54)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
-        .background(
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Rectangle()
-                        .fill(Color.black.opacity(colorScheme == .dark ? 0.10 : 0.02))
-                        .allowsHitTesting(false)
-                )
-                .ignoresSafeArea(edges: .bottom)
-        )
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(AppleMusicTheme.hairline)
-                .frame(height: 0.5)
-        }
-        // 第一首歌开始播放时，迷你播放卡从底栏里滑上来；底栏高度一起
-        // 做弹簧过渡，列表不会被硬生生顶一下。
+        .padding(.horizontal, 14)
+        .padding(.bottom, LiquidGlassMetrics.bottomMargin)
+        .animation(Motion.silky, value: chrome.compact)
         .animation(Motion.silky, value: player.current?.id)
     }
 
-    private func tabButton(title: String, icon: String, tag: Int) -> some View {
-        Button {
+    private func barButton(title: String, icon: String, tag: Int) -> some View {
+        let selected = tab == tag
+        return Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            // 底栏切 tab 不要包 withAnimation：首页和搜索是两棵独立视图树，
-            // 0.2 秒的透明度过渡会让人先看到「现在就听」再看到搜索页。
             tab = tag
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: icon)
-                    .font(.system(size: 21, weight: .regular))
-                    .foregroundColor(tab == tag ? AppleMusicTheme.accent : AppleMusicTheme.tabUnselected)
-                Text(title)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(tab == tag ? AppleMusicTheme.accent : AppleMusicTheme.tabUnselected)
+                    .font(.system(size: 21, weight: .semibold))
+                    .foregroundColor(selected ? AppleMusicTheme.accent : AppleMusicTheme.tabUnselected)
+                    .frame(height: 24)
+                if !chrome.compact {
+                    Text(title)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(selected ? AppleMusicTheme.accent : AppleMusicTheme.tabUnselected)
+                        .lineLimit(1)
+                        .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .bottom)))
+                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .contentShape(Rectangle())
-            .animation(Motion.tab, value: tab == tag)
+            .frame(width: chrome.compact ? 52 : 94,
+                   height: chrome.compact ? LiquidGlassMetrics.compactBarHeight : LiquidGlassMetrics.barHeight)
+            .contentShape(Capsule())
         }
         .buttonStyle(AppleMusicPressStyle())
         .accessibilityLabel(title)
     }
+
+    private var searchButton: some View {
+        let selected = tab == 2
+        return Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            tab = 2
+        } label: {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundColor(selected ? AppleMusicTheme.accent : Theme.text.opacity(0.82))
+                .frame(width: chrome.compact ? LiquidGlassMetrics.compactBarHeight : LiquidGlassMetrics.barHeight,
+                       height: chrome.compact ? LiquidGlassMetrics.compactBarHeight : LiquidGlassMetrics.barHeight)
+                .contentShape(Circle())
+        }
+        .buttonStyle(AppleMusicPressStyle())
+        .background(
+            LiquidGlassBackdrop(
+                cornerRadius: chrome.compact ? 25 : LiquidGlassMetrics.barCorner,
+                tint: selected ? AppleMusicTheme.accent.opacity(0.18) : .clear
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: chrome.compact ? 25 : LiquidGlassMetrics.barCorner,
+                                    style: .continuous))
+        .animation(Motion.silky, value: chrome.compact)
+        .accessibilityLabel("搜索")
+    }
 }
 
-/// Apple Music 全宽迷你播放条：封面 + 歌名/歌手 + 播放键。
-/// 点击除播放键外的区域打开播放页。
+/// 浮动迷你播放条：液态玻璃胶囊，可左右轻扫切上一首/下一首。
 struct AppleMusicMiniPlayer: View {
     let onOpenPlayer: () -> Void
     @EnvironmentObject private var player: PlayerEngine
 
     var body: some View {
-        HStack(spacing: 11) {
+        HStack(spacing: 10) {
             Button(action: onOpenPlayer) {
                 HStack(spacing: 11) {
-                    CoverImage(url: player.current?.coverURL, size: 44, radius: 6)
-                        .shadow(color: .black.opacity(0.18), radius: 3, x: 0, y: 1)
+                    CoverImage(url: player.current?.coverURL, size: 42, radius: 9)
+                        .shadow(color: .black.opacity(0.16), radius: 4, x: 0, y: 2)
+
                     VStack(alignment: .leading, spacing: 2) {
                         Text(player.current?.SongName ?? "")
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(Theme.text)
                             .lineLimit(1)
                         Text(player.current?.artist ?? "")
-                            .font(.system(size: 12))
+                            .font(.system(size: 12, weight: .regular))
                             .foregroundColor(Theme.secondaryText)
                             .lineLimit(1)
                     }
-                    Spacer(minLength: 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
                 .contentShape(Rectangle())
             }
@@ -123,9 +135,9 @@ struct AppleMusicMiniPlayer: View {
 
             Button { player.toggle() } label: {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.system(size: 19, weight: .semibold))
                     .foregroundColor(Theme.text)
-                    .frame(width: 38, height: 44)
+                    .frame(width: 36, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(AppleMusicPressStyle())
@@ -133,24 +145,38 @@ struct AppleMusicMiniPlayer: View {
 
             Button { player.next() } label: {
                 Image(systemName: "forward.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(Theme.text)
-                    .frame(width: 34, height: 44)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Theme.text.opacity(0.86))
+                    .frame(width: 32, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(AppleMusicPressStyle())
             .accessibilityLabel("下一首")
         }
-        .padding(.horizontal, 14)
-        .frame(height: 60)
+        .padding(.horizontal, 12)
+        .frame(height: LiquidGlassMetrics.miniHeight)
+        .liquidGlass(cornerRadius: LiquidGlassMetrics.miniCorner)
+        .contentShape(RoundedRectangle(cornerRadius: LiquidGlassMetrics.miniCorner, style: .continuous))
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 24)
+                .onEnded { value in
+                    let horizontal = value.translation.width
+                    guard abs(horizontal) > abs(value.translation.height),
+                          abs(horizontal) > 42 else { return }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(Motion.silky) {
+                        if horizontal < 0 { player.next() } else { player.previous() }
+                    }
+                }
+        )
     }
 }
 
 struct AppleMusicPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .opacity(configuration.isPressed ? 0.55 : 1)
-            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .opacity(configuration.isPressed ? 0.58 : 1)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(Motion.tap, value: configuration.isPressed)
     }
 }

@@ -17,11 +17,11 @@ struct MiniPlayerFramePreferenceKey: PreferenceKey {
 
 enum Theme {
     static let background = Color("Background")
-    // 半透明卡片让全局专辑色透出来，但正文只用黑/白两级。
-    static let card = Color("Card").opacity(0.88)
-    // 强调色也只使用黑/白：暗色主题白，浅色主题黑。
-    static let accent = Color("TextPrimary")
-    static let onAccent = Color("Background")
+    // 半透明卡片让背景和专辑色透出来，正文只用黑/白两级。
+    static let card = Color("Card").opacity(0.82)
+    // iOS 26 Apple Music 的强调色：Apple Music 红。
+    static let accent = Color(red: 0.98, green: 0.18, blue: 0.30)
+    static let onAccent = Color.white
     static let text = Color("TextPrimary")
     static let secondaryText = Color("TextPrimary").opacity(0.72)
     static let tertiaryText = Color("TextPrimary").opacity(0.46)
@@ -74,28 +74,18 @@ struct NativeFrostedGlass: UIViewRepresentable {
     }
 }
 
-/// 内容层统一使用实色卡片 + 一条 hairline；只有需要抬升的浮层才给很轻的接触阴影。
+/// 内容层统一用 iOS 26 液态玻璃卡片：材质、折射高光、镜面描边。
 struct AppSurface: ViewModifier {
-    var cornerRadius: CGFloat = 12
+    var cornerRadius: CGFloat = 18
     var elevated: Bool = false
     var fill: Color = Theme.card
 
     func body(content: Content) -> some View {
         content
             .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(fill)
+                LiquidGlassBackdrop(cornerRadius: cornerRadius, tint: fill.opacity(0.16))
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Theme.border, lineWidth: 0.5)
-            )
-            .shadow(
-                color: elevated ? Color.black.opacity(0.06) : Color.clear,
-                radius: elevated ? 8 : 0,
-                x: 0,
-                y: elevated ? 3 : 0
-            )
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }
 
@@ -111,7 +101,7 @@ struct AppChipSurface: ViewModifier {
 }
 
 extension View {
-    func appSurface(cornerRadius: CGFloat = 12, elevated: Bool = false) -> some View {
+    func appSurface(cornerRadius: CGFloat = 18, elevated: Bool = false) -> some View {
         modifier(AppSurface(cornerRadius: cornerRadius, elevated: elevated))
     }
 
@@ -123,17 +113,13 @@ extension View {
         modifier(AppSurface(cornerRadius: cornerRadius))
     }
 
-    /// 系统搜索框的实色底：中性填充，不再逐块叠系统 blur。
-    func appSearchField(cornerRadius: CGFloat = 10) -> some View {
+    /// iOS 26 搜索框：胶囊磨砂玻璃 + 折射高光。
+    func appSearchField(cornerRadius: CGFloat = 22) -> some View {
         self
             .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Theme.chip)
+                LiquidGlassBackdrop(cornerRadius: cornerRadius)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Theme.border, lineWidth: 0.5)
-            )
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }
 

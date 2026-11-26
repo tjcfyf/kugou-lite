@@ -100,7 +100,7 @@ struct NowPlayingView: View {
     }
 
     private var artworkSize: CGFloat {
-        min(UIScreen.main.bounds.width - 48, 340)
+        min(UIScreen.main.bounds.width - 56, 352)
     }
 
     /// 页面内容在面板展开前 20% 行程内淡入；与 MD3Music 的
@@ -479,9 +479,10 @@ struct NowPlayingView: View {
             } label: {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(playerPrimary.opacity(0.82))
+                    .foregroundColor(playerPrimary.opacity(0.92))
                     .frame(width: 40, height: 40)
-                    .contentShape(Rectangle())
+                    .liquidGlass(cornerRadius: 20)
+                    .contentShape(Circle())
             }
             .buttonStyle(GlassPressButtonStyle())
             .accessibilityLabel("关闭播放页")
@@ -501,9 +502,10 @@ struct NowPlayingView: View {
             } label: {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(playerPrimary.opacity(0.84))
-                    .frame(width: 34, height: 44)
-                    .contentShape(Rectangle())
+                    .foregroundColor(playerPrimary.opacity(0.92))
+                    .frame(width: 38, height: 38)
+                    .liquidGlass(cornerRadius: 19)
+                    .contentShape(Circle())
             }
             .buttonStyle(GlassPressButtonStyle())
             .accessibilityLabel("关闭播放页")
@@ -631,9 +633,10 @@ struct NowPlayingView: View {
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(playerPrimary.opacity(0.82))
+                .foregroundColor(playerPrimary.opacity(0.92))
                 .frame(width: 40, height: 40)
-                .contentShape(Rectangle())
+                .liquidGlass(cornerRadius: 20)
+                .contentShape(Circle())
         }
         .accessibilityLabel("更多")
     }
@@ -653,8 +656,8 @@ struct NowPlayingView: View {
                         )
                 }
             )
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.22 : 0.10),
-                    radius: 12, x: 0, y: 4)
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.30 : 0.14),
+                    radius: 22, x: 0, y: 10)
             .padding(.horizontal, 24)
             .opacity(isCoverMorphing ? 0 : 1)
             // 封面不再接收切歌/双击手势，让播放页的系统的下拉收出手势覆盖整张封面。
@@ -1132,15 +1135,15 @@ private struct CrossfadeArtwork: View {
                     .resizable()
                     .scaledToFill()
                     .frame(width: size, height: size)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Theme.border, lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(Color.white.opacity(0.16), lineWidth: 0.7)
                     )
             }
 
             if let frontURL = frontURL {
-                CoverImage(url: frontURL, size: size, radius: 12) { loadedURL, image in
+                CoverImage(url: frontURL, size: size, radius: 18) { loadedURL, image in
                     guard let image = image, loadedURL == frontURL else { return }
                     currentImage = image
                     completeLoad()

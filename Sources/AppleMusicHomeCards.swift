@@ -11,26 +11,87 @@ struct AlbumRecommendation: Identifiable, Equatable {
 
 struct AppleMusicAlbumCard: View {
     let album: AlbumRecommendation
+    var featured: Bool = false
     let onTap: () -> Void
+
+    private var side: CGFloat { featured ? 292 : 186 }
+    private var radius: CGFloat { featured ? 24 : 19 }
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 8) {
-                CoverImage(url: album.coverURL, size: 226, radius: 10)
-                    .shadow(color: .black.opacity(0.28), radius: 12, x: 0, y: 7)
-                Text(album.name)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(Theme.text)
-                    .lineLimit(1)
-                    .frame(width: 226, alignment: .leading)
-                Text(album.artist)
-                    .font(.system(size: 13))
-                    .foregroundColor(Theme.secondaryText)
-                    .lineLimit(1)
-                    .frame(width: 226, alignment: .leading)
+            ZStack(alignment: .bottomLeading) {
+                CoverImage(url: album.coverURL, size: side, radius: radius, showsBorder: false)
+                    .frame(width: side, height: side)
+                    .clipped()
+
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .black.opacity(0.04), location: 0.34),
+                        .init(color: .black.opacity(0.76), location: 0.78),
+                        .init(color: .black.opacity(0.92), location: 1)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(album.name)
+                        .font(.system(size: featured ? 22 : 16, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                    Text(album.artist)
+                        .font(.system(size: featured ? 14 : 11, weight: .medium))
+                        .foregroundColor(.white.opacity(0.72))
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, featured ? 16 : 12)
+                .padding(.bottom, featured ? 16 : 12)
+                .padding(.trailing, 48)
+
+                VStack {
+                    HStack {
+                        Spacer()
+                        HStack(spacing: 3) {
+                            Image(systemName: "music.note")
+                                .font(.system(size: 10, weight: .bold))
+                            Text("Music")
+                                .font(.system(size: 13, weight: .bold))
+                        }
+                        .foregroundColor(.white.opacity(0.92))
+                        .shadow(color: .black.opacity(0.35), radius: 3, y: 1)
+                    }
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        playBadge
+                    }
+                }
+                .padding(featured ? 14 : 10)
             }
+            .frame(width: side, height: side)
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(Color.white.opacity(0.18), lineWidth: 0.7)
+            )
+            .shadow(color: .black.opacity(0.26), radius: featured ? 20 : 12, x: 0, y: 10)
         }
         .buttonStyle(AppleMusicPressStyle())
+    }
+
+    private var playBadge: some View {
+        ZStack {
+            Circle()
+                .fill(.ultraThinMaterial)
+                .frame(width: featured ? 40 : 32, height: featured ? 40 : 32)
+            Circle()
+                .stroke(Color.white.opacity(0.34), lineWidth: 0.7)
+                .frame(width: featured ? 40 : 32, height: featured ? 40 : 32)
+            Image(systemName: "play.fill")
+                .font(.system(size: featured ? 15 : 12, weight: .semibold))
+                .foregroundColor(.white)
+        }
     }
 }
 
@@ -44,15 +105,21 @@ struct AppBackgroundGradient: View {
             if colorScheme == .dark {
                 LinearGradient(
                     colors: [
-                        Color(red: 0.075, green: 0.095, blue: 0.135),
-                        Color(red: 0.035, green: 0.043, blue: 0.062),
-                        Theme.background
+                        Color(red: 0.055, green: 0.055, blue: 0.065),
+                        Color.black
                     ],
                     startPoint: .top,
                     endPoint: .bottom
                 )
             } else {
-                Theme.background
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.985, green: 0.985, blue: 0.992),
+                        Color(red: 0.955, green: 0.955, blue: 0.965)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
             }
         }
         .ignoresSafeArea()

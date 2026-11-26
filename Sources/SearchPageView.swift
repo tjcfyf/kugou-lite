@@ -41,10 +41,10 @@ struct SearchPageView: View {
         HStack(spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(Theme.secondaryText)
                 TextField("搜索歌曲、歌手", text: $searchModel.query)
-                    .font(.system(size: 14))
+                    .font(.system(size: 15))
                     .foregroundColor(Theme.text)
                     .focused($searchFocused)
                     .submitLabel(.search)
@@ -60,9 +60,9 @@ struct SearchPageView: View {
                     .buttonStyle(GlassPressButtonStyle())
                 }
             }
-            .padding(.horizontal, 11)
-            .frame(height: 38)
-            .appSearchField(cornerRadius: 10)
+            .padding(.horizontal, 14)
+            .frame(height: 46)
+            .appSearchField(cornerRadius: 23)
 
             if searchFocused {
                 Button {
@@ -77,9 +77,9 @@ struct SearchPageView: View {
                 .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 6)
-        .padding(.bottom, 8)
+        .padding(.horizontal, 18)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
         .animation(Motion.quick, value: searchFocused)
     }
 
@@ -119,7 +119,7 @@ struct SearchPageView: View {
                         searchFocused = false
                         onSelect(song)
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, 18)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
 
@@ -134,9 +134,11 @@ struct SearchPageView: View {
                         .onAppear { searchModel.loadMore() }
                 }
             }
-            .padding(.bottom, 132)
+            .padding(.bottom, 178)
+            .chromeScrollTracking()
             .animation(Motion.standard, value: searchModel.songs.count)
         }
+        .coordinateSpace(name: ChromeScrollSpace.name)
     }
 
     private var searchHistory: some View {
@@ -144,7 +146,7 @@ struct SearchPageView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("最近搜索")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 22, weight: .bold))
                         .foregroundColor(Theme.secondaryText)
                     Spacer()
                     if !historyWords.isEmpty {
@@ -169,7 +171,7 @@ struct SearchPageView: View {
                         .foregroundColor(Theme.tertiaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
-                        .appSurface(cornerRadius: 10)
+                        .appSurface(cornerRadius: 18)
                 } else {
                     VStack(spacing: 0) {
                         ForEach(Array(historyWords.enumerated()), id: \.element) { index, word in
@@ -213,14 +215,14 @@ struct SearchPageView: View {
                             }
                         }
                     }
-                    .appSurface(cornerRadius: 10)
+                    .appSurface(cornerRadius: 18)
                 }
             }
 
             if !hotKeywords.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("热门搜索")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 20, weight: .bold))
                         .foregroundColor(Theme.secondaryText)
 
                     LazyVGrid(
@@ -251,11 +253,11 @@ struct SearchPageView: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 2)
-                    .appSurface(cornerRadius: 10)
+                    .appSurface(cornerRadius: 18)
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
+        .padding(.horizontal, 18)
+        .padding(.top, 12)
     }
 }

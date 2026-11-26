@@ -92,7 +92,7 @@ struct RootView: View {
             // NavigationView 缩放后上下会露出窗口黑底，切换那 0.5 秒就是两条黑边。
             .animation(Motion.silky, value: tab)
 
-            AppleMusicBottomBar(tab: $tab, onOpenPlayer: { openPlayer() })
+            AppleMusicFloatingChrome(tab: $tab, onOpenPlayer: { openPlayer() })
                 .zIndex(10)
 
             // 播放页直接作为 Root 的覆盖层，不走 UIKit fullScreenCover。
@@ -133,6 +133,7 @@ struct RootView: View {
         )
         .onAppear { applyInterfaceStyle() }
         .onChange(of: tab) { value in
+            ChromeState.shared.reset()
             if value != 2 {
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }
