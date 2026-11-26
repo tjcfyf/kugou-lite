@@ -39,16 +39,6 @@ struct AlbumDetailSheet: View {
             .navigationTitle("专辑")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        guard let first = songs.first else { return }
-                        player.play(first, in: songs)
-                        dismiss()
-                    } label: {
-                        Label("播放全部", systemImage: "play.fill")
-                    }
-                    .disabled(songs.isEmpty)
-                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("关闭") { dismiss() }
                 }
@@ -59,30 +49,71 @@ struct AlbumDetailSheet: View {
     }
 
     private var header: some View {
-        VStack(spacing: 12) {
-            CoverImage(url: headerCover, size: 150, radius: 12)
-                .shadow(color: .black.opacity(0.12), radius: 14, x: 0, y: 6)
+        ZStack(alignment: .top) {
+            CollectionHero(coverURL: headerCover, height: 410)
 
-            Text(target.name)
-                .font(.system(size: 22, weight: .bold))
-                .foregroundColor(Theme.text)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .padding(.horizontal, 28)
+            VStack(spacing: 10) {
+                CoverImage(url: headerCover, size: 184, radius: 22)
+                    .shadow(color: .black.opacity(0.28), radius: 24, x: 0, y: 12)
 
-            if !headerArtist.isEmpty {
-                Text(headerArtist)
-                    .font(.system(size: 13))
+                Text(target.name)
+                    .font(.system(size: 27, weight: .bold))
+                    .foregroundColor(Theme.text)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .padding(.horizontal, 28)
+
+                if !headerArtist.isEmpty {
+                    Text(headerArtist)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(Theme.secondaryText)
+                        .lineLimit(1)
+                }
+
+                Text(loading ? "正在读取专辑…" : "\(songs.count) 首歌曲")
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Theme.secondaryText)
-                    .lineLimit(1)
-            }
 
-            Text(loading ? "正在读取专辑…" : "\(songs.count) 首歌曲")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(Theme.secondaryText)
+                HStack(spacing: 10) {
+                    Button {
+                        guard let first = songs.first else { return }
+                        player.play(first, in: songs)
+                        dismiss()
+                    } label: {
+                        HStack(spacing: 7) {
+                            Image(systemName: "play.fill")
+                            Text("播放")
+                        }
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Theme.onAccent)
+                        .frame(width: 132, height: 44)
+                        .background(Theme.accent)
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(GlassPressButtonStyle())
+                    .disabled(songs.isEmpty)
+                    .opacity(songs.isEmpty ? 0.48 : 1)
+
+                    Button {
+                        guard !songs.isEmpty else { return }
+                        player.play(songs.randomElement() ?? songs[0], in: songs.shuffled())
+                        dismiss()
+                    } label: {
+                        Image(systemName: "shuffle")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(Theme.text)
+                            .frame(width: 48, height: 44)
+                            .liquidGlass(cornerRadius: 22)
+                    }
+                    .buttonStyle(GlassPressButtonStyle())
+                    .disabled(songs.isEmpty)
+                    .opacity(songs.isEmpty ? 0.48 : 1)
+                }
+                .padding(.top, 4)
+            }
+            .padding(.top, 54)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 22)
+        .frame(height: 410)
     }
 
     @ViewBuilder

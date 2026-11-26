@@ -303,7 +303,7 @@ struct RecommendView: View {
     private var dailyHeader: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text("每日推荐")
-                .font(.system(size: 22, weight: .bold))
+                .font(.system(size: 24, weight: .bold))
                 .foregroundColor(Theme.text)
 
             Text("\(model.songs.count) 首")
@@ -397,8 +397,8 @@ struct RecommendView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("最近搜索")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Theme.secondaryText)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(Theme.text)
                     Spacer()
                     if !historyWords.isEmpty {
                         Button {
@@ -422,7 +422,7 @@ struct RecommendView: View {
                         .foregroundColor(Theme.tertiaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
-                        .appSurface(cornerRadius: 10)
+                        .appSurface(cornerRadius: 18)
                 } else {
                     VStack(spacing: 0) {
                         ForEach(Array(historyWords.enumerated()), id: \.element) { index, word in
@@ -466,15 +466,15 @@ struct RecommendView: View {
                             }
                         }
                     }
-                    .appSurface(cornerRadius: 10)
+                    .appSurface(cornerRadius: 18)
                 }
             }
 
             if !hotKeywords.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("热门搜索")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Theme.secondaryText)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(Theme.text)
 
                     LazyVGrid(
                         columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
@@ -504,7 +504,7 @@ struct RecommendView: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 2)
-                    .appSurface(cornerRadius: 10)
+                    .appSurface(cornerRadius: 18)
                 }
             }
         }
@@ -753,11 +753,11 @@ struct RankDetailSheet: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.white)
-                    .frame(width: 36, height: 36)
-                    .background(Color.black.opacity(0.28))
-                    .clipShape(Circle())
+                    .frame(width: 40, height: 40)
+                    .liquidGlass(cornerRadius: 20)
+                    .contentShape(Circle())
             }
             .buttonStyle(GlassPressButtonStyle())
             .padding(.top, 12)
@@ -768,21 +768,19 @@ struct RankDetailSheet: View {
     }
 
     private var info: some View {
-        VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(rank.name)
-                .font(.system(size: 23, weight: .bold))
+                .font(.system(size: 28, weight: .bold))
                 .foregroundColor(Theme.text)
-                .multilineTextAlignment(.center)
+                .multilineTextAlignment(.leading)
                 .lineLimit(2)
-                .padding(.horizontal, 24)
 
             if !rank.intro.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Text(rank.intro)
-                    .font(.system(size: 12))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Theme.secondaryText)
-                    .multilineTextAlignment(.center)
+                    .multilineTextAlignment(.leading)
                     .lineLimit(3)
-                    .padding(.horizontal, 32)
             }
 
             HStack(spacing: 6) {
@@ -792,33 +790,52 @@ struct RankDetailSheet: View {
                     Text("\(songs.count) 首")
                 }
             }
-            .font(.system(size: 11, weight: .medium))
+            .font(.system(size: 12, weight: .medium))
             .foregroundColor(Theme.secondaryText)
 
-            Button {
-                guard let first = songs.first else { return }
-                dismiss()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
-                    onSelect(first, songs)
+            HStack(spacing: 10) {
+                Button {
+                    guard let first = songs.first else { return }
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+                        onSelect(first, songs)
+                    }
+                } label: {
+                    HStack(spacing: 7) {
+                        Image(systemName: "play.fill")
+                        Text("播放")
+                    }
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Theme.onAccent)
+                    .frame(width: 132, height: 44)
+                    .background(Theme.accent)
+                    .clipShape(Capsule())
                 }
-            } label: {
-                HStack(spacing: 7) {
-                    Image(systemName: "play.fill")
-                    Text("播放全部")
+                .buttonStyle(GlassPressButtonStyle())
+                .disabled(songs.isEmpty)
+                .opacity(songs.isEmpty ? 0.48 : 1)
+
+                Button {
+                    guard !songs.isEmpty else { return }
+                    let shuffled = songs.shuffled()
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+                        if let first = shuffled.first { onSelect(first, shuffled) }
+                    }
+                } label: {
+                    Image(systemName: "shuffle")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                        .frame(width: 48, height: 44)
+                        .liquidGlass(cornerRadius: 22)
                 }
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(Theme.onAccent)
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .background(Theme.accentGradient)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .buttonStyle(GlassPressButtonStyle())
+                .disabled(songs.isEmpty)
+                .opacity(songs.isEmpty ? 0.48 : 1)
             }
-            .buttonStyle(GlassPressButtonStyle())
-            .disabled(songs.isEmpty)
-            .opacity(songs.isEmpty ? 0.48 : 1)
-            .padding(.horizontal, 24)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 20)
         .padding(.top, 16)
         .padding(.bottom, 18)
     }
@@ -1037,11 +1054,11 @@ struct PlaylistDetailSheet: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.white)
-                    .frame(width: 36, height: 36)
-                    .background(Color.black.opacity(0.28))
-                    .clipShape(Circle())
+                    .frame(width: 40, height: 40)
+                    .liquidGlass(cornerRadius: 20)
+                    .contentShape(Circle())
             }
             .buttonStyle(GlassPressButtonStyle())
             .padding(.top, 12)
@@ -1082,20 +1099,19 @@ struct PlaylistDetailSheet: View {
     }
 
     private var info: some View {
-        VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(playlist.name)
-                .font(.system(size: 23, weight: .bold))
+                .font(.system(size: 28, weight: .bold))
                 .foregroundColor(Theme.text)
-                .multilineTextAlignment(.center)
+                .multilineTextAlignment(.leading)
                 .lineLimit(2)
-                .padding(.horizontal, 24)
 
             HStack(spacing: 6) {
                 Text(playlist.isCollected ? "收藏歌单" : "歌单")
                 Text("·")
                 Text("\(playlist.count) 首")
             }
-            .font(.system(size: 11, weight: .medium))
+            .font(.system(size: 12, weight: .medium))
             .foregroundColor(Theme.secondaryText)
 
             HStack(spacing: 10) {
@@ -1108,14 +1124,31 @@ struct PlaylistDetailSheet: View {
                 } label: {
                     HStack(spacing: 7) {
                         Image(systemName: "play.fill")
-                        Text("播放全部")
+                        Text("播放")
                     }
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(Theme.onAccent)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(Theme.accentGradient)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .frame(width: 132, height: 44)
+                    .background(Theme.accent)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(GlassPressButtonStyle())
+                .disabled(songs.isEmpty)
+                .opacity(songs.isEmpty ? 0.48 : 1)
+
+                Button {
+                    guard !songs.isEmpty else { return }
+                    let shuffled = songs.shuffled()
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+                        if let first = shuffled.first { onSelect(first, shuffled) }
+                    }
+                } label: {
+                    Image(systemName: "shuffle")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                        .frame(width: 48, height: 44)
+                        .liquidGlass(cornerRadius: 22)
                 }
                 .buttonStyle(GlassPressButtonStyle())
                 .disabled(songs.isEmpty)
@@ -1128,20 +1161,18 @@ struct PlaylistDetailSheet: View {
                     }
                 } label: {
                     Text(isSelecting ? "取消批量" : "批量加入")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(isSelecting ? Theme.accent : Theme.text)
-                        .frame(width: 104)
-                        .frame(height: 44)
-                        .background(Theme.chip)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .frame(width: 96, height: 44)
+                        .liquidGlass(cornerRadius: 22)
                 }
                 .buttonStyle(GlassPressButtonStyle())
                 .disabled(songs.isEmpty)
                 .opacity(songs.isEmpty ? 0.48 : 1)
             }
-            .padding(.horizontal, 24)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 20)
         .padding(.top, 16)
         .padding(.bottom, 18)
     }
@@ -1380,8 +1411,8 @@ struct ProfileView: View {
         ScrollView {
             VStack(spacing: 18) {
                 accountCard
-                libraryQuickAccess
                 libraryAlbumSection
+                libraryIndexRows
                 playlistsSection
 
             }
@@ -1470,71 +1501,49 @@ struct ProfileView: View {
         return Array(albums.prefix(6))
     }
 
-    private var libraryQuickAccess: some View {
-        HStack(spacing: 12) {
-            quickAccessCard(kind: .recent,
+    private var libraryIndexRows: some View {
+        VStack(spacing: 0) {
+            libraryIndexRow(icon: "music.note",
+                            title: "歌曲",
+                            count: library.favorites.count) {
+                libraryTarget = .favorites
+            }
+            Divider()
+                .background(Theme.separator.opacity(0.55))
+                .padding(.leading, 56)
+            libraryIndexRow(icon: "clock",
                             title: "最近播放",
-                            subtitle: "\(library.recent.count) 首",
-                            icon: "clock.fill",
-                            cover: library.recent.first?.coverURL,
-                            tint: Color(red: 0.30, green: 0.54, blue: 0.98))
-            quickAccessCard(kind: .favorites,
-                            title: "我喜欢",
-                            subtitle: "\(library.favorites.count) 首",
-                            icon: "heart.fill",
-                            cover: library.favorites.first?.coverURL,
-                            tint: Color(red: 0.98, green: 0.18, blue: 0.30))
+                            count: library.recent.count) {
+                libraryTarget = .recent
+            }
         }
+        .appSurface(cornerRadius: 22)
     }
 
-    private func quickAccessCard(kind: LibraryKind,
+    private func libraryIndexRow(icon: String,
                                  title: String,
-                                 subtitle: String,
-                                 icon: String,
-                                 cover: URL?,
-                                 tint: Color) -> some View {
-        Button {
-            libraryTarget = kind
-        } label: {
-            ZStack(alignment: .bottomLeading) {
-                LinearGradient(
-                    colors: [tint.opacity(0.96), tint.opacity(0.56)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-
-                if let cover {
-                    CoverImage(url: cover, size: 90, radius: 18, showsBorder: false)
-                        .rotationEffect(.degrees(-9))
-                        .offset(x: 92, y: -20)
-                        .shadow(color: .black.opacity(0.22), radius: 12, x: 0, y: 7)
-                        .opacity(0.88)
-                }
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Image(systemName: icon)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.9))
-                    Spacer(minLength: 0)
-                    Text(title)
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-                    Text(subtitle)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.white.opacity(0.72))
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                                 count: Int,
+                                 action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(Theme.accent)
+                    .frame(width: 28)
+                Text(title)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(Theme.text)
+                Spacer(minLength: 0)
+                Text("\(count)")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Theme.secondaryText)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Theme.tertiaryText)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 126)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color.white.opacity(0.20), lineWidth: 0.8)
-            )
-            .shadow(color: tint.opacity(0.26), radius: 14, x: 0, y: 8)
+            .padding(.horizontal, 18)
+            .frame(height: 54)
+            .contentShape(Rectangle())
         }
         .buttonStyle(GlassPressButtonStyle())
     }
@@ -1679,7 +1688,7 @@ struct ProfileView: View {
                         }
                     }
                 }
-                .appSurface(cornerRadius: 12)
+                .appSurface(cornerRadius: 22)
             }
         }
         .padding(.top, 2)
@@ -1800,49 +1809,51 @@ struct ProfileView: View {
     }
 
     private var accountCard: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: 14) {
-                avatarView
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(displayName)
-                        .font(.system(size: 21, weight: .semibold))
-                        .foregroundColor(Theme.text)
+        HStack(spacing: 14) {
+            avatarView
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(displayName)
+                    .font(.system(size: 23, weight: .bold))
+                    .foregroundColor(Theme.text)
+                    .lineLimit(1)
+                if !vipText.isEmpty {
+                    Text(vipText)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Theme.accent)
                         .lineLimit(1)
-                    if !vipText.isEmpty {
-                        Text(vipText)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(Theme.accent)
-                            .lineLimit(2)
-                    }
-                    if let signature = profile?.signature, !signature.isEmpty {
-                        Text(signature)
-                            .font(.system(size: 12))
-                            .foregroundColor(Theme.secondaryText)
-                            .lineLimit(2)
-                    }
+                } else if let signature = profile?.signature, !signature.isEmpty {
+                    Text(signature)
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.secondaryText)
+                        .lineLimit(1)
+                } else {
+                    Text(auth.isLoggedIn ? "已连接酷狗账号" : "登录后同步歌单与收藏")
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.secondaryText)
+                        .lineLimit(1)
                 }
-                Spacer(minLength: 0)
             }
+
+            Spacer(minLength: 8)
+
             if !auth.isLoggedIn {
                 Button {
                     showLogin = true
                 } label: {
-                    Text("扫码登录酷狗概念版")
-                        .font(.system(size: 15, weight: .medium))
+                    Text("登录")
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Theme.onAccent)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Theme.accent)
-                        )
+                        .padding(.horizontal, 18)
+                        .frame(height: 36)
+                        .background(Theme.accent)
+                        .clipShape(Capsule())
                 }
                 .buttonStyle(GlassPressButtonStyle())
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .appSurface(cornerRadius: 22)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 2)
     }
 
     private var displayName: String {
@@ -1915,7 +1926,7 @@ struct ProfileView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .appSurface(cornerRadius: 12)
+        .appSurface(cornerRadius: 20)
     }
 
     private var sleepCard: some View {
@@ -1983,7 +1994,7 @@ struct ProfileView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .appSurface(cornerRadius: 12)
+        .appSurface(cornerRadius: 20)
         .onReceive(timer) { _ in
             guard let deadline = player.sleepDeadline else { sleepText = ""; return }
             let remain = Int(deadline.timeIntervalSinceNow)
@@ -2072,7 +2083,7 @@ struct LibrarySongsView: View {
                             .font(.system(size: 13))
                             .foregroundColor(Theme.secondaryText)
                     }
-                    .listRowBackground(Theme.card)
+                    .listRowBackground(Color.clear)
                 } else if songs.isEmpty {
                     Text(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                          ? (kind == .favorites
@@ -2081,7 +2092,7 @@ struct LibrarySongsView: View {
                          : "没有匹配的歌曲")
                         .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
-                        .listRowBackground(Theme.card)
+                        .listRowBackground(Color.clear)
                 } else {
                     ForEach(songs, id: \.rowIdentity) { song in
                         HStack(spacing: 8) {
@@ -2092,12 +2103,12 @@ struct LibrarySongsView: View {
                                 }
                             SongMoreMenu(song: song)
                         }
-                        .listRowBackground(Theme.card)
+                        .listRowBackground(Color.clear)
                     }
                     .onDelete(perform: deleteSongs)
                 }
             }
-            .listStyle(.insetGrouped)
+            .listStyle(.plain)
             .background(AppBackground())
             .navigationTitle(kind.title)
             .navigationBarTitleDisplayMode(.inline)
@@ -2198,8 +2209,8 @@ struct QueueView: View {
                                 .foregroundColor(Theme.secondaryText)
                         }
                     }
-                    .padding(.vertical, 4)
-                    .listRowBackground(Theme.card)
+                    .padding(.vertical, 8)
+                    .listRowBackground(Color.clear)
                 }
 
                 ForEach(Array(player.queueSongs.enumerated()), id: \.element.id) { index, song in
@@ -2228,7 +2239,7 @@ struct QueueView: View {
                     }
                     .buttonStyle(GlassPressButtonStyle())
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .listRowBackground(Theme.card)
+                    .listRowBackground(Color.clear)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button(role: .destructive) {
                             withAnimation(.easeInOut(duration: 0.24)) {
@@ -2244,7 +2255,7 @@ struct QueueView: View {
                 }
             }
             .environment(\.editMode, $editMode)
-            .listStyle(.insetGrouped)
+            .listStyle(.plain)
             .background(AppBackground())
             .navigationTitle("播放列表")
             .navigationBarTitleDisplayMode(.inline)
@@ -2316,7 +2327,7 @@ struct ImportedPlaylistDetailSheet: View {
                     }
                     .frame(height: 280)
 
-                    HStack(spacing: 12) {
+                    HStack(spacing: 10) {
                         Button {
                             guard let first = playlist.songs.first else { return }
                             dismiss()
@@ -2324,19 +2335,15 @@ struct ImportedPlaylistDetailSheet: View {
                                 onSelect(first, playlist.songs)
                             }
                         } label: {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 7) {
                                 Image(systemName: "play.fill")
-                                    .font(.system(size: 13, weight: .bold))
                                 Text("播放")
-                                    .font(.system(size: 15, weight: .semibold))
                             }
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(Theme.onAccent)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 44)
-                            .background(
-                                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                    .fill(Theme.accent)
-                            )
+                            .frame(width: 132, height: 44)
+                            .background(Theme.accent)
+                            .clipShape(Capsule())
                         }
                         .buttonStyle(GlassPressButtonStyle())
                         .disabled(playlist.songs.isEmpty)
@@ -2352,16 +2359,15 @@ struct ImportedPlaylistDetailSheet: View {
                         } label: {
                             Image(systemName: "shuffle")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(Theme.accent)
+                                .foregroundColor(Theme.text)
                                 .frame(width: 48, height: 44)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                        .fill(Theme.card.opacity(0.9))
-                                )
+                                .liquidGlass(cornerRadius: 22)
                         }
                         .buttonStyle(GlassPressButtonStyle())
+                        .disabled(playlist.songs.isEmpty)
+                        .opacity(playlist.songs.isEmpty ? 0.48 : 1)
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, 20)
                     .padding(.top, 12)
                     .padding(.bottom, 14)
 
@@ -2389,8 +2395,13 @@ struct ImportedPlaylistDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("关闭") { dismiss() }
-                        .foregroundColor(Theme.accent)
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Theme.text)
+                    }
                 }
             }
         }

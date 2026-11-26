@@ -68,7 +68,7 @@ struct AudioEQSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .appSurface(cornerRadius: 12)
+        .appSurface(cornerRadius: 20)
     }
 
     private var presetCard: some View {
@@ -109,7 +109,7 @@ struct AudioEQSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .appSurface(cornerRadius: 12)
+        .appSurface(cornerRadius: 20)
     }
 
     private var bandCard: some View {
@@ -146,7 +146,7 @@ struct AudioEQSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .appSurface(cornerRadius: 12)
+        .appSurface(cornerRadius: 20)
     }
 
     private var noteCard: some View {
@@ -165,7 +165,7 @@ struct AudioEQSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .appSurface(cornerRadius: 12)
+        .appSurface(cornerRadius: 20)
     }
 
     private func flashToast() {

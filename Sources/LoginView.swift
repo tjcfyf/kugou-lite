@@ -610,7 +610,7 @@ struct LoginView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
                     .padding(8)
-                    .appSurface(cornerRadius: 12)
+                    .appSurface(cornerRadius: 20)
             }
 
             Button {

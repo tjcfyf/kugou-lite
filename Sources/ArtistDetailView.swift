@@ -38,16 +38,6 @@ struct ArtistDetailSheet: View {
             .navigationTitle("歌手")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        guard let first = songs.first else { return }
-                        player.play(first, in: songs)
-                        dismiss()
-                    } label: {
-                        Label("播放全部", systemImage: "play.fill")
-                    }
-                    .disabled(songs.isEmpty)
-                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("关闭") { dismiss() }
                 }
@@ -58,23 +48,65 @@ struct ArtistDetailSheet: View {
     }
 
     private var header: some View {
-        VStack(spacing: 12) {
-            CoverImage(url: headerCover, size: 112, radius: 56)
-                .shadow(color: .black.opacity(0.12), radius: 14, x: 0, y: 6)
+        ZStack(alignment: .top) {
+            CollectionHero(coverURL: headerCover, height: 390)
 
-            Text(target.name)
-                .font(.system(size: 22, weight: .bold))
-                .foregroundColor(Theme.text)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .padding(.horizontal, 28)
+            VStack(spacing: 10) {
+                CoverImage(url: headerCover, size: 116, radius: 58)
+                    .shadow(color: .black.opacity(0.28), radius: 22, x: 0, y: 10)
+                    .overlay(Circle().stroke(Color.white.opacity(0.20), lineWidth: 1))
 
-            Text(loading ? "正在读取歌手作品…" : "\(songs.count) 首作品")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(Theme.secondaryText)
+                Text(target.name)
+                    .font(.system(size: 27, weight: .bold))
+                    .foregroundColor(Theme.text)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .padding(.horizontal, 28)
+
+                Text(loading ? "正在读取歌手作品…" : "\(songs.count) 首作品")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Theme.secondaryText)
+
+                HStack(spacing: 10) {
+                    Button {
+                        guard let first = songs.first else { return }
+                        player.play(first, in: songs)
+                        dismiss()
+                    } label: {
+                        HStack(spacing: 7) {
+                            Image(systemName: "play.fill")
+                            Text("播放")
+                        }
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Theme.onAccent)
+                        .frame(width: 132, height: 44)
+                        .background(Theme.accent)
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(GlassPressButtonStyle())
+                    .disabled(songs.isEmpty)
+                    .opacity(songs.isEmpty ? 0.48 : 1)
+
+                    Button {
+                        guard !songs.isEmpty else { return }
+                        player.play(songs.randomElement() ?? songs[0], in: songs.shuffled())
+                        dismiss()
+                    } label: {
+                        Image(systemName: "shuffle")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(Theme.text)
+                            .frame(width: 48, height: 44)
+                            .liquidGlass(cornerRadius: 22)
+                    }
+                    .buttonStyle(GlassPressButtonStyle())
+                    .disabled(songs.isEmpty)
+                    .opacity(songs.isEmpty ? 0.48 : 1)
+                }
+                .padding(.top, 4)
+            }
+            .padding(.top, 58)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 22)
+        .frame(height: 390)
     }
 
     @ViewBuilder

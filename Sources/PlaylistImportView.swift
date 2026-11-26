@@ -68,7 +68,7 @@ struct PlaylistImportView: View {
                         }
                         .padding(.horizontal, 13)
                         .frame(height: 46)
-                        .appSurface(cornerRadius: 10)
+                        .appSurface(cornerRadius: 20)
                         .overlay(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
                                 .stroke(source == item ? Theme.accent.opacity(0.45) : Color.clear, lineWidth: 1)
@@ -103,7 +103,7 @@ struct PlaylistImportView: View {
                     .background(Color.clear)
                     .focused($inputFocused)
             }
-            .appSearchField(cornerRadius: 10)
+            .appSearchField(cornerRadius: 20)
 
             Text(source == .soda
                  ? "直接粘贴汽水音乐 App 里复制的歌单分享链接。链接失效时，也可以把歌单歌曲按每行「歌名 - 歌手」粘贴。"
@@ -126,7 +126,7 @@ struct PlaylistImportView: View {
             Spacer(minLength: 0)
         }
         .padding(13)
-        .appSurface(cornerRadius: 10)
+        .appSurface(cornerRadius: 20)
     }
 
     private func resultCard(_ playlist: ImportedPlaylist) -> some View {
@@ -161,7 +161,7 @@ struct PlaylistImportView: View {
             .buttonStyle(GlassPressButtonStyle())
         }
         .padding(14)
-        .appSurface(cornerRadius: 12)
+        .appSurface(cornerRadius: 20)
     }
 
     private var actionButton: some View {

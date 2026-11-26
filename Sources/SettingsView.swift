@@ -130,7 +130,7 @@ struct LyricOffsetSettingsCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .appSurface(cornerRadius: 12)
+        .appSurface(cornerRadius: 20)
     }
 }
 
@@ -684,10 +684,10 @@ struct SettingsView: View {
     }
 
     private func card<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Theme.secondaryText)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(Theme.text)
                 .padding(.leading, 4)
 
             // 必须先把 content 收进一个 VStack 再套卡片样式；
@@ -696,8 +696,8 @@ struct SettingsView: View {
                 content()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
-            .appSurface(cornerRadius: 12)
+            .padding(18)
+            .appSurface(cornerRadius: 22)
         }
     }
 
@@ -941,10 +941,10 @@ struct PlayerSettingsView: View {
     }
 
     private func card<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Theme.secondaryText)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(Theme.text)
                 .padding(.leading, 4)
 
             // 必须先把 content 收进一个 VStack 再套卡片样式；
@@ -953,8 +953,8 @@ struct PlayerSettingsView: View {
                 content()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
-            .appSurface(cornerRadius: 12)
+            .padding(18)
+            .appSurface(cornerRadius: 22)
         }
     }
 }

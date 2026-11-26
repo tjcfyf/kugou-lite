@@ -32,7 +32,7 @@ struct LyricSourceSheet: View {
                             .buttonStyle(GlassPressButtonStyle())
                         }
                         .padding(14)
-                        .appSurface(cornerRadius: 12)
+                        .appSurface(cornerRadius: 20)
                     } else {
                         ForEach(player.lyricCandidates) { candidate in
                             Button {
@@ -69,7 +69,7 @@ struct LyricSourceSheet: View {
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(14)
-                                .appSurface(cornerRadius: 12)
+                                .appSurface(cornerRadius: 20)
                             }
                             .buttonStyle(GlassPressButtonStyle())
                         }

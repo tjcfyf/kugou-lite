@@ -107,8 +107,8 @@ struct SearchPageView: View {
 
                 if !searchModel.songs.isEmpty {
                     Text("歌曲")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Theme.secondaryText)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(Theme.text)
                         .padding(.horizontal, 16)
                         .padding(.top, 18)
                         .padding(.bottom, 2)
@@ -146,8 +146,8 @@ struct SearchPageView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("最近搜索")
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(Theme.secondaryText)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(Theme.text)
                     Spacer()
                     if !historyWords.isEmpty {
                         Button {
@@ -220,44 +220,90 @@ struct SearchPageView: View {
             }
 
             if !hotKeywords.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("热门搜索")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(Theme.secondaryText)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("热门搜索")
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundColor(Theme.text)
+                        Text("大家都在听")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Theme.secondaryText)
+                        Spacer()
+                    }
 
                     LazyVGrid(
                         columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
                         alignment: .leading,
-                        spacing: 0
+                        spacing: 12
                     ) {
-                        ForEach(Array(hotKeywords.prefix(10).enumerated()), id: \.element) { index, word in
-                            Button {
+                        ForEach(Array(hotKeywords.prefix(8).enumerated()), id: \.element) { index, word in
+                            SearchCategoryTile(word: word, index: index) {
                                 searchModel.submit(word)
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Text("\(index + 1)")
-                                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                                        .foregroundColor(index < 3 ? Theme.accent : Theme.tertiaryText)
-                                        .frame(width: 16, alignment: .leading)
-                                    Text(word)
-                                        .font(.system(size: 13))
-                                        .foregroundColor(Theme.text)
-                                        .lineLimit(1)
-                                    Spacer(minLength: 0)
-                                }
-                                .frame(height: 40)
-                                .contentShape(Rectangle())
                             }
-                            .buttonStyle(GlassPressButtonStyle())
                         }
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 2)
-                    .appSurface(cornerRadius: 18)
                 }
             }
         }
         .padding(.horizontal, 18)
         .padding(.top, 12)
+    }
+}
+
+
+private struct SearchCategoryTile: View {
+    let word: String
+    let index: Int
+    let action: () -> Void
+
+    private static let palettes: [[Color]] = [
+        [Color(red: 0.94, green: 0.18, blue: 0.30), Color(red: 0.99, green: 0.45, blue: 0.34)],
+        [Color(red: 0.30, green: 0.46, blue: 0.98), Color(red: 0.48, green: 0.72, blue: 1.00)],
+        [Color(red: 0.42, green: 0.22, blue: 0.82), Color(red: 0.72, green: 0.46, blue: 0.98)],
+        [Color(red: 0.16, green: 0.62, blue: 0.50), Color(red: 0.42, green: 0.86, blue: 0.68)],
+        [Color(red: 0.92, green: 0.48, blue: 0.12), Color(red: 1.00, green: 0.72, blue: 0.26)],
+        [Color(red: 0.18, green: 0.62, blue: 0.84), Color(red: 0.44, green: 0.86, blue: 0.96)],
+        [Color(red: 0.66, green: 0.20, blue: 0.52), Color(red: 0.94, green: 0.44, blue: 0.70)],
+        [Color(red: 0.34, green: 0.36, blue: 0.44), Color(red: 0.62, green: 0.64, blue: 0.72)]
+    ]
+
+    private var palette: [Color] {
+        Self.palettes[index % Self.palettes.count]
+    }
+
+    var body: some View {
+        Button(action: action) {
+            ZStack(alignment: .bottomLeading) {
+                LinearGradient(colors: palette,
+                               startPoint: .topLeading,
+                               endPoint: .bottomTrailing)
+
+                Image(systemName: index < 3 ? "chart.line.uptrend.xyaxis" : "music.note")
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundColor(.white.opacity(0.20))
+                    .padding(14)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(word)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    Text(index < 3 ? "热门 TOP \(index + 1)" : "热门搜索")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.66))
+                }
+                .padding(14)
+            }
+            .frame(height: 98)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Color.white.opacity(0.22), lineWidth: 0.8)
+            )
+            .shadow(color: palette[0].opacity(0.22), radius: 12, x: 0, y: 8)
+        }
+        .buttonStyle(GlassPressButtonStyle())
     }
 }

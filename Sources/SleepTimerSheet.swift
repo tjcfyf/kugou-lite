@@ -47,7 +47,7 @@ struct SleepTimerSheet: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 18)
-        .appSurface(cornerRadius: 12)
+        .appSurface(cornerRadius: 20)
     }
 
     private var statusText: String {
@@ -104,6 +104,6 @@ struct SleepTimerSheet: View {
             SleepWaitForTrackEndToggle()
         }
         .padding(14)
-        .appSurface(cornerRadius: 12)
+        .appSurface(cornerRadius: 20)
     }
 }
