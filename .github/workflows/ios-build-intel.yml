@@ -76,24 +76,21 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.157
-          name: Sonora 1.0.157
+          tag_name: v1.0.158
+          name: Sonora 1.0.158
           body: |
-            Sonora 1.0.157 unsigned IPA
+            Sonora 1.0.158 unsigned IPA
 
-            按 emilkowalski/skills 的 apple-design / animation-performance / choreograph /
-            review-animations 规范，完成 iOS 27.2 Apple Music 黑白版的全站视觉与动效重做。
-            参考 2026 年 10 月 Apple Music 去红色品牌更新：纯白/纯黑纸面、系统蓝选中态、
-            固定玻璃 tab bar、无卡片资料库、全幅歌手页与播放器底栏 AirPlay/队列。
-            - 主题去红色：全站 accent 改为 dynamic system blue；背景纯白/纯黑
-            - 底栏改为单条三 tab 玻璃栏，选中玻璃片 matchedGeometryEffect；不再随滚动变形
-            - 移除滚动 offset preference：列表滚动不再每帧向 ChromeState 推送
-            - 首页重做 Top Picks 竖版大卡、最近播放方形卡、无卡片榜单与每日推荐
-            - 资料库改为最近添加四宫格 + 播放列表/专辑/歌曲/最近播放/已导入索引行
-            - 歌手页改为全幅头图、居中白色播放键、最新发行、热门歌曲 TOP5、代表专辑
-            - 专辑页改为大封面头图、无重复封面曲目列表、播放/随机/下一首播放
-            - 搜索页改为系统材质搜索框、最近搜索列表、中性热门搜索卡
-            - 播放页去掉顶部抓手，底栏统一为歌词/AirPlay/队列，评论与伴唱收进更多菜单
-            - 设置页改为 iOS 分组列表：13pt 分组标题、浅灰 12pt 圆角组、无阴影
-            - 全面按压反馈改为 120ms ease-out opacity/scale，弹簧全部临界阻尼
-            - 进度条、透明 2pt 断口球、当前歌词清晰其余模糊、真实渐变顶栏模糊保持不变
+            对照 iOS 27 / iOS 27.2 Apple Music 补做主题与页面级修正。
+            - 重新标定文字系统：次要文字从固定 #8E8E93 改为动态 system secondary，
+              正文/说明由 10–12pt 统一提升到 13–14pt，解决小字在浅色纸面和封面渐变上看不清
+            - 歌手页按 iOS 27 重做：整页头图环境色、大号字标式歌手名、信息/播放/收藏控制、
+              分享+更多玻璃胶囊、最新发行、热门歌曲、代表专辑
+            - 专辑页改为整页环境色深色表面，提升封面标题、曲目信息与列表文字对比度
+            - 资料库索引行对齐 Apple Music：播放列表 / 歌手 / 专辑 / 歌曲 / 下载；
+              上置 3×2 收藏专辑网格；新增可点开的歌手聚合页
+            - 首页补充 Made for You 标识、Recently Played 标题与右侧 chevron
+            - 播放页固定深色高对比界面，AirPlay/时间/歌词正文清晰度提升
+            - 支持 iOS 27 横屏播放页：左封面、右歌曲信息/进度/控制/当前歌词；
+              其他页面仍锁竖屏
+            - 保持 2pt 进度条、透明断口球、歌词模糊、真实渐变磨砂顶栏

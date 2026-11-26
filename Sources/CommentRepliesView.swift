@@ -129,7 +129,7 @@ struct CommentRepliesView: View {
 
                     if let error = errorMessage {
                         Text(error)
-                            .font(.system(size: 11))
+                            .font(.system(size: 13))
                             .foregroundColor(Theme.secondaryText)
                             .padding(.vertical, 12)
                     }
@@ -154,7 +154,7 @@ struct CommentRepliesView: View {
                         .disabled(isLoading)
                     } else {
                         Text("已经到底了")
-                            .font(.system(size: 10))
+                            .font(.system(size: 12))
                             .foregroundColor(Theme.tertiaryText)
                             .padding(.vertical, 18)
                     }
@@ -174,7 +174,7 @@ struct CommentRepliesView: View {
                             .foregroundColor(Theme.text)
                         Spacer()
                         Text(comment.timeText)
-                            .font(.system(size: 10))
+                            .font(.system(size: 12))
                             .foregroundColor(Theme.tertiaryText)
                     }
                     Text(comment.content)
@@ -185,7 +185,7 @@ struct CommentRepliesView: View {
                 }
             }
             Text("全部回复")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(Theme.secondaryText)
                 .padding(.top, 3)
         }
@@ -205,7 +205,7 @@ struct CommentRepliesView: View {
                         .lineLimit(1)
                     Spacer(minLength: 8)
                     Text(reply.timeText)
-                        .font(.system(size: 10))
+                        .font(.system(size: 12))
                         .foregroundColor(Theme.tertiaryText)
                 }
                 Text(reply.content)
@@ -215,7 +215,7 @@ struct CommentRepliesView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if reply.replyCount > 0 {
                     Text("\(reply.replyCount) 条回复")
-                        .font(.system(size: 10))
+                        .font(.system(size: 12))
                         .foregroundColor(Theme.tertiaryText)
                 }
             }

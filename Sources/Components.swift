@@ -341,7 +341,7 @@ struct SongActionsSheet: View {
                         .foregroundColor(Theme.text)
                         .lineLimit(2)
                     Text(song.artist)
-                        .font(.system(size: 12))
+                        .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
                 }
                 Spacer()
@@ -467,7 +467,7 @@ struct SongRowWithMenu: View {
                 HStack(spacing: 10) {
                     if let index = index {
                         Text("\(index)")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundColor(Theme.secondaryText)
                             .frame(width: 22, alignment: .leading)
                     }
@@ -676,7 +676,7 @@ private struct FavoriteHeart: View {
         Group {
             if isFavorite {
                 Image(systemName: "heart.fill")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundColor(Theme.accent)
                     .transition(.scale(scale: 0.72).combined(with: .opacity))
             }
@@ -722,14 +722,14 @@ struct SongRow: View {
                     }
                 }
                 Text(song.artist)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.system(size: 14, weight: .regular))
                     .foregroundColor(Theme.secondaryText)
                     .lineLimit(1)
             }
             Spacer(minLength: 6)
             if let durationText {
                 Text(durationText)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundColor(Theme.tertiaryText)
                     .monospacedDigit()
             }

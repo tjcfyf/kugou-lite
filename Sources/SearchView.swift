@@ -258,7 +258,7 @@ struct MiniPlayer: View {
                             .foregroundColor(Theme.text)
                             .lineLimit(1)
                         Text(song.artist)
-                            .font(.system(size: 11))
+                            .font(.system(size: 13))
                             .foregroundColor(Theme.secondaryText)
                             .lineLimit(1)
                     }

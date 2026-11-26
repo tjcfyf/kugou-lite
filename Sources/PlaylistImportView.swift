@@ -116,7 +116,7 @@ struct PlaylistImportView: View {
             Text(source == .soda
                  ? "直接粘贴汽水音乐 App 里复制的歌单分享链接。链接失效时，也可以把歌单歌曲按每行「歌名 - 歌手」粘贴。"
                  : "支持直接粘贴公开歌单链接；如果链接失效，也可以粘贴歌曲列表，每行「歌名 - 歌手」。")
-                .font(.system(size: 11))
+                .font(.system(size: 13))
                 .foregroundColor(Theme.tertiaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -199,7 +199,7 @@ struct PlaylistImportView: View {
 
     private var footnote: some View {
         Text("导入只会保存到本机资料库，不改动你的酷狗账号歌单。曲目会按「歌名 + 歌手」匹配酷狗曲库，匹配不到的曲目不会写入。")
-            .font(.system(size: 11))
+            .font(.system(size: 13))
             .foregroundColor(Theme.tertiaryText)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.top, 2)

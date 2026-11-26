@@ -3,6 +3,8 @@ import UIKit
 
 @main
 struct KugouLiteApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     init() {
         UITableView.appearance().backgroundColor = .clear
         UITableView.appearance().separatorColor = .clear
@@ -126,7 +128,10 @@ struct RootView: View {
         .overlay(alignment: .top) {
             ToastOverlay()
         }
-        .preferredColorScheme(resolvedScheme)
+        .preferredColorScheme(isPlayerOpen ? ColorScheme.dark : resolvedScheme)
+        .onChange(of: isPlayerOpen) { active in
+            AppOrientationController.shared.setPlayerActive(active)
+        }
         .accentColor(Theme.accent)
         .background(
             SystemSchemeProbe(scheme: $systemScheme)
@@ -446,5 +451,41 @@ private struct SystemSchemeProbe: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: SchemeProbeController, context: Context) {
         context.coordinator.parent = self
+    }
+}
+
+
+/// 播放页允许横屏（iOS 27 Apple Music 的新能力），其余页面仍然锁竖屏。
+final class AppOrientationController {
+    static let shared = AppOrientationController()
+    private(set) var playerActive = false
+
+    func setPlayerActive(_ active: Bool) {
+        guard active != playerActive else { return }
+        playerActive = active
+
+        guard let scene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive }) ?? UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first
+        else { return }
+
+        if #available(iOS 16.0, *) {
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: active ? .allButUpsideDown : .portrait)) { _ in }
+            let root = scene.windows.first(where: { $0.isKeyWindow })?.rootViewController
+            root?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        } else if active {
+            UIViewController.attemptRotationToDeviceOrientation()
+        } else {
+            UIDevice.current.setValue(UIInterfaceOrientation.portrait.rawValue,
+                                      forKey: "orientation")
+            UIViewController.attemptRotationToDeviceOrientation()
+        }
+    }
+}
+
+final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        AppOrientationController.shared.playerActive ? .allButUpsideDown : .portrait
     }
 }

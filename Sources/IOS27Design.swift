@@ -17,10 +17,10 @@ enum IOS27 {
     static let cardCorner: CGFloat = 18
 
     static let rowTitle = Font.system(size: 17, weight: .semibold)
-    static let rowSubtitle = Font.system(size: 13, weight: .regular)
+    static let rowSubtitle = Font.system(size: 14, weight: .regular)
     static let sectionTitle = Font.system(size: 22, weight: .bold)
-    static let groupTitle = Font.system(size: 13, weight: .semibold)
-    static let caption = Font.system(size: 12, weight: .medium)
+    static let groupTitle = Font.system(size: 14, weight: .semibold)
+    static let caption = Font.system(size: 13, weight: .medium)
 
     /// 大标题使用更紧的字距；正文不人为加字距。
     static let displayTracking: CGFloat = -0.45
@@ -62,6 +62,7 @@ struct IOS27SectionHeader: View {
     var subtitle: String? = nil
     var actionTitle: String? = nil
     var action: (() -> Void)? = nil
+    var showsChevron: Bool = false
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -77,11 +78,19 @@ struct IOS27SectionHeader: View {
             Spacer(minLength: 8)
             if let actionTitle, let action {
                 Button(action: action) {
-                    Text(actionTitle)
-                        .font(.system(size: 15, weight: .regular))
-                        .foregroundColor(IOS27.accent)
+                    HStack(spacing: 4) {
+                        Text(actionTitle)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundColor(IOS27.accent)
                 }
                 .buttonStyle(IOS27PressStyle(pressedOpacity: 0.45, pressedScale: 1))
+            } else if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Theme.tertiaryText)
             }
         }
         .padding(.horizontal, IOS27.pagePadding)

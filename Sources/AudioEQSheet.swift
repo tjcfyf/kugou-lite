@@ -48,7 +48,7 @@ struct AudioEQSheet: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Theme.text)
                     Text(audio.isEnabled ? "实时处理 AVPlayer 音频，自动前级补偿已生效" : "关闭时不接触播放链路")
-                        .font(.system(size: 10))
+                        .font(.system(size: 12))
                         .foregroundColor(Theme.secondaryText)
                 }
             }
@@ -57,11 +57,11 @@ struct AudioEQSheet: View {
             if audio.isEnabled {
                 HStack {
                     Text("前级补偿")
-                        .font(.system(size: 11))
+                        .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
                     Spacer()
                     Text(String(format: "%+.2f dB", audio.preampDB))
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
                         .foregroundColor(Theme.accent)
                 }
             }
@@ -120,14 +120,14 @@ struct AudioEQSheet: View {
                     .foregroundColor(Theme.secondaryText)
                 Spacer()
                 Text("−12 ~ +12 dB")
-                    .font(.system(size: 10))
+                    .font(.system(size: 12))
                     .foregroundColor(Theme.tertiaryText)
             }
 
             ForEach(0..<10, id: \.self) { index in
                 HStack(spacing: 10) {
                     Text(AudioEnhancer.bandLabels[index])
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
                         .foregroundColor(Theme.secondaryText)
                         .frame(width: 34, alignment: .leading)
 
@@ -138,7 +138,7 @@ struct AudioEQSheet: View {
                     .tint(Theme.accent)
 
                     Text(String(format: "%+.1f", audio.gains[safe: index] ?? 0))
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
                         .foregroundColor((audio.gains[safe: index] ?? 0) == 0 ? Theme.tertiaryText : Theme.accent)
                         .frame(width: 42, alignment: .trailing)
                 }
@@ -155,11 +155,11 @@ struct AudioEQSheet: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(Theme.secondaryText)
             Text("这版使用 MTAudioProcessingTap 在 AVPlayer 输出端处理 PCM，10 个 RBJ peaking biquad 级联，并按 20 Hz–20 kHz 的完整频响自动计算前级补偿。")
-                .font(.system(size: 10))
+                .font(.system(size: 12))
                 .foregroundColor(Theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
             Text("EchoMusic 的 LUFS 标准化、WAV/IRS 卷积和第三方音效 Provider 依赖桌面 Rust/FFmpeg DSP，iOS 15 的 AVPlayer 没有对应节点；本版没有用假开关冒充这些能力。")
-                .font(.system(size: 10))
+                .font(.system(size: 12))
                 .foregroundColor(Theme.tertiaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }

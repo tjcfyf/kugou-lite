@@ -41,14 +41,18 @@ struct AppleMusicAlbumCard: View {
                 )
 
                 VStack(alignment: .leading, spacing: 3) {
+                    Text("Made for You")
+                        .font(.system(size: 12, weight: .semibold))
+                        .tracking(0.4)
+                        .foregroundColor(.white.opacity(0.78))
                     Text(album.name)
                         .font(.system(size: titleSize, weight: .bold))
                         .tracking(-0.25)
                         .foregroundColor(.white)
                         .lineLimit(2)
                     Text(album.artist)
-                        .font(.system(size: featured ? 14 : 12, weight: .regular))
-                        .foregroundColor(.white.opacity(0.74))
+                        .font(.system(size: featured ? 14 : 13, weight: .regular))
+                        .foregroundColor(.white.opacity(0.82))
                         .lineLimit(1)
                 }
                 .padding(.horizontal, 14)
@@ -61,8 +65,8 @@ struct AppleMusicAlbumCard: View {
                         HStack(spacing: 3) {
                             Image(systemName: "music.note")
                                 .font(.system(size: 9, weight: .bold))
-                            Text("Music")
-                                .font(.system(size: 12, weight: .bold))
+                            Text("music")
+                                .font(.system(size: 13, weight: .bold))
                         }
                         .foregroundColor(.white.opacity(0.90))
                         .shadow(color: .black.opacity(0.30), radius: 3, y: 1)
@@ -105,7 +109,7 @@ struct RecentAlbumCard: View {
                         .foregroundColor(Theme.text)
                         .lineLimit(1)
                     Text(album.artist)
-                        .font(.system(size: 12, weight: .regular))
+                        .font(.system(size: 13, weight: .regular))
                         .foregroundColor(Theme.secondaryText)
                         .lineLimit(1)
                 }

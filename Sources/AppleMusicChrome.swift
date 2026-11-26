@@ -80,7 +80,7 @@ struct AppleMusicFloatingChrome: View {
                     .foregroundColor(selected ? IOS27.accent : AppleMusicTheme.tabUnselected)
                     .frame(height: 24)
                 Text(title)
-                    .font(.system(size: 10, weight: selected ? .semibold : .medium))
+                    .font(.system(size: 12, weight: selected ? .semibold : .medium))
                     .foregroundColor(selected ? IOS27.accent : AppleMusicTheme.tabUnselected)
                     .lineLimit(1)
             }
@@ -125,7 +125,7 @@ struct AppleMusicMiniPlayer: View {
                             .foregroundColor(Theme.text)
                             .lineLimit(1)
                         Text(song?.artist ?? "")
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.system(size: 13, weight: .regular))
                             .foregroundColor(Theme.secondaryText)
                             .lineLimit(1)
                     }

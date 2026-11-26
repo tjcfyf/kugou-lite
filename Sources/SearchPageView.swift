@@ -105,7 +105,7 @@ struct SearchPageView: View {
 
                 if let message = searchModel.message {
                     Text(message)
-                        .font(.system(size: 13))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                         .frame(maxWidth: .infinity)
                         .padding(.top, 36)
@@ -162,7 +162,7 @@ struct SearchPageView: View {
                             searchModel.query = ""
                         } label: {
                             Text("清除")
-                                .font(.system(size: 13))
+                                .font(.system(size: 14))
                                 .foregroundColor(Theme.accent)
                                 .frame(height: 32)
                                 .contentShape(Rectangle())
@@ -184,7 +184,7 @@ struct SearchPageView: View {
                         ForEach(Array(historyWords.enumerated()), id: \.element) { index, word in
                             HStack(spacing: 10) {
                                 Image(systemName: "clock")
-                                    .font(.system(size: 13))
+                                    .font(.system(size: 14))
                                     .foregroundColor(Theme.tertiaryText)
                                     .frame(width: 18)
 
@@ -205,7 +205,7 @@ struct SearchPageView: View {
                                     historyWords = Preferences.searchHistory
                                 } label: {
                                     Image(systemName: "xmark")
-                                        .font(.system(size: 11, weight: .semibold))
+                                        .font(.system(size: 13, weight: .semibold))
                                         .foregroundColor(Theme.tertiaryText)
                                         .frame(width: 30, height: 44)
                                         .contentShape(Rectangle())
@@ -284,7 +284,7 @@ private struct SearchCategoryTile: View {
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                     Text(index < 3 ? "热门 TOP \(index + 1)" : "热门搜索")
-                        .font(.system(size: 11, weight: .regular))
+                        .font(.system(size: 13, weight: .regular))
                         .foregroundColor(Theme.secondaryText)
                 }
                 .padding(12)

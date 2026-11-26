@@ -116,7 +116,7 @@ struct CommentsView: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(Theme.text)
                 Text("去听歌，等第一条评论出现")
-                    .font(.system(size: 11))
+                    .font(.system(size: 13))
                     .foregroundColor(Theme.secondaryText)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -132,7 +132,7 @@ struct CommentsView: View {
 
                     if let error = errorMessage {
                         Text(error)
-                            .font(.system(size: 11))
+                            .font(.system(size: 13))
                             .foregroundColor(Theme.secondaryText)
                             .padding(.vertical, 12)
                     }
@@ -157,7 +157,7 @@ struct CommentsView: View {
                         .disabled(isLoading)
                     } else {
                         Text("已经到底了")
-                            .font(.system(size: 10))
+                            .font(.system(size: 12))
                             .foregroundColor(Theme.tertiaryText)
                             .padding(.vertical, 18)
                     }
@@ -178,7 +178,7 @@ struct CommentsView: View {
                         .lineLimit(1)
                     Spacer(minLength: 8)
                     Text(comment.timeText)
-                        .font(.system(size: 10))
+                        .font(.system(size: 12))
                         .foregroundColor(Theme.tertiaryText)
                 }
 
@@ -196,7 +196,7 @@ struct CommentsView: View {
                             Image(systemName: "bubble.left")
                                 .font(.system(size: 9))
                             Text("\(comment.replyCount) 条回复")
-                                .font(.system(size: 10))
+                                .font(.system(size: 12))
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 8, weight: .semibold))
                         }

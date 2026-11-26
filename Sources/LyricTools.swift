@@ -47,12 +47,12 @@ struct LyricSourceSheet: View {
                                             .lineLimit(2)
                                         if !candidate.subtitle.isEmpty {
                                             Text(candidate.subtitle)
-                                                .font(.system(size: 11))
+                                                .font(.system(size: 13))
                                                 .foregroundColor(Theme.secondaryText)
                                                 .lineLimit(1)
                                         }
                                         Text("歌词 ID \(candidate.id)")
-                                            .font(.system(size: 10, design: .monospaced))
+                                            .font(.system(size: 12, design: .monospaced))
                                             .foregroundColor(Theme.tertiaryText)
                                     }
                                     Spacer(minLength: 8)

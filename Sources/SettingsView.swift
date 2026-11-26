@@ -16,7 +16,7 @@ struct SleepCountdownText: View {
                 }
             } else {
                 Text("未开启")
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
                     .foregroundColor(Theme.secondaryText)
             }
         }
@@ -33,10 +33,10 @@ struct SleepWaitForTrackEndToggle: View {
         )) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("定时到点后，等本首播完再暂停")
-                    .font(.system(size: 12))
+                    .font(.system(size: 14))
                     .foregroundColor(Theme.text)
                 Text(player.sleepWaitForTrackEnd ? "到点不会立刻切停，播完当前歌曲再暂停" : "关闭时到点立即暂停")
-                    .font(.system(size: 10))
+                    .font(.system(size: 14))
                     .foregroundColor(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -61,7 +61,7 @@ struct LyricOffsetSettingsCard: View {
                     .foregroundColor(Theme.text)
                 Spacer()
                 Text(offsetText)
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .font(.system(size: 14, weight: .medium, design: .monospaced))
                     .foregroundColor(player.lyricOffsetMs == 0 ? Theme.secondaryText : Theme.accent)
             }
 
@@ -70,7 +70,7 @@ struct LyricOffsetSettingsCard: View {
                     player.setLyricOffset(milliseconds: player.lyricOffsetMs - 500)
                 } label: {
                     Text("歌词延后 0.5s")
-                        .font(.system(size: 12))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.text)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -84,7 +84,7 @@ struct LyricOffsetSettingsCard: View {
                     player.setLyricOffset(milliseconds: 0)
                 } label: {
                     Text("复位")
-                        .font(.system(size: 12))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.text)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -97,7 +97,7 @@ struct LyricOffsetSettingsCard: View {
                     player.setLyricOffset(milliseconds: player.lyricOffsetMs + 500)
                 } label: {
                     Text("歌词提前 0.5s")
-                        .font(.system(size: 12))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.text)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -109,7 +109,7 @@ struct LyricOffsetSettingsCard: View {
             }
 
             Text("正数表示歌词提前，负数表示延后；只影响播放页歌词高亮，不改动歌词文件。")
-                .font(.system(size: 10))
+                .font(.system(size: 14))
                 .foregroundColor(Theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -118,10 +118,10 @@ struct LyricOffsetSettingsCard: View {
             Toggle(isOn: $autoFollow) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("歌词自动跟随")
-                        .font(.system(size: 12))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.text)
                     Text("关闭后可以手动上下滚动查看歌词，不再自动跳到当前句")
-                        .font(.system(size: 10))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -144,10 +144,10 @@ struct AudioMixingToggleRow: View {
         )) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("允许与其他 App 同时播放")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(Theme.text)
                 Text("开启后 Sonora 播放时，其它 App 也可以同时出声")
-                    .font(.system(size: 10))
+                    .font(.system(size: 14))
                     .foregroundColor(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -192,7 +192,7 @@ struct SettingsView: View {
                     accountCard
 
                     Text("Sonora · iOS 15 · v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
-                        .font(.system(size: 11))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                         .padding(.top, 6)
                 }
@@ -251,7 +251,7 @@ struct SettingsView: View {
                             Image(systemName: mode.icon)
                                 .font(.system(size: 15, weight: .semibold))
                             Text(mode.title)
-                                .font(.system(size: 10))
+                                .font(.system(size: 14))
                         }
                         .foregroundColor(player.playMode == mode ? Theme.onAccent : Theme.text)
                         .frame(maxWidth: .infinity)
@@ -273,7 +273,7 @@ struct SettingsView: View {
                         player.setPlaybackRate(item.rawValue)
                     } label: {
                         Text(item.title)
-                            .font(.system(size: 12, weight: player.playbackRate == item.rawValue ? .semibold : .medium))
+                            .font(.system(size: 14, weight: player.playbackRate == item.rawValue ? .semibold : .medium))
                             .foregroundColor(player.playbackRate == item.rawValue ? Theme.onAccent : Theme.text)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 9)
@@ -284,7 +284,7 @@ struct SettingsView: View {
                 }
             }
             Text("切换后立即生效，人声不会变调")
-                .font(.system(size: 11))
+                .font(.system(size: 14))
                 .foregroundColor(Theme.secondaryText)
         }
     }
@@ -306,12 +306,12 @@ struct SettingsView: View {
                 } label: {
                     HStack {
                         Text(item.title)
-                            .font(.system(size: 13))
+                            .font(.system(size: 14))
                             .foregroundColor(Theme.text)
                         Spacer()
                         if quality == item {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(Theme.accent)
                         }
                     }
@@ -321,7 +321,7 @@ struct SettingsView: View {
                 .buttonStyle(GlassPressButtonStyle())
             }
             Text("取不到高音质时会自动降到下一档")
-                .font(.system(size: 11))
+                .font(.system(size: 14))
                 .foregroundColor(Theme.secondaryText)
         }
     }
@@ -330,7 +330,7 @@ struct SettingsView: View {
         card(title: "同时播放") {
             AudioMixingToggleRow()
             Text("开启后不会抢占音频，其他 App 也能同时出声；关闭则恢复系统默认行为。部分强制独占音频的 App 仍可能让 Sonora 暂停，这是 iOS 的限制。")
-                .font(.system(size: 10))
+                .font(.system(size: 14))
                 .foregroundColor(Theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -347,10 +347,10 @@ struct SettingsView: View {
             )) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("10 段均衡器 + 前级补偿")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Theme.text)
                     Text("实时处理 AVPlayer PCM；开启后会重载当前歌曲")
-                        .font(.system(size: 10))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                 }
             }
@@ -361,14 +361,14 @@ struct SettingsView: View {
             } label: {
                 HStack {
                     Text("调整频段与预设")
-                        .font(.system(size: 12))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.text)
                     Spacer()
                     Text(String(format: "%+.1f dB", audio.preampDB))
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(size: 14, design: .monospaced))
                         .foregroundColor(Theme.tertiaryText)
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Theme.tertiaryText)
                 }
                 .contentShape(Rectangle())
@@ -385,10 +385,10 @@ struct SettingsView: View {
             )) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("开启伴唱分离")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Theme.text)
                     Text("官方双轨优先；没有官方双轨时才使用 AI 本地分离")
-                        .font(.system(size: 10))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -397,10 +397,10 @@ struct SettingsView: View {
 
             HStack(spacing: 8) {
                 Image(systemName: player.karaokeEnabled ? "music.mic" : "music.mic")
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
                     .foregroundColor(player.karaokeEnabled ? Theme.accent : Theme.tertiaryText)
                 Text(player.karaokeEnabled ? "伴唱已开启，播放页「分离」里调音量" : "开启后播放页出现人声/伴奏音量控制")
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundColor(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -416,10 +416,10 @@ struct SettingsView: View {
             )) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("本地 MSS 4-stem 人声/伴奏分离")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Theme.text)
                     Text("模型约 4.7MB，实时分离；官方双轨优先，取不到才走本地 MSS")
-                        .font(.system(size: 10))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -428,12 +428,12 @@ struct SettingsView: View {
 
             HStack(spacing: 8) {
                 Image(systemName: player.aiSeparationEnabled ? "waveform" : "waveform.slash")
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
                     .foregroundColor(player.aiSeparationEnabled ? Theme.accent : Theme.tertiaryText)
                 Text(player.aiSeparationEnabled
                      ? (player.aiSeparationAvailable ? "AI 已开启；官方双轨仍然优先" : "正在后台加载 AI 模型…")
                      : "当前未开启；没有官方双轨时退回中置声道")
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundColor(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -453,7 +453,7 @@ struct SettingsView: View {
                             Text("Aa")
                                 .font(.system(size: CGFloat(12 + item.rawValue * 2), weight: .semibold))
                             Text(item.title)
-                                .font(.system(size: 10))
+                                .font(.system(size: 14))
                         }
                         .foregroundColor(lyricSize == item ? Theme.onAccent : Theme.text)
                         .frame(maxWidth: .infinity)
@@ -472,11 +472,11 @@ struct SettingsView: View {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(currentLyricSourceTitle)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Theme.text)
                         .lineLimit(2)
                     Text(player.lyricTranslationAvailable ? "含翻译，可用 KRC 逐字高亮" : "默认使用 KRC 逐字歌词，失败时回落 LRC")
-                        .font(.system(size: 10))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -485,7 +485,7 @@ struct SettingsView: View {
                     showLyricSource = true
                 } label: {
                     Text("选择")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Theme.onAccent)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
@@ -501,7 +501,7 @@ struct SettingsView: View {
     private var lyricFilterCard: some View {
         card(title: "歌词正则过滤") {
             TextField("例如 ^作词|^作曲，匹配的行会被隐藏", text: $lyricFilterDraft)
-                .font(.system(size: 12))
+                .font(.system(size: 14))
                 .textFieldStyle(.plain)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
@@ -515,7 +515,7 @@ struct SettingsView: View {
                     applyLyricFilter()
                 } label: {
                     Text("应用")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Theme.onAccent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -531,7 +531,7 @@ struct SettingsView: View {
                     flashToast()
                 } label: {
                     Text("清除")
-                        .font(.system(size: 12))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.text)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -575,7 +575,7 @@ struct SettingsView: View {
                 }
                 Spacer()
                 Text(player.sleepAfterCurrent ? "本首播完即暂停" : (player.sleepDeadline == nil ? "未设定时" : (player.sleepWaitForTrackEnd ? "到点后等本首播完" : "到点自动暂停")))
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundColor(Theme.secondaryText)
             }
             HStack(spacing: 8) {
@@ -584,7 +584,7 @@ struct SettingsView: View {
                         player.setSleepTimer(minutes: minutes == 0 ? nil : minutes)
                     } label: {
                         Text(minutes == 0 ? "关闭" : "\(minutes) 分")
-                            .font(.system(size: 12))
+                            .font(.system(size: 14))
                             .foregroundColor(Theme.text)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 7)
@@ -599,7 +599,7 @@ struct SettingsView: View {
             HStack(spacing: 10) {
                 Stepper(value: $customMinutes, in: 1...180) {
                     Text("自定义 \(customMinutes) 分钟")
-                        .font(.system(size: 12))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.text.opacity(0.85))
                 }
                 Button {
@@ -608,7 +608,7 @@ struct SettingsView: View {
                     flashToast()
                 } label: {
                     Text("开始")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Theme.onAccent)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
@@ -675,11 +675,11 @@ struct SettingsView: View {
     private func settingRow(title: String, icon: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 13))
+                .font(.system(size: 14))
                 .foregroundColor(Theme.secondaryText)
                 .frame(width: 18)
             Text(title)
-                .font(.system(size: 13))
+                .font(.system(size: 14))
                 .foregroundColor(Theme.text)
             Spacer()
         }
@@ -690,7 +690,7 @@ struct SettingsView: View {
     private func card<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(Theme.secondaryText)
                 .padding(.leading, 16)
 
@@ -745,7 +745,7 @@ struct PlayerSettingsView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(Theme.text)
                             .frame(width: 32, height: 32)
                             .liquidGlass(cornerRadius: 16)
@@ -771,7 +771,7 @@ struct PlayerSettingsView: View {
                 }
                 Spacer()
                 Text(player.sleepAfterCurrent ? "本首播完即暂停" : (player.sleepDeadline == nil ? "未设定时" : (player.sleepWaitForTrackEnd ? "到点后等本首播完" : "到点自动暂停")))
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundColor(Theme.secondaryText)
             }
             HStack(spacing: 8) {
@@ -780,7 +780,7 @@ struct PlayerSettingsView: View {
                         player.setSleepTimer(minutes: minutes == 0 ? nil : minutes)
                     } label: {
                         Text(minutes == 0 ? "关闭" : "\(minutes) 分")
-                            .font(.system(size: 12))
+                            .font(.system(size: 14))
                             .foregroundColor(Theme.text)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
@@ -794,14 +794,14 @@ struct PlayerSettingsView: View {
             HStack(spacing: 10) {
                 Stepper(value: $customMinutes, in: 1...180) {
                     Text("自定义 \(customMinutes) 分钟")
-                        .font(.system(size: 12))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.text.opacity(0.85))
                 }
                 Button {
                     player.setSleepTimer(minutes: customMinutes)
                 } label: {
                     Text("开始")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Theme.onAccent)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
@@ -824,7 +824,7 @@ struct PlayerSettingsView: View {
                             Image(systemName: mode.icon)
                                 .font(.system(size: 15, weight: .semibold))
                             Text(mode.title)
-                                .font(.system(size: 10))
+                                .font(.system(size: 14))
                         }
                         .foregroundColor(player.playMode == mode ? Theme.onAccent : Theme.text)
                         .frame(maxWidth: .infinity)
@@ -846,7 +846,7 @@ struct PlayerSettingsView: View {
                         player.setPlaybackRate(item.rawValue)
                     } label: {
                         Text(item.title)
-                            .font(.system(size: 12, weight: player.playbackRate == item.rawValue ? .semibold : .medium))
+                            .font(.system(size: 14, weight: player.playbackRate == item.rawValue ? .semibold : .medium))
                             .foregroundColor(player.playbackRate == item.rawValue ? Theme.onAccent : Theme.text)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
@@ -867,10 +867,10 @@ struct PlayerSettingsView: View {
             )) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("本地 MSS 4-stem 人声/伴奏分离")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Theme.text)
                     Text("模型约 4.7MB，实时处理；不缓存整首歌，也不占额外几十秒")
-                        .font(.system(size: 10))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -879,12 +879,12 @@ struct PlayerSettingsView: View {
 
             HStack(spacing: 8) {
                 Image(systemName: player.aiSeparationEnabled ? "waveform" : "waveform.slash")
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
                     .foregroundColor(player.aiSeparationEnabled ? Theme.accent : Theme.tertiaryText)
                 Text(player.aiSeparationEnabled
                      ? (player.aiSeparationAvailable ? "当前使用本地 MSS 实时分离" : "正在后台加载 MSS 模型…")
                      : "当前未开启；播放页「分离」里也能开关")
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundColor(Theme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -901,7 +901,7 @@ struct PlayerSettingsView: View {
                         Preferences.lyricSize = item
                     } label: {
                         Text(item.title)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundColor(lyricSize == item ? Theme.onAccent : Theme.text)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 9)
@@ -927,12 +927,12 @@ struct PlayerSettingsView: View {
                 } label: {
                     HStack {
                         Text(item.title)
-                            .font(.system(size: 13))
+                            .font(.system(size: 14))
                             .foregroundColor(Theme.text)
                         Spacer()
                         if quality == item {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(Theme.accent)
                         }
                     }
@@ -948,7 +948,7 @@ struct PlayerSettingsView: View {
         card(title: "同时播放") {
             AudioMixingToggleRow()
             Text("开启后不会抢占音频，其他 App 也能同时出声；关闭则恢复系统默认行为。部分强制独占音频的 App 仍可能让 Sonora 暂停，这是 iOS 的限制。")
-                .font(.system(size: 10))
+                .font(.system(size: 14))
                 .foregroundColor(Theme.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -957,7 +957,7 @@ struct PlayerSettingsView: View {
     private func card<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(Theme.secondaryText)
                 .padding(.leading, 16)
 
@@ -989,12 +989,12 @@ private struct VipDiagnosticsSheet: View {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
                             Text("正在检查领取链路…")
-                                .font(.system(size: 12))
+                                .font(.system(size: 14))
                                 .foregroundColor(Theme.secondaryText)
                         }
                     }
                     Text(report)
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(.system(size: 14, design: .monospaced))
                         .foregroundColor(Theme.text.opacity(0.85))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)

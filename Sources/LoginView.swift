@@ -313,7 +313,7 @@ struct LoginView: View {
             .padding(.top, 2)
 
             Text("未注册的手机号验证通过后会自动创建酷狗账号，验证码由酷狗官方发送")
-                .font(.system(size: 11))
+                .font(.system(size: 13))
                 .foregroundColor(Theme.tertiaryText)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .multilineTextAlignment(.center)
@@ -332,7 +332,7 @@ struct LoginView: View {
                     .fill(Theme.separator)
                     .frame(height: 0.5)
                 Text("其他登录方式")
-                    .font(.system(size: 11))
+                    .font(.system(size: 13))
                     .foregroundColor(Theme.tertiaryText)
                 Rectangle()
                     .fill(Theme.separator)
@@ -351,7 +351,7 @@ struct LoginView: View {
                                     .frame(width: 30, height: 30)
                                 if provider == .qq {
                                     Text("QQ")
-                                        .font(.system(size: 11, weight: .bold))
+                                        .font(.system(size: 13, weight: .bold))
                                         .foregroundColor(provider.tint)
                                 } else {
                                     Image(systemName: "bubble.left.and.bubble.right.fill")
@@ -574,7 +574,7 @@ struct LoginView: View {
                 .multilineTextAlignment(.center)
 
             Text("会员状态说明：酷狗概念版的畅听权益按天发放，不走豪华 VIP 的到期字段，所以日期显示旧记录是正常的")
-                .font(.system(size: 11))
+                .font(.system(size: 13))
                 .foregroundColor(Theme.secondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 8)
@@ -605,7 +605,7 @@ struct LoginView: View {
 
             if !probeText.isEmpty {
                 Text(probeText)
-                    .font(.system(size: 11))
+                    .font(.system(size: 13))
                     .foregroundColor(Theme.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)

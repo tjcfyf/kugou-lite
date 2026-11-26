@@ -83,7 +83,7 @@ struct RecommendView: View {
                                               artist: song.artist,
                                               coverURL: song.coverURL))
         }
-        return Array(albums.prefix(4))
+        return Array(albums.prefix(6))
     }
 
     var body: some View {
@@ -146,7 +146,7 @@ struct RecommendView: View {
         HStack(spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundColor(Theme.secondaryText)
                 TextField("搜索歌曲、歌手", text: $searchModel.query)
                     .font(.system(size: 14))
@@ -209,7 +209,7 @@ struct RecommendView: View {
                 }
 
                 if !recommendedAlbums.isEmpty {
-                    IOS27SectionHeader(title: "为你精选", subtitle: "今日推荐")
+                    IOS27SectionHeader(title: "为你精选", subtitle: "Made for You")
 
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(alignment: .top, spacing: 12) {
@@ -228,7 +228,7 @@ struct RecommendView: View {
                 }
 
                 if !recentAlbums.isEmpty {
-                    IOS27SectionHeader(title: "最近播放", subtitle: nil)
+                    IOS27SectionHeader(title: "最近播放", subtitle: "Recently Played", showsChevron: true)
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(alignment: .top, spacing: 12) {
                             ForEach(recentAlbums) { album in
@@ -312,7 +312,7 @@ struct RecommendView: View {
                 .foregroundColor(Theme.text)
 
             Text("\(model.songs.count) 首")
-                .font(.system(size: 12))
+                .font(.system(size: 13))
                 .foregroundColor(Theme.secondaryText)
 
             Spacer(minLength: 8)
@@ -323,9 +323,9 @@ struct RecommendView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "play.fill")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                         Text("播放全部")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 14, weight: .medium))
                     }
                     .foregroundColor(Theme.accent)
                     .frame(height: 36)
@@ -355,7 +355,7 @@ struct RecommendView: View {
 
                 if let message = searchModel.message {
                     Text(message)
-                        .font(.system(size: 13))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                         .frame(maxWidth: .infinity)
                         .padding(.top, 36)
@@ -363,7 +363,7 @@ struct RecommendView: View {
 
                 if !searchModel.songs.isEmpty {
                     Text("歌曲")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Theme.secondaryText)
                         .padding(.horizontal, 16)
                         .padding(.top, 18)
@@ -412,7 +412,7 @@ struct RecommendView: View {
                             searchModel.query = ""
                         } label: {
                             Text("清除")
-                                .font(.system(size: 13))
+                                .font(.system(size: 14))
                                 .foregroundColor(Theme.accent)
                                 .frame(height: 32)
                                 .contentShape(Rectangle())
@@ -423,7 +423,7 @@ struct RecommendView: View {
 
                 if historyWords.isEmpty {
                     Text("搜歌手、歌名或专辑，点一首就能听")
-                        .font(.system(size: 13))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.tertiaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
@@ -433,7 +433,7 @@ struct RecommendView: View {
                         ForEach(Array(historyWords.enumerated()), id: \.element) { index, word in
                             HStack(spacing: 10) {
                                 Image(systemName: "clock")
-                                    .font(.system(size: 13))
+                                    .font(.system(size: 14))
                                     .foregroundColor(Theme.tertiaryText)
                                     .frame(width: 18)
 
@@ -454,7 +454,7 @@ struct RecommendView: View {
                                     historyWords = Preferences.searchHistory
                                 } label: {
                                     Image(systemName: "xmark")
-                                        .font(.system(size: 11, weight: .semibold))
+                                        .font(.system(size: 13, weight: .semibold))
                                         .foregroundColor(Theme.tertiaryText)
                                         .frame(width: 30, height: 44)
                                         .contentShape(Rectangle())
@@ -492,11 +492,11 @@ struct RecommendView: View {
                             } label: {
                                 HStack(spacing: 8) {
                                     Text("\(index + 1)")
-                                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
                                         .foregroundColor(index < 3 ? Theme.accent : Theme.tertiaryText)
                                         .frame(width: 16, alignment: .leading)
                                     Text(word)
-                                        .font(.system(size: 13))
+                                        .font(.system(size: 14))
                                         .foregroundColor(Theme.text)
                                         .lineLimit(1)
                                     Spacer(minLength: 0)
@@ -564,7 +564,7 @@ struct RankCard: View {
                 }
 
                 Text("TOP")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 4)
@@ -585,7 +585,7 @@ struct RankCard: View {
                     .foregroundColor(Theme.text)
                     .lineLimit(1)
                 Text("酷狗排行榜")
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.system(size: 13, weight: .regular))
                     .foregroundColor(Theme.secondaryText)
                     .lineLimit(1)
             }
@@ -690,7 +690,7 @@ struct RankDetailSheet: View {
                         .padding(.top, 26)
                 } else if !message.isEmpty && songs.isEmpty {
                     Text(message)
-                        .font(.system(size: 13))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                         .padding(.top, 24)
                 } else if !songs.isEmpty {
@@ -728,7 +728,7 @@ struct RankDetailSheet: View {
                                 ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
                             }
                             Text(loadingMore ? "正在加载…" : "继续上滑自动加载")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(Theme.secondaryText)
                         }
                         .frame(maxWidth: .infinity)
@@ -739,7 +739,7 @@ struct RankDetailSheet: View {
                         }
                     } else if !message.isEmpty {
                         Text(message)
-                            .font(.system(size: 11))
+                            .font(.system(size: 13))
                             .foregroundColor(Theme.secondaryText)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
@@ -778,7 +778,7 @@ struct RankDetailSheet: View {
 
             if !rank.intro.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Text(rank.intro)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(Theme.secondaryText)
                     .multilineTextAlignment(.leading)
                     .lineLimit(3)
@@ -791,7 +791,7 @@ struct RankDetailSheet: View {
                     Text("\(songs.count) 首")
                 }
             }
-            .font(.system(size: 12, weight: .medium))
+            .font(.system(size: 13, weight: .medium))
             .foregroundColor(Theme.secondaryText)
 
             HStack(spacing: 10) {
@@ -896,7 +896,7 @@ struct PlaylistCard: View {
                 .lineLimit(1)
                 .frame(width: 148, alignment: .leading)
             Text(playlist.isCollected ? "收藏 · \(playlist.count) 首" : "\(playlist.count) 首")
-                .font(.system(size: 11))
+                .font(.system(size: 13))
                 .foregroundColor(Theme.secondaryText)
                 .frame(width: 148, alignment: .leading)
         }
@@ -954,7 +954,7 @@ struct PlaylistDetailSheet: View {
                         .padding(.top, 26)
                 } else if !message.isEmpty && songs.isEmpty {
                     Text(message)
-                        .font(.system(size: 13))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                         .padding(.top, 24)
                 } else if !songs.isEmpty {
@@ -1018,7 +1018,7 @@ struct PlaylistDetailSheet: View {
                                 ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
                             }
                             Text(loadingMore ? "正在加载…" : "继续上滑自动加载")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(Theme.secondaryText)
                         }
                         .frame(maxWidth: .infinity)
@@ -1030,7 +1030,7 @@ struct PlaylistDetailSheet: View {
                         }
                     } else if !loading && !message.isEmpty && !songs.isEmpty {
                         Text(message)
-                            .font(.system(size: 11))
+                            .font(.system(size: 13))
                             .foregroundColor(Theme.secondaryText)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
@@ -1107,7 +1107,7 @@ struct PlaylistDetailSheet: View {
                 Text("·")
                 Text("\(playlist.count) 首")
             }
-            .font(.system(size: 12, weight: .medium))
+            .font(.system(size: 13, weight: .medium))
             .foregroundColor(Theme.secondaryText)
 
             HStack(spacing: 10) {
@@ -1157,7 +1157,7 @@ struct PlaylistDetailSheet: View {
                     }
                 } label: {
                     Text(isSelecting ? "取消批量" : "批量加入")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(isSelecting ? Theme.accent : Theme.text)
                         .frame(width: 96, height: 44)
                         .liquidGlass(cornerRadius: 22)
@@ -1175,7 +1175,7 @@ struct PlaylistDetailSheet: View {
     private var batchBar: some View {
         HStack(spacing: 12) {
             Text("已选 \(selectedSongs.count) 首")
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundColor(Theme.text)
             Spacer()
             Button {
@@ -1184,7 +1184,7 @@ struct PlaylistDetailSheet: View {
                 HStack(spacing: 4) {
                     if adding { ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.onAccent)) }
                     Text(adding ? "加入中…" : "加入歌单")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                 }
                 .foregroundColor(Theme.onAccent)
                 .padding(.horizontal, 16)
@@ -1281,17 +1281,17 @@ struct PlaylistTargetPicker: View {
                 if loading {
                     HStack(spacing: 8) {
                         ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
-                        Text("读取歌单…").font(.system(size: 12)).foregroundColor(Theme.secondaryText)
+                        Text("读取歌单…").font(.system(size: 13)).foregroundColor(Theme.secondaryText)
                     }
                     .listRowBackground(Color.clear)
                 } else if !message.isEmpty {
                     Text(message)
-                        .font(.system(size: 12))
+                        .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
                         .listRowBackground(Color.clear)
                 } else if playlists.isEmpty {
                     Text("没有可写入的自建歌单，先在酷狗创建或取消收藏后再试")
-                        .font(.system(size: 12))
+                        .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
                         .listRowBackground(Color.clear)
                 } else {
@@ -1308,12 +1308,12 @@ struct PlaylistTargetPicker: View {
                                         .foregroundColor(Theme.text)
                                         .lineLimit(1)
                                     Text("\(playlist.count) 首")
-                                        .font(.system(size: 13))
+                                        .font(.system(size: 14))
                                         .foregroundColor(Theme.secondaryText)
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.system(size: 13, weight: .semibold))
                                     .foregroundColor(Theme.tertiaryText)
                             }
                             .padding(.vertical, 4)
@@ -1361,14 +1361,14 @@ struct SectionTitle: View {
                 .foregroundColor(Theme.text)
             if let subtitle = subtitle {
                 Text(subtitle)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(Theme.secondaryText)
             }
             Spacer()
             if let actionTitle = actionTitle, let action = action {
                 Button(action: action) {
                     Text(actionTitle)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Theme.accent)
                         .frame(height: 32)
                 }
@@ -1391,6 +1391,7 @@ struct ProfileView: View {
     @State private var quality: AudioQuality = Preferences.quality
     @State private var showLogin = false
     @State private var showSettings = false
+    @State private var showArtists = false
     @State private var vipText = ""
     @State private var playlists: [CloudPlaylist] = []
     @State private var playlistsLoading = false
@@ -1447,7 +1448,7 @@ struct ProfileView: View {
                         .overlay(alignment: .bottomTrailing) {
                             if !auth.isLoggedIn {
                                 Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 11, weight: .bold))
+                                    .font(.system(size: 13, weight: .bold))
                                     .foregroundColor(IOS27.accent)
                                     .background(Circle().fill(Theme.background).frame(width: 10, height: 10))
                             }
@@ -1467,6 +1468,9 @@ struct ProfileView: View {
         }
         .sheet(isPresented: $showImport) {
             PlaylistImportView()
+        }
+        .fullScreenCover(isPresented: $showArtists) {
+            LibraryArtistsView()
         }
         .fullScreenCover(item: $libraryTarget) { kind in
             LibrarySongsView(kind: kind)
@@ -1537,7 +1541,26 @@ struct ProfileView: View {
                                       cover: song.coverURL,
                                       artist: song.artist))
         }
-        return Array(albums.prefix(4))
+        return Array(albums.prefix(6))
+    }
+
+    private var artistGroups: [LibraryArtistGroup] {
+        var groups: [String: LibraryArtistGroup] = [:]
+        for song in library.favorites + library.recent {
+            let name = song.artist
+            guard !name.isEmpty else { continue }
+            if var existing = groups[name] {
+                existing.count += 1
+                if existing.cover == nil { existing.cover = song.coverURL }
+                groups[name] = existing
+            } else {
+                groups[name] = LibraryArtistGroup(name: name,
+                                                  count: 1,
+                                                  cover: song.coverURL,
+                                                  authorID: song.AuthorID)
+            }
+        }
+        return groups.values.sorted { $0.count > $1.count }
     }
 
     private var libraryIndexRows: some View {
@@ -1546,6 +1569,12 @@ struct ProfileView: View {
                             title: "播放列表",
                             count: playlists.count + importedStore.playlists.count) {
                 libraryScrollTarget = "library-playlists"
+            }
+            IOS27RowDivider(leading: 46)
+            libraryIndexRow(icon: "music.mic",
+                            title: "歌手",
+                            count: artistGroups.count) {
+                showArtists = true
             }
             IOS27RowDivider(leading: 46)
             libraryIndexRow(icon: "square.stack",
@@ -1560,14 +1589,8 @@ struct ProfileView: View {
                 libraryTarget = .favorites
             }
             IOS27RowDivider(leading: 46)
-            libraryIndexRow(icon: "clock",
-                            title: "最近播放",
-                            count: library.recent.count) {
-                libraryTarget = .recent
-            }
-            IOS27RowDivider(leading: 46)
             libraryIndexRow(icon: "arrow.down.circle",
-                            title: "已导入",
+                            title: "下载",
                             count: importedStore.playlists.count) {
                 libraryScrollTarget = "library-playlists"
             }
@@ -1601,10 +1624,10 @@ struct ProfileView: View {
     private var libraryAlbumSection: some View {
         if !libraryAlbums.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
-                IOS27SectionHeader(title: "最近添加", subtitle: "专辑")
+                IOS27SectionHeader(title: "置顶收藏", subtitle: "专辑")
 
                 LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3),
                     spacing: 8
                 ) {
                     ForEach(libraryAlbums) { album in
@@ -1648,7 +1671,7 @@ struct ProfileView: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(Theme.text)
                     Text("同步云歌单、头像与会员状态")
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.system(size: 14, weight: .regular))
                         .foregroundColor(Theme.secondaryText)
                 }
                 Spacer(minLength: 8)
@@ -1699,7 +1722,7 @@ struct ProfileView: View {
                 HStack(spacing: 8) {
                     ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
                     Text("正在读取官方歌单…")
-                        .font(.system(size: 13))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                 }
                 .padding(.horizontal, IOS27.pagePadding)
@@ -1754,7 +1777,7 @@ struct ProfileView: View {
                         .lineLimit(1)
                     HStack(spacing: 5) {
                         Text(playlist.source)
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(Theme.secondaryText)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
@@ -1763,7 +1786,7 @@ struct ProfileView: View {
                                     .fill(Theme.chip)
                             )
                         Text("\(playlist.songs.count) 首")
-                            .font(.system(size: 13))
+                            .font(.system(size: 14))
                             .foregroundColor(Theme.secondaryText)
                     }
                 }
@@ -1796,7 +1819,7 @@ struct ProfileView: View {
                         .foregroundColor(Theme.text)
                         .lineLimit(1)
                     Text("\(playlist.count) 首 · 酷狗云歌单")
-                        .font(.system(size: 13))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                 }
                 Spacer(minLength: 0)
@@ -1834,17 +1857,17 @@ struct ProfileView: View {
                     .lineLimit(1)
                 if !vipText.isEmpty {
                     Text(vipText)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(Theme.accent)
                         .lineLimit(1)
                 } else if let signature = userProfile.profile?.signature, !signature.isEmpty {
                     Text(signature)
-                        .font(.system(size: 12))
+                        .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
                         .lineLimit(1)
                 } else {
                     Text(auth.isLoggedIn ? "已连接酷狗账号" : "登录后同步歌单与收藏")
-                        .font(.system(size: 12))
+                        .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
                         .lineLimit(1)
                 }
@@ -1902,12 +1925,12 @@ struct ProfileView: View {
                 } label: {
                     HStack {
                         Text(item.title)
-                            .font(.system(size: 13))
+                            .font(.system(size: 14))
                             .foregroundColor(Theme.text)
                         Spacer()
                         if quality == item {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(Theme.accent)
                         }
                     }
@@ -1916,7 +1939,7 @@ struct ProfileView: View {
                 .buttonStyle(GlassPressButtonStyle())
             }
             Text("取不到高音质时会自动降到下一档")
-                .font(.system(size: 11))
+                .font(.system(size: 13))
                 .foregroundColor(Theme.secondaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1933,7 +1956,7 @@ struct ProfileView: View {
                 Spacer()
                 if sleepText.isEmpty {
                     Text("未开启")
-                        .font(.system(size: 11))
+                        .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
                 }
             }
@@ -1942,7 +1965,7 @@ struct ProfileView: View {
                     .font(.system(size: 24, weight: .semibold, design: .monospaced))
                     .foregroundColor(Theme.accent)
                 Text("到点自动暂停，每秒刷新")
-                    .font(.system(size: 11))
+                    .font(.system(size: 13))
                     .foregroundColor(Theme.secondaryText)
             }
             HStack(spacing: 8) {
@@ -1954,7 +1977,7 @@ struct ProfileView: View {
                         Task { try? await Task.sleep(nanoseconds: 1_400_000_000); toast = "" }
                     } label: {
                         Text(minutes == 0 ? "关闭" : "\(minutes) 分")
-                            .font(.system(size: 12))
+                            .font(.system(size: 13))
                             .foregroundColor(Theme.text)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
@@ -1967,7 +1990,7 @@ struct ProfileView: View {
             HStack(spacing: 10) {
                 Stepper(value: $customMinutes, in: 1...180) {
                     Text("自定义 \(customMinutes) 分钟")
-                        .font(.system(size: 12))
+                        .font(.system(size: 13))
                         .foregroundColor(Theme.text.opacity(0.85))
                 }
                 Button {
@@ -1977,7 +2000,7 @@ struct ProfileView: View {
                     Task { try? await Task.sleep(nanoseconds: 1_400_000_000); toast = "" }
                 } label: {
                     Text("开始")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(Theme.onAccent)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
@@ -1999,6 +2022,111 @@ struct ProfileView: View {
     }
 }
 
+
+private struct LibraryArtistGroup: Identifiable {
+    var id: String { name }
+    var name: String
+    var count: Int
+    var cover: URL?
+    var authorID: Int?
+}
+
+/// 资料库「歌手」二级页。按收藏与最近播放聚合并列；点进歌手沿用
+/// iOS 27 的全幅歌手页，而不是另外维护一套列表详情。
+struct LibraryArtistsView: View {
+    @ObservedObject private var library = LibraryStore.shared
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedArtist: ArtistTarget?
+
+    private var groups: [LibraryArtistGroup] {
+        var map: [String: LibraryArtistGroup] = [:]
+        for song in library.favorites + library.recent {
+            let name = song.artist
+            guard !name.isEmpty else { continue }
+            if var existing = map[name] {
+                existing = LibraryArtistGroup(name: existing.name,
+                                              count: existing.count + 1,
+                                              cover: existing.cover ?? song.coverURL,
+                                              authorID: existing.authorID ?? song.AuthorID)
+                map[name] = existing
+            } else {
+                map[name] = LibraryArtistGroup(name: name,
+                                               count: 1,
+                                               cover: song.coverURL,
+                                               authorID: song.AuthorID)
+            }
+        }
+        return map.values.sorted {
+            if $0.count == $1.count { return $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            return $0.count > $1.count
+        }
+    }
+
+    var body: some View {
+        NavigationView {
+            Group {
+                if groups.isEmpty {
+                    Text("收藏或播放歌曲后，这里会按歌手聚合。")
+                        .font(.system(size: 15))
+                        .foregroundColor(Theme.secondaryText)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(Array(groups.enumerated()), id: \.element.id) { index, group in
+                                Button {
+                                    selectedArtist = ArtistTarget(name: group.name,
+                                                                  authorID: group.authorID,
+                                                                  cover: group.cover)
+                                } label: {
+                                    HStack(spacing: 13) {
+                                        CoverImage(url: group.cover, size: 50, radius: 25, showsBorder: false)
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(group.name)
+                                                .font(.system(size: 17, weight: .semibold))
+                                                .foregroundColor(Theme.text)
+                                                .lineLimit(1)
+                                            Text("\(group.count) 首作品")
+                                                .font(.system(size: 14, weight: .regular))
+                                                .foregroundColor(Theme.secondaryText)
+                                        }
+                                        Spacer(minLength: 8)
+                                        IOS27Chevron()
+                                    }
+                                    .padding(.horizontal, IOS27.pagePadding)
+                                    .frame(height: 68)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(IOS27RowButtonStyle())
+
+                                if index < groups.count - 1 {
+                                    IOS27RowDivider(leading: 82)
+                                        .padding(.trailing, IOS27.pagePadding)
+                                }
+                            }
+                        }
+                        .padding(.bottom, 30)
+                    }
+                }
+            }
+            .background(AppBackground())
+            .gradientNavigationBlur()
+            .navigationTitle("歌手")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("完成") { dismiss() }
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(IOS27.accent)
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
+        .fullScreenCover(item: $selectedArtist) { artist in
+            ArtistDetailSheet(target: artist)
+        }
+    }
+}
 
 private enum LibrarySongSort: String, CaseIterable, Identifiable {
     case recent
@@ -2073,7 +2201,7 @@ struct LibrarySongsView: View {
                 if !songs.isEmpty {
                     HStack(spacing: 10) {
                         Text("\(songs.count) 首")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundColor(Theme.secondaryText)
 
                         Spacer(minLength: 0)
@@ -2117,7 +2245,7 @@ struct LibrarySongsView: View {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
                         Text("正在同步官方「我喜欢」…")
-                            .font(.system(size: 13))
+                            .font(.system(size: 14))
                             .foregroundColor(Theme.secondaryText)
                     }
                     .listRowBackground(Color.clear)
@@ -2127,7 +2255,7 @@ struct LibrarySongsView: View {
                             ? (library.favoritesMessage.isEmpty ? "官方「我喜欢」里还没有歌曲" : library.favoritesMessage)
                             : "还没有播放记录")
                          : "没有匹配的歌曲")
-                        .font(.system(size: 13))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                         .listRowBackground(Color.clear)
                 } else {
@@ -2186,7 +2314,7 @@ struct LibrarySongsView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold))
                             .frame(width: 32, height: 32)
                             .liquidGlass(cornerRadius: 16)
                     }
@@ -2248,7 +2376,7 @@ struct QueueView: View {
                                 .foregroundColor(Theme.accent)
                         }
                     }
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(Theme.secondaryText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -2340,7 +2468,7 @@ struct QueueView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(Theme.text)
                             .frame(width: 32, height: 32)
                             .liquidGlass(cornerRadius: 16)
@@ -2394,7 +2522,7 @@ struct ImportedPlaylistDetailSheet: View {
                         )
                         VStack(alignment: .leading, spacing: 5) {
                             Text("导入歌单 · \(playlist.source)")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.white.opacity(0.70))
                                 .textCase(.uppercase)
                             Text(playlist.name)
@@ -2403,7 +2531,7 @@ struct ImportedPlaylistDetailSheet: View {
                                 .foregroundColor(.white)
                                 .lineLimit(3)
                             Text("\(playlist.songs.count) 首")
-                                .font(.system(size: 13, weight: .regular))
+                                .font(.system(size: 14, weight: .regular))
                                 .foregroundColor(.white.opacity(0.64))
                         }
                         .padding(.horizontal, IOS27.pagePadding)
@@ -2494,7 +2622,7 @@ struct ImportedPlaylistDetailSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(Theme.text)
                             .frame(width: 32, height: 32)
                             .liquidGlass(cornerRadius: 16)

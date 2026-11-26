@@ -9,7 +9,7 @@ struct LoginDebugView: View {
         NavigationView {
             ScrollView {
                 Text(LoginDebug.shared.maskedText)
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.system(size: 13, design: .monospaced))
                     .foregroundColor(Theme.text)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)

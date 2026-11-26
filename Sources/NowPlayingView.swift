@@ -91,9 +91,9 @@ struct NowPlayingView: View {
         return "音质 \(quality)"
     }
 
-    private var playerPrimary: Color { Theme.text }
-    private var playerSecondary: Color { Theme.secondaryText }
-    private var playerTertiary: Color { Theme.tertiaryText }
+    private var playerPrimary: Color { .white }
+    private var playerSecondary: Color { .white.opacity(0.72) }
+    private var playerTertiary: Color { .white.opacity(0.46) }
     private var playerAccent: Color { Theme.accent }
     private var playerAccentForeground: Color { Theme.onAccent }
 
@@ -265,6 +265,16 @@ struct NowPlayingView: View {
     }
 
     private var playerContent: some View {
+        GeometryReader { geo in
+            if geo.size.width > geo.size.height * 1.04 {
+                landscapePlayerContent(size: geo.size)
+            } else {
+                portraitPlayerContent
+            }
+        }
+    }
+
+    private var portraitPlayerContent: some View {
         VStack(spacing: 0) {
             topBar
 
@@ -283,6 +293,73 @@ struct NowPlayingView: View {
                 .padding(.top, 12)
 
             Spacer(minLength: 4)
+        }
+    }
+
+    /// iOS 27 横屏播放页：左侧大封面，右侧歌曲信息 / 进度 / 控制，
+    /// 底部再放一行当前歌词，方便横屏时不用切歌词页也能跟唱。
+    private func landscapePlayerContent(size: CGSize) -> some View {
+        VStack(spacing: 0) {
+            topBar
+
+            HStack(alignment: .center, spacing: 24) {
+                artworkView(size: min(max(size.height - 82, 160), size.width * 0.41),
+                            horizontalPadding: 0)
+
+                VStack(alignment: .leading, spacing: 0) {
+                    landscapeTitleBlock
+
+                    progress
+                        .padding(.top, 12)
+
+                    controls
+                        .padding(.top, 6)
+
+                    Spacer(minLength: 6)
+
+                    landscapeLyricPreview
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 6)
+        }
+    }
+
+    private var landscapeTitleBlock: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(player.current?.SongName ?? "未在播放")
+                .font(.system(size: 27, weight: .bold))
+                .tracking(-0.35)
+                .foregroundColor(playerPrimary)
+                .lineLimit(2)
+            if let artist = player.current?.artist, !artist.isEmpty {
+                Text(artist)
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundColor(playerSecondary)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var landscapeLyricPreview: some View {
+        if !player.lyric.isEmpty {
+            let index = min(max(player.lyricIndex, 0), player.lyric.count - 1)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(player.lyric[index].text)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(playerPrimary)
+                    .lineLimit(1)
+                if index + 1 < player.lyric.count {
+                    Text(player.lyric[index + 1].text)
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundColor(playerSecondary)
+                        .lineLimit(1)
+                }
+            }
+            .animation(Motion.quick, value: player.lyricIndex)
         }
     }
 
@@ -367,10 +444,10 @@ struct NowPlayingView: View {
                 // 保证白色标题/控制按钮在亮色封面上也能读。
                 // 磨砂从 sheet 第一帧就存在。之前用 isPanelMoving 关掉，
                 // 结果上滑的前 0.5 秒会露出清晰专辑图，和 Apple Music 的观感不符。
-                NativeFrostedGlass(style: colorScheme == .dark ? .systemUltraThinMaterialDark : .systemUltraThinMaterialLight)
+                NativeFrostedGlass(style: .systemUltraThinMaterialDark)
                     .frame(width: geo.size.width, height: geo.size.height)
                 Color.black
-                    .opacity(colorScheme == .dark ? 0.22 : 0.05)
+                    .opacity(0.22)
                     .frame(width: geo.size.width, height: geo.size.height)
                     .allowsHitTesting(false)
 
@@ -529,7 +606,7 @@ struct NowPlayingView: View {
                     .foregroundColor(playerPrimary)
                     .lineLimit(1)
                 Text(player.current?.artist ?? "")
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundColor(playerSecondary)
                     .lineLimit(1)
             }
@@ -669,7 +746,11 @@ struct NowPlayingView: View {
     }
 
     private var artwork: some View {
-        CrossfadeArtwork(url: player.current?.coverURL, size: artworkSize, fallbackImage: artworkImage)
+        artworkView(size: artworkSize)
+    }
+
+    private func artworkView(size: CGFloat, horizontalPadding: CGFloat = 24) -> some View {
+        CrossfadeArtwork(url: player.current?.coverURL, size: size, fallbackImage: artworkImage)
             .background(
                 GeometryReader { proxy in
                     Color.clear
@@ -683,9 +764,9 @@ struct NowPlayingView: View {
                         )
                 }
             )
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.30 : 0.14),
+            .shadow(color: .black.opacity(0.30),
                     radius: 22, x: 0, y: 10)
-            .padding(.horizontal, 24)
+            .padding(.horizontal, horizontalPadding)
             .opacity(isCoverMorphing ? 0 : 1)
             // 封面不再接收切歌/双击手势，让播放页的系统的下拉收出手势覆盖整张封面。
             .allowsHitTesting(false)
@@ -748,7 +829,7 @@ struct NowPlayingView: View {
 
                     if isScrubbing {
                         Text(format(displayedTime))
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(playerAccentForeground)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -793,13 +874,13 @@ struct NowPlayingView: View {
                     Text(showRemaining
                          ? "-\(format(max(player.duration - displayedTime, 0)))"
                          : format(player.duration))
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(playerSecondary)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(GlassPressButtonStyle())
             }
-            .font(.system(size: 11, weight: .medium))
+            .font(.system(size: 13, weight: .medium))
             .foregroundColor(playerSecondary)
 
         }
@@ -894,7 +975,7 @@ struct NowPlayingView: View {
                 if player.lyric.isEmpty {
                     VStack(spacing: 12) {
                         Text(player.isLoading ? "正在缓冲…" : (player.lyricLoading ? "歌词加载中…" : (player.errorMessage ?? "暂无歌词")))
-                            .font(.system(size: 13))
+                            .font(.system(size: 14))
                             .foregroundColor(playerSecondary)
                         if player.errorMessage != nil && !player.isLoading {
                             Button {
@@ -904,7 +985,7 @@ struct NowPlayingView: View {
                                     Image(systemName: "arrow.clockwise")
                                     Text("重试")
                                 }
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(playerAccentForeground)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 7)
@@ -920,7 +1001,7 @@ struct NowPlayingView: View {
                                     Image(systemName: "arrow.clockwise")
                                     Text("重新加载歌词")
                                 }
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(playerSecondary)
                             }
                             .buttonStyle(GlassPressButtonStyle())
@@ -1066,7 +1147,7 @@ struct NowPlayingView: View {
 
     private func karaokeColor(_ progress: Double) -> Color {
         let p = min(max(progress, 0), 1)
-        return Theme.text.opacity(0.46 + 0.54 * p)
+        return playerPrimary.opacity(0.46 + 0.54 * p)
     }
 
     private func closePlayer() {
@@ -1125,8 +1206,8 @@ private struct AirPlayRouteButton: UIViewRepresentable {
     func makeUIView(context: Context) -> AVRoutePickerView {
         let picker = AVRoutePickerView()
         picker.backgroundColor = .clear
-        picker.tintColor = .label
-        picker.activeTintColor = .label
+        picker.tintColor = .white
+        picker.activeTintColor = .white
         picker.prioritizesVideoDevices = false
         return picker
     }
@@ -1295,7 +1376,7 @@ struct KaraokeSheet: View {
                     Text(player.karaokeEnabled
                          ? "人声/伴奏音量只影响当前播放，不会改变歌曲本身的音质。"
                          : "到「我的 → 设置 → 伴唱」打开开关。")
-                        .font(.system(size: 11))
+                        .font(.system(size: 13))
                         .foregroundColor(Theme.tertiaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -1329,7 +1410,7 @@ struct KaraokeSheet: View {
                 Spacer()
             }
             Text(modeDetail)
-                .font(.system(size: 11))
+                .font(.system(size: 13))
                 .foregroundColor(Theme.tertiaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -1343,11 +1424,11 @@ struct KaraokeSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundColor(Theme.text)
                 Spacer()
                 Text("\(Int(value * 100))%")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(Theme.secondaryText)
                     .monospacedDigit()
             }
@@ -1360,7 +1441,7 @@ struct KaraokeSheet: View {
     private func presetButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 13, weight: .medium))
                 .foregroundColor(Theme.text)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)

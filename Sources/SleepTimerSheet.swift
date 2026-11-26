@@ -40,7 +40,7 @@ struct SleepTimerSheet: View {
         VStack(spacing: 8) {
             SleepCountdownText(deadline: player.sleepDeadline, fontSize: 28)
             Text(statusText)
-                .font(.system(size: 11))
+                .font(.system(size: 13))
                 .foregroundColor(Theme.secondaryText)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)

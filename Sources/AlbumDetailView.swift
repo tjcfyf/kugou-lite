@@ -26,20 +26,25 @@ struct AlbumDetailSheet: View {
     }
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                header
-                trackList
-                loadMoreFooter
+        ZStack {
+            TintedCoverBackdrop(coverURL: headerCover)
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    header
+                    trackList
+                    loadMoreFooter
+                }
+                .padding(.bottom, 30)
             }
-            .padding(.bottom, 30)
         }
-        .background(AppBackground())
+        .ignoresSafeArea(edges: .top)
+        .preferredColorScheme(.dark)
         .overlay(alignment: .topLeading) {
             IOS27GlassCircleButton(systemName: "chevron.left", size: 42) {
                 dismiss()
             }
-            .padding(.top, 8)
+            .padding(.top, 58)
             .padding(.leading, 16)
             .accessibilityLabel("返回")
         }
@@ -71,13 +76,13 @@ struct AlbumDetailSheet: View {
                 if !headerArtist.isEmpty {
                     Text(headerArtist)
                         .font(.system(size: 17, weight: .regular))
-                        .foregroundColor(.white.opacity(0.72))
+                        .foregroundColor(.white.opacity(0.82))
                         .lineLimit(1)
                 }
 
                 Text(loading ? "正在读取专辑…" : "专辑 · \(songs.count) 首")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.white.opacity(0.54))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white.opacity(0.72))
 
                 HStack(spacing: 22) {
                     Button { play(shuffled: true) } label: {
@@ -153,7 +158,7 @@ struct AlbumDetailSheet: View {
                         Text(headerArtist)
                         Spacer()
                     }
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundColor(Theme.secondaryText)
                     .padding(.horizontal, IOS27.pagePadding)
                     .padding(.top, 20)
