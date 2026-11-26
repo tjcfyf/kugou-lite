@@ -76,10 +76,10 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.151
-          name: Sonora 1.0.151
+          tag_name: v1.0.152
+          name: Sonora 1.0.152
           body: |
-            Sonora 1.0.151 unsigned IPA
+            Sonora 1.0.152 unsigned IPA
             - 按 iOS 26 Apple Music 液态玻璃重做整体视觉：Apple Music 红强调色、纯黑/暖白背景、玻璃卡片与高光描边
             - 底栏改为浮动液态玻璃胶囊：首页/资料库 + 独立搜索圆钮，向下滚动自动收起为纯图标，回到顶部展开
             - 迷你播放器改为浮在底栏上方的玻璃胶囊，支持左右轻扫切歌

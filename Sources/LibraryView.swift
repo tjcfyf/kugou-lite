@@ -1527,6 +1527,7 @@ struct ProfileView: View {
                 .padding(14)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
+            .frame(maxWidth: .infinity)
             .frame(height: 126)
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay(
@@ -1563,7 +1564,7 @@ struct ProfileView: View {
                             albumTarget = album
                         } label: {
                             VStack(alignment: .leading, spacing: 7) {
-                                CoverImage(url: album.cover, size: 170, radius: 19, showsBorder: false)
+                                CoverImage(url: album.cover, size: 164, radius: 19, showsBorder: false)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .shadow(color: .black.opacity(0.14), radius: 8, x: 0, y: 5)
                                 Text(album.name)
@@ -1589,7 +1590,7 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Text("我的歌单")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundColor(Theme.text)
                 Text("\(playlists.count + importedStore.playlists.count) 个")
                     .font(.system(size: 12))
