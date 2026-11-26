@@ -949,11 +949,11 @@ struct NowPlayingView: View {
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            // 非当前行整行做模糊；活动行保持完全清晰。
-                            // 这里不能给 active 加 opacity 动画：旧行淡出 + 新行淡入
+                            // 当前演唱行完全清晰，其余行全部做磨砂模糊。
+                            // 不给 active 加 opacity 动画：旧行淡出 + 新行淡入
                             // 会在滚动动画期间同时留下两份半透明歌词，看起来就是“虚影”。
-                            // 不逐行 blur：100+ 行同时离屏合成会在进入歌词页第一帧
-                            // 直接占满主线程，表现就是点歌词后整个页面卡死。
+                            // 逐行 blur 只在歌词页出现，LazyVStack 会跳过离屏行。
+                            .blur(radius: active ? 0 : 3.0)
                             .opacity(active ? 1 : (isPanelMoving ? 0.72 : 0.58))
                             .animation(nil, value: active)
                             .animation(nil, value: isPanelMoving)

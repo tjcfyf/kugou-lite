@@ -76,12 +76,13 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.149
-          name: Sonora 1.0.149
+          tag_name: v1.0.150
+          name: Sonora 1.0.150
           body: |
-            Sonora 1.0.149 unsigned IPA
-            - 重做主页三棵导航栈的顶栏渐变磨砂：模糊层改为容器承载，遮罩加在容器 layer 上，修复只看到白色罩、没有真正模糊的问题
-            - 模糊层用 addSubview 后再把导航栏提到最前，确保它覆盖滚动内容而不是落到内容下面
-            - 导航栏改为完全透明外观，避免 NavigationBar 自带白底盖住模糊
-            - 渐变遮罩顶部全模糊、向下过渡到透明清晰，保留顶栏磨砂到内容清晰的过渡
+            Sonora 1.0.150 unsigned IPA
+            - 修复顶栏只有白色罩没有模糊：遮罩不能加在 UIVisualEffectView 的 superview 上，改回直接给 effect view 设置 mask
+            - 遮罩用 CAGradientLayer 做顶部全模糊、向下过渡到透明的渐变，并在 layout 时重新赋值确保尺寸生效
+            - 模糊层仍置于滚动内容之上、导航栏之下；导航栏保持透明
+            - 恢复歌词页逐行模糊：正在播放的一句完全清晰，其余歌词全部 blur 3pt
+            - 保留 v148 的主页黑边修复、v147 的进度条球位置断口与 v143 的卡死修复
           files: KugouLite-iOS15-unsigned.ipa

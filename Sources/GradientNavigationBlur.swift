@@ -16,6 +16,7 @@ struct GradientNavigationBlur: UIViewControllerRepresentable {
     final class Installer: UIViewController {
         private let backdropTag = 0x5A17B1
         private weak var installedNavigationController: UINavigationController?
+        private var installAttempts = 0
 
         override func viewDidAppear(_ animated: Bool) {
             super.viewDidAppear(animated)
@@ -28,7 +29,17 @@ struct GradientNavigationBlur: UIViewControllerRepresentable {
         }
 
         private func installIfNeeded() {
-            guard let navigation = findNavigationController() else { return }
+            guard let navigation = findNavigationController() else {
+                // SwiftUI 的 hosting 层级有时比 viewDidAppear 晚一拍，重试几次。
+                installAttempts += 1
+                if installAttempts < 5 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                        self?.installIfNeeded()
+                    }
+                }
+                return
+            }
+            installAttempts = 0
             installedNavigationController = navigation
 
             let bar = navigation.navigationBar
@@ -82,42 +93,55 @@ struct GradientNavigationBlur: UIViewControllerRepresentable {
 }
 
 /// 模糊层 + 垂直 alpha 遮罩，底部完全透明，滚动内容从这里过渡到清晰。
-/// 用容器 view 承载 UIVisualEffectView，遮罩加在容器 layer 上；
-/// 直接给 UIVisualEffectView 自己加 mask 时，部分系统版本只遮住内容层，
-/// 模糊效果本身仍然整块铺满，看起来就像一层白色罩。
-final class GradientBlurBackdrop: UIView {
-    private let blurView: UIVisualEffectView
-    private let fadeMask = CAGradientLayer()
+/// 注意：遮罩必须直接加在 UIVisualEffectView 自己身上。Apple 明确说明，
+/// 给 UIVisualEffectView 的 superview 加 mask 会让 effect 失效（甚至抛异常），
+/// 之前那层“白色罩”就是 superview mask 把模糊干掉后剩下的材质底色。
+private final class GradientMaskView: UIView {
+    override class var layerClass: AnyClass { CAGradientLayer.self }
+
+    var gradientLayer: CAGradientLayer {
+        layer as! CAGradientLayer
+    }
+}
+
+final class GradientBlurBackdrop: UIVisualEffectView {
+    private let fadeMask = GradientMaskView()
 
     init(effect: UIBlurEffect?) {
-        blurView = UIVisualEffectView(effect: effect)
-        super.init(frame: .zero)
+        super.init(effect: effect)
+        setup()
+    }
 
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setup()
+    }
+
+    private func setup() {
         backgroundColor = .clear
         isUserInteractionEnabled = false
-        blurView.backgroundColor = .clear
-        blurView.isUserInteractionEnabled = false
-        addSubview(blurView)
 
-        fadeMask.colors = [
+        fadeMask.isUserInteractionEnabled = false
+        fadeMask.backgroundColor = .clear
+        let gradient = fadeMask.gradientLayer
+        gradient.colors = [
             UIColor.black.cgColor,
             UIColor.black.withAlphaComponent(0.72).cgColor,
             UIColor.clear.cgColor,
         ]
-        fadeMask.locations = [0, 0.56, 1]
-        fadeMask.startPoint = CGPoint(x: 0.5, y: 0)
-        fadeMask.endPoint = CGPoint(x: 0.5, y: 1)
-        layer.mask = fadeMask
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        gradient.locations = [0, 0.56, 1]
+        gradient.startPoint = CGPoint(x: 0.5, y: 0)
+        gradient.endPoint = CGPoint(x: 0.5, y: 1)
+        // 直接给 effect view 设置 mask；系统会转发到内部提供模糊的图层。
+        mask = fadeMask
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        blurView.frame = bounds
         fadeMask.frame = bounds
+        // UIKit 会复制 UIVisualEffectView 的 mask，改完 frame 必须重新赋值，
+        // 否则模糊层还拿着旧尺寸的遮罩。
+        mask = fadeMask
     }
 }
 
