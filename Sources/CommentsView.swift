@@ -58,7 +58,7 @@ struct CommentsView: View {
             }
 
             Text("评论")
-                .font(.system(size: 28, weight: .bold))
+                .font(.system(size: 27, weight: .bold))
                 .foregroundColor(Theme.text)
                 .padding(.top, 6)
 

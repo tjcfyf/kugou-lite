@@ -142,7 +142,7 @@ struct LoginView: View {
             }
 
             Text("酷狗概念版")
-                .font(.system(size: 24, weight: .bold))
+                .font(.system(size: 22, weight: .bold))
                 .foregroundColor(Theme.text)
 
             Text("登录后同步账号、会员权益与收藏")

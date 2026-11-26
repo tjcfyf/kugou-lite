@@ -1,4 +1,5 @@
 import SwiftUI
+import AVKit
 import Combine
 import UIKit
 
@@ -104,7 +105,7 @@ struct NowPlayingView: View {
     }
 
     private var artworkSize: CGFloat {
-        min(UIScreen.main.bounds.width - 56, 352)
+        min(UIScreen.main.bounds.width - 48, 372)
     }
 
     /// 页面内容在面板展开前 20% 行程内淡入；与 MD3Music 的
@@ -265,15 +266,9 @@ struct NowPlayingView: View {
 
     private var playerContent: some View {
         VStack(spacing: 0) {
-            Capsule()
-                .fill(playerPrimary.opacity(0.28))
-                .frame(width: 36, height: 5)
-                .padding(.top, 4)
-                .padding(.bottom, 2)
-
             topBar
 
-            Spacer(minLength: 10)
+            Spacer(minLength: 12)
 
             artwork
 
@@ -293,11 +288,6 @@ struct NowPlayingView: View {
 
     private var lyricsContent: some View {
         VStack(spacing: 0) {
-            Capsule()
-                .fill(playerPrimary.opacity(0.28))
-                .frame(width: 36, height: 5)
-                .padding(.top, 4)
-                .padding(.bottom, 2)
             lyricsTopBar
             lyricView
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -496,9 +486,11 @@ struct NowPlayingView: View {
             } label: {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(playerPrimary.opacity(0.92))
-                    .frame(width: 40, height: 40)
-                    .liquidGlass(cornerRadius: 20)
+                    .foregroundColor(playerPrimary)
+                    .frame(width: 42, height: 42)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Color.white.opacity(0.22), lineWidth: 0.6))
                     .contentShape(Circle())
             }
             .buttonStyle(GlassPressButtonStyle())
@@ -519,9 +511,11 @@ struct NowPlayingView: View {
             } label: {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(playerPrimary.opacity(0.92))
-                    .frame(width: 38, height: 38)
-                    .liquidGlass(cornerRadius: 19)
+                    .foregroundColor(playerPrimary)
+                    .frame(width: 40, height: 40)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Color.white.opacity(0.22), lineWidth: 0.6))
                     .contentShape(Circle())
             }
             .buttonStyle(GlassPressButtonStyle())
@@ -569,6 +563,20 @@ struct NowPlayingView: View {
                                                          artist: song.artist))
                     } label: {
                         Label("查看当前专辑 · \(albumName)", systemImage: "rectangle.stack")
+                    }
+                }
+
+                Button {
+                    activeSheet = .comments(song)
+                } label: {
+                    Label("查看评论", systemImage: "text.bubble")
+                }
+
+                if player.karaokeEnabled {
+                    Button {
+                        showKaraokeSheet = true
+                    } label: {
+                        Label("伴唱分离", systemImage: "music.mic")
                     }
                 }
 
@@ -650,9 +658,11 @@ struct NowPlayingView: View {
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(playerPrimary.opacity(0.92))
-                .frame(width: 40, height: 40)
-                .liquidGlass(cornerRadius: 20)
+                .foregroundColor(playerPrimary)
+                .frame(width: 42, height: 42)
+                .background(.ultraThinMaterial)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(Color.white.opacity(0.22), lineWidth: 0.6))
                 .contentShape(Circle())
         }
         .accessibilityLabel("更多")
@@ -684,13 +694,14 @@ struct NowPlayingView: View {
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(player.current?.SongName ?? "未在播放")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.system(size: 22, weight: .bold))
+                .tracking(-0.25)
                 .foregroundColor(playerPrimary)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
             if let artist = player.current?.artist, !artist.isEmpty {
                 Text(artist)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(.system(size: 17, weight: .regular))
                     .foregroundColor(playerSecondary)
                     .lineLimit(1)
             }
@@ -800,7 +811,10 @@ struct NowPlayingView: View {
         HStack(spacing: 44) {
             Spacer(minLength: 0)
 
-            Button { player.previous() } label: {
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                player.previous()
+            } label: {
                 Image(systemName: "backward.fill")
                     .font(.system(size: 26, weight: .semibold))
                     .foregroundColor(playerPrimary.opacity(0.94))
@@ -839,7 +853,10 @@ struct NowPlayingView: View {
             }
             .buttonStyle(GlassPressButtonStyle())
 
-            Button { player.next() } label: {
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                player.next()
+            } label: {
                 Image(systemName: "forward.fill")
                     .font(.system(size: 26, weight: .semibold))
                     .foregroundColor(playerPrimary.opacity(0.94))
@@ -855,40 +872,20 @@ struct NowPlayingView: View {
 
     private var bottomActions: some View {
         HStack(spacing: 0) {
-            bottomAction(title: "歌词", icon: "music.note", active: showLyrics) {
+            IOS27PlayerToolButton(systemName: "quote.bubble", active: showLyrics) {
                 showLyrics.toggle()
             }
             Spacer(minLength: 0)
-            if player.karaokeEnabled {
-                bottomAction(title: "分离", icon: "music.mic", active: true,
-                             disabled: player.current == nil) {
-                    showKaraokeSheet = true
-                }
-                Spacer(minLength: 0)
-            }
-            bottomAction(title: "评论", icon: "text.bubble", disabled: player.current == nil) {
-                guard let song = player.current else { return }
-                activeSheet = .comments(song)
+            AirPlayRouteButton()
+                .frame(width: 52, height: 46)
+            Spacer(minLength: 0)
+            IOS27PlayerToolButton(systemName: "list.bullet", disabled: player.current == nil) {
+                activeSheet = .queue
             }
         }
-        .padding(.horizontal, 28)
-        .padding(.top, 4)
-        .padding(.bottom, 8)
-    }
-
-    private func bottomAction(title: String, icon: String, active: Bool = false,
-                              disabled: Bool = false, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 24, weight: .medium))
-                .foregroundColor(active ? playerAccent : (disabled ? playerTertiary : playerSecondary))
-                .frame(width: 46, height: 46)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(GlassPressButtonStyle())
-        .animation(Motion.quick, value: active)
-        .accessibilityLabel(title)
-        .disabled(disabled)
+        .padding(.horizontal, 42)
+        .padding(.top, 2)
+        .padding(.bottom, 6)
     }
 
     private var lyricView: some View {
@@ -1122,6 +1119,21 @@ struct NowPlayingView: View {
 }
 
 /// 播放页封面：旧图留在底层，新图彻底载入后再淡入，避免切歌时闪占位图。
+/// Apple Music 播放页底部的 AirPlay 入口。使用系统 AVRoutePickerView，
+/// 保持和 Apple Music 一样的系统音源选择行为，不做假按钮。
+private struct AirPlayRouteButton: UIViewRepresentable {
+    func makeUIView(context: Context) -> AVRoutePickerView {
+        let picker = AVRoutePickerView()
+        picker.backgroundColor = .clear
+        picker.tintColor = .label
+        picker.activeTintColor = .label
+        picker.prioritizesVideoDevices = false
+        return picker
+    }
+
+    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
+}
+
 private struct CrossfadeArtwork: View {
     let url: URL?
     let size: CGFloat
@@ -1152,15 +1164,15 @@ private struct CrossfadeArtwork: View {
                     .resizable()
                     .scaledToFill()
                     .frame(width: size, height: size)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(Color.white.opacity(0.16), lineWidth: 0.7)
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
                     )
             }
 
             if let frontURL = frontURL {
-                CoverImage(url: frontURL, size: size, radius: 18) { loadedURL, image in
+                CoverImage(url: frontURL, size: size, radius: 12) { loadedURL, image in
                     guard let image = image, loadedURL == frontURL else { return }
                     currentImage = image
                     completeLoad()

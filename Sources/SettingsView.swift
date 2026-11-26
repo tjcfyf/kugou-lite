@@ -175,7 +175,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             ScrollView {
-                LazyVStack(spacing: 16) {
+                LazyVStack(spacing: 22) {
                     appearanceCard
                     playModeCard
                     speedCard
@@ -199,20 +199,15 @@ struct SettingsView: View {
                 .padding(16)
             }
             .background(AppBackground())
+            .gradientNavigationBlur()
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(Theme.text)
-                            .frame(width: 32, height: 32)
-                            .liquidGlass(cornerRadius: 16)
-                    }
-                    .accessibilityLabel("关闭设置")
+                    Button("完成") { dismiss() }
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(IOS27.accent)
+                        .accessibilityLabel("关闭设置")
                 }
             }
             .overlay(alignment: .top) {
@@ -695,18 +690,19 @@ struct SettingsView: View {
     private func card<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(Theme.text)
-                .padding(.leading, 4)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(Theme.secondaryText)
+                .padding(.leading, 16)
 
-            // 必须先把 content 收进一个 VStack 再套卡片样式；
-            // 直接修饰 TupleView 会让每一行各自变成一张卡，Divider 也会变成一条空卡片。
+            // iOS 27 的设置页回到分组列表：浅灰底、12pt 圆角、无阴影。
             VStack(alignment: .leading, spacing: 12) {
                 content()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(18)
-            .appSurface(cornerRadius: 22)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Theme.chip)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
     }
 
@@ -961,18 +957,19 @@ struct PlayerSettingsView: View {
     private func card<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(Theme.text)
-                .padding(.leading, 4)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(Theme.secondaryText)
+                .padding(.leading, 16)
 
-            // 必须先把 content 收进一个 VStack 再套卡片样式；
-            // 直接修饰 TupleView 会让每一行各自变成一张卡，Divider 也会变成一条空卡片。
+            // iOS 27 的设置页回到分组列表：浅灰底、12pt 圆角、无阴影。
             VStack(alignment: .leading, spacing: 12) {
                 content()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(18)
-            .appSurface(cornerRadius: 22)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Theme.chip)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
     }
 }

@@ -26,178 +26,235 @@ struct AlbumDetailSheet: View {
     }
 
     var body: some View {
-        NavigationView {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    header
-                    content
-                }
-                .padding(.bottom, 28)
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                header
+                trackList
+                loadMoreFooter
             }
-            .background(AppBackground())
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(Theme.text)
-                            .frame(width: 32, height: 32)
-                            .liquidGlass(cornerRadius: 16)
-                    }
-                    .accessibilityLabel("关闭")
-                }
-            }
+            .padding(.bottom, 30)
         }
-        .navigationViewStyle(.stack)
+        .background(AppBackground())
+        .overlay(alignment: .topLeading) {
+            IOS27GlassCircleButton(systemName: "chevron.left", size: 42) {
+                dismiss()
+            }
+            .padding(.top, 8)
+            .padding(.leading, 16)
+            .accessibilityLabel("返回")
+        }
         .task { await load() }
     }
 
     private var header: some View {
-        ZStack(alignment: .top) {
-            CollectionHero(coverURL: headerCover, height: 410)
+        ZStack(alignment: .bottom) {
+            CollectionHero(coverURL: headerCover, height: 486)
+            LinearGradient(
+                colors: [.clear, Color.black.opacity(0.16), Color.black.opacity(0.48)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 486)
 
-            VStack(spacing: 10) {
-                CoverImage(url: headerCover, size: 184, radius: 22)
-                    .shadow(color: .black.opacity(0.28), radius: 24, x: 0, y: 12)
+            VStack(spacing: 9) {
+                CoverImage(url: headerCover, size: 210, radius: 10, showsBorder: false)
+                    .shadow(color: .black.opacity(0.28), radius: 22, x: 0, y: 12)
 
                 Text(target.name)
                     .font(.system(size: 27, weight: .bold))
-                    .foregroundColor(Theme.text)
+                    .tracking(-0.45)
+                    .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .padding(.horizontal, 28)
 
                 if !headerArtist.isEmpty {
                     Text(headerArtist)
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(Theme.secondaryText)
+                        .font(.system(size: 17, weight: .regular))
+                        .foregroundColor(.white.opacity(0.72))
                         .lineLimit(1)
                 }
 
-                Text(loading ? "正在读取专辑…" : "\(songs.count) 首歌曲")
+                Text(loading ? "正在读取专辑…" : "专辑 · \(songs.count) 首")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Theme.secondaryText)
+                    .foregroundColor(.white.opacity(0.54))
 
-                HStack(spacing: 10) {
-                    Button {
-                        guard let first = songs.first else { return }
-                        PlayerEngine.shared.play(first, in: songs)
-                        dismiss()
-                    } label: {
-                        HStack(spacing: 7) {
-                            Image(systemName: "play.fill")
-                            Text("播放")
-                        }
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(Theme.onAccent)
-                        .frame(width: 132, height: 44)
-                        .background(Theme.accent)
-                        .clipShape(Capsule())
+                HStack(spacing: 22) {
+                    Button { play(shuffled: true) } label: {
+                        Image(systemName: "shuffle")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.92))
+                            .frame(width: 46, height: 46)
                     }
-                    .buttonStyle(GlassPressButtonStyle())
+                    .buttonStyle(IOS27PressStyle(pressedOpacity: 0.50, pressedScale: 0.93))
                     .disabled(songs.isEmpty)
-                    .opacity(songs.isEmpty ? 0.48 : 1)
+
+                    Button { play(shuffled: false) } label: {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundColor(.black)
+                            .frame(width: 56, height: 56)
+                            .background(Color.white)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(IOS27PressStyle(pressedOpacity: 0.65, pressedScale: 0.94))
+                    .disabled(songs.isEmpty)
+                    .opacity(songs.isEmpty ? 0.55 : 1)
 
                     Button {
                         guard !songs.isEmpty else { return }
-                        PlayerEngine.shared.play(songs.randomElement() ?? songs[0], in: songs.shuffled())
-                        dismiss()
+                        PlayerEngine.shared.playNext(songs[0])
                     } label: {
-                        Image(systemName: "shuffle")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(Theme.text)
-                            .frame(width: 48, height: 44)
-                            .liquidGlass(cornerRadius: 22)
+                        Image(systemName: "forward.fill")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.92))
+                            .frame(width: 46, height: 46)
                     }
-                    .buttonStyle(GlassPressButtonStyle())
+                    .buttonStyle(IOS27PressStyle(pressedOpacity: 0.50, pressedScale: 0.93))
                     .disabled(songs.isEmpty)
-                    .opacity(songs.isEmpty ? 0.48 : 1)
                 }
-                .padding(.top, 4)
+                .padding(.top, 2)
             }
-            .padding(.top, 54)
+            .padding(.bottom, 24)
         }
-        .frame(height: 410)
+        .frame(height: 486)
     }
 
     @ViewBuilder
-    private var content: some View {
+    private var trackList: some View {
         if loading {
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: Theme.accent))
+                .progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
                 .frame(maxWidth: .infinity)
-                .padding(.top, 36)
+                .padding(.top, 34)
         } else if songs.isEmpty {
             VStack(spacing: 12) {
                 Text(message ?? "这张专辑暂时没有可播放的歌曲")
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
                     .foregroundColor(Theme.secondaryText)
                     .multilineTextAlignment(.center)
                 Button {
                     Task { await load() }
                 } label: {
                     Text("重新加载")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(Theme.onAccent)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Theme.accentGradient)
-                        .clipShape(Capsule())
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(IOS27.accent)
                 }
-                .buttonStyle(GlassPressButtonStyle())
             }
-            .padding(.top, 36)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 34)
             .padding(.horizontal, 24)
         } else {
-            ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                VStack(spacing: 0) {
-                    SongRowWithMenu(song: song, index: index + 1) {
-                        PlayerEngine.shared.play(song, in: songs)
-                        dismiss()
+            VStack(alignment: .leading, spacing: 0) {
+                if !headerArtist.isEmpty {
+                    HStack(spacing: 6) {
+                        Text("\(songs.count) 首歌曲")
+                        Text("·")
+                        Text(headerArtist)
+                        Spacer()
                     }
-                    .padding(.horizontal, 14)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Theme.secondaryText)
+                    .padding(.horizontal, IOS27.pagePadding)
+                    .padding(.top, 20)
+                    .padding(.bottom, 10)
+                }
+
+                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                    HStack(spacing: 8) {
+                        Button {
+                            PlayerEngine.shared.play(song, in: songs)
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 10) {
+                                Group {
+                                    if playerIsCurrent(song) {
+                                        Image(systemName: "waveform")
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(IOS27.accent)
+                                    } else {
+                                        Text("\(index + 1)")
+                                            .font(.system(size: 15, weight: .regular))
+                                            .foregroundColor(Theme.secondaryText)
+                                    }
+                                }
+                                .frame(width: 22, alignment: .leading)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(song.SongName)
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(Theme.text)
+                                        .lineLimit(1)
+                                    if song.artist != headerArtist {
+                                        Text(song.artist)
+                                            .font(.system(size: 12))
+                                            .foregroundColor(Theme.secondaryText)
+                                            .lineLimit(1)
+                                    }
+                                }
+                                Spacer(minLength: 8)
+                                Text(durationText(song.Duration))
+                                    .font(.system(size: 13, weight: .regular))
+                                    .foregroundColor(Theme.tertiaryText)
+                            }
+                            .padding(.leading, IOS27.pagePadding)
+                            .frame(height: 56)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(IOS27RowButtonStyle())
+
+                        SongMoreMenu(song: song)
+                            .padding(.trailing, IOS27.pagePadding)
+                    }
 
                     if index < songs.count - 1 {
-                        Divider()
-                            .background(Theme.separator.opacity(0.42))
-                            .padding(.leading, 80)
-                            .padding(.trailing, 14)
+                        IOS27RowDivider(leading: 52)
+                            .padding(.trailing, IOS27.pagePadding)
                     }
-                }
-            }
-
-            if hasMore {
-                Button {
-                    Task { await loadMore() }
-                } label: {
-                    HStack(spacing: 8) {
-                        if loadingMore {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: Theme.accent))
-                        } else {
-                            Image(systemName: "arrow.down.circle")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Theme.accent)
-                        }
-                        Text(loadingMore ? "正在加载更多…" : "加载更多（已显示 \(songs.count) 首）")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(Theme.secondaryText)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(GlassPressButtonStyle())
-                .id("album-more-\(songs.count)")
-                .onAppear {
-                    Task { await loadMore() }
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var loadMoreFooter: some View {
+        if hasMore && !songs.isEmpty {
+            Button {
+                Task { await loadMore() }
+            } label: {
+                HStack(spacing: 6) {
+                    if loadingMore {
+                        ProgressView().progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
+                    }
+                    Text(loadingMore ? "正在加载…" : "加载更多")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(IOS27.accent)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 22)
+            }
+            .buttonStyle(IOS27PressStyle(pressedOpacity: 0.55, pressedScale: 1))
+            .onAppear {
+                guard !loadingMore else { return }
+                Task { await loadMore() }
+            }
+        }
+    }
+
+    private func play(shuffled: Bool) {
+        guard !songs.isEmpty else { return }
+        let list = shuffled ? songs.shuffled() : songs
+        PlayerEngine.shared.play(list[0], in: list)
+        dismiss()
+    }
+
+    private func durationText(_ seconds: Int?) -> String {
+        guard let seconds, seconds > 0 else { return "" }
+        return String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+
+    private func playerIsCurrent(_ song: Song) -> Bool {
+        PlayerEngine.shared.current?.FileHash == song.FileHash
     }
 
     private func loadMore() async {

@@ -25,37 +25,37 @@ struct LiquidGlassBackdrop: View {
         ZStack {
             shape.fill(.ultraThinMaterial)
 
-            shape.fill(tint.opacity(colorScheme == .dark ? 0.16 : 0.10))
+            // iOS 27 去掉会随设备移动的高光，只留下固定的顶部/底部亮边。
+            shape.fill(tint.opacity(colorScheme == .dark ? 0.05 : 0.035))
 
-            // 顶部左上到右下的折射高光；只在大面积玻璃上出现。
             shape.fill(
                 LinearGradient(
                     stops: [
-                        .init(color: Color.white.opacity(colorScheme == .dark ? 0.14 : 0.34), location: 0),
-                        .init(color: Color.white.opacity(colorScheme == .dark ? 0.03 : 0.10), location: 0.34),
-                        .init(color: Color.clear, location: 0.62),
-                        .init(color: Color.white.opacity(colorScheme == .dark ? 0.05 : 0.12), location: 1)
+                        .init(color: Color.white.opacity(colorScheme == .dark ? 0.10 : 0.26), location: 0),
+                        .init(color: Color.white.opacity(colorScheme == .dark ? 0.015 : 0.05), location: 0.42),
+                        .init(color: Color.clear, location: 0.70),
+                        .init(color: Color.white.opacity(colorScheme == .dark ? 0.035 : 0.08), location: 1)
                     ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+                    startPoint: .top,
+                    endPoint: .bottom
                 )
             )
 
             shape.stroke(
                 LinearGradient(
                     stops: [
-                        .init(color: Color.white.opacity(colorScheme == .dark ? 0.42 : 0.72), location: 0),
-                        .init(color: Color.white.opacity(colorScheme == .dark ? 0.06 : 0.14), location: 0.45),
-                        .init(color: Color.white.opacity(colorScheme == .dark ? 0.24 : 0.40), location: 1)
+                        .init(color: Color.white.opacity(colorScheme == .dark ? 0.34 : 0.64), location: 0),
+                        .init(color: Color.white.opacity(colorScheme == .dark ? 0.05 : 0.12), location: 0.42),
+                        .init(color: Color.white.opacity(colorScheme == .dark ? 0.20 : 0.34), location: 1)
                     ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+                    startPoint: .top,
+                    endPoint: .bottom
                 ),
-                lineWidth: 0.8
+                lineWidth: 0.6
             )
         }
-        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.34 : 0.14),
-                radius: 26, x: 0, y: 14)
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.30 : 0.12),
+                radius: 18, x: 0, y: 8)
     }
 }
 
@@ -131,25 +131,17 @@ private struct ChromeScrollOffsetKey: PreferenceKey {
 
 private struct ChromeScrollTracking: ViewModifier {
     func body(content: Content) -> some View {
+        // iOS 27 的 tab bar 固定悬浮，不再随滚动收起。这里保留调用点，
+        // 但不再安装 GeometryReader / PreferenceKey：列表滚动时不再每帧
+        // 读取坐标并触发一次全局 ObservableObject 更新。
         content
-            .background(
-                GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: ChromeScrollOffsetKey.self,
-                        value: proxy.frame(in: .named(ChromeScrollSpace.name)).minY
-                    )
-                }
-            )
-            .onPreferenceChange(ChromeScrollOffsetKey.self) { offset in
-                ChromeState.shared.update(offset: offset)
-            }
     }
 }
 
 extension View {
-    /// 贴在滚动内容（不是 ScrollView 本身）上，和 `.coordinateSpace(name:)` 配合。
+    /// 兼容旧调用点；iOS 27 中底栏不随滚动变化，因此这是一个零成本修饰。
     func chromeScrollTracking() -> some View {
-        modifier(ChromeScrollTracking())
+        self
     }
 }
 

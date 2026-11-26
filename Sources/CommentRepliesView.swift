@@ -56,7 +56,7 @@ struct CommentRepliesView: View {
             }
 
             Text("回复")
-                .font(.system(size: 28, weight: .bold))
+                .font(.system(size: 27, weight: .bold))
                 .foregroundColor(Theme.text)
                 .padding(.top, 6)
 

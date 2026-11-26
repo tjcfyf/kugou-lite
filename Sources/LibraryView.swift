@@ -83,7 +83,7 @@ struct RecommendView: View {
                                               artist: song.artist,
                                               coverURL: song.coverURL))
         }
-        return Array(albums.prefix(6))
+        return Array(albums.prefix(4))
     }
 
     var body: some View {
@@ -193,40 +193,26 @@ struct RecommendView: View {
     private var discoverBody: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 7) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 11, weight: .semibold))
-                    Text(todayLabel)
-                        .font(.system(size: 13, weight: .semibold))
-                    Spacer()
-                    Text("每日为你精选")
-                        .font(.system(size: 11, weight: .medium))
-                }
-                .foregroundColor(Theme.secondaryText)
-                .padding(.horizontal, 18)
-                .padding(.top, 8)
-
                 if model.isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: Theme.secondaryText))
                         .frame(maxWidth: .infinity)
-                        .padding(.top, 30)
+                        .padding(.top, 40)
                 }
 
                 if let message = model.message, model.songs.isEmpty {
                     Text(message)
-                        .font(.system(size: 13))
+                        .font(.system(size: 15))
                         .foregroundColor(Theme.secondaryText)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 20)
+                        .padding(.horizontal, IOS27.pagePadding)
+                        .padding(.top, 24)
                 }
 
                 if !recommendedAlbums.isEmpty {
-                    SectionTitle(title: "为你精选", subtitle: "今日推荐")
-                        .padding(.bottom, 2)
+                    IOS27SectionHeader(title: "为你精选", subtitle: "今日推荐")
 
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 14) {
+                        HStack(alignment: .top, spacing: 12) {
                             ForEach(Array(recommendedAlbums.enumerated()), id: \.offset) { index, album in
                                 AppleMusicAlbumCard(album: album, featured: index == 0) {
                                     sheetTarget = .album(AlbumTarget(id: album.id,
@@ -236,17 +222,17 @@ struct RecommendView: View {
                                 }
                             }
                         }
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, IOS27.pagePadding)
+                        .padding(.bottom, 4)
                     }
                 }
 
                 if !recentAlbums.isEmpty {
-                    SectionTitle(title: "最近播放", subtitle: nil)
+                    IOS27SectionHeader(title: "最近播放", subtitle: nil)
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 14) {
+                        HStack(alignment: .top, spacing: 12) {
                             ForEach(recentAlbums) { album in
-                                AppleMusicAlbumCard(album: album) {
+                                RecentAlbumCard(album: album) {
                                     sheetTarget = .album(AlbumTarget(id: album.id,
                                                                      name: album.name,
                                                                      cover: album.coverURL,
@@ -254,53 +240,32 @@ struct RecommendView: View {
                                 }
                             }
                         }
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, IOS27.pagePadding)
+                        .padding(.bottom, 4)
                     }
                 }
 
                 if !ranks.isEmpty {
-                    SectionTitle(title: "排行榜", subtitle: nil)
+                    IOS27SectionHeader(title: "排行榜", subtitle: nil)
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
                             ForEach(ranks.prefix(8)) { rank in
                                 Button { sheetTarget = .rank(rank) } label: {
                                     RankCard(rank: rank)
                                 }
-                                .buttonStyle(GlassPressButtonStyle())
-                                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                                .buttonStyle(IOS27PressStyle(pressedOpacity: 0.62, pressedScale: 0.97))
                             }
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 6)
+                        .padding(.horizontal, IOS27.pagePadding)
+                        .padding(.bottom, 4)
                     }
                 }
 
                 if !model.songs.isEmpty {
-                    dailyHeader
-
-                    VStack(spacing: 0) {
-                        ForEach(Array(model.songs.enumerated()), id: \.element.recommendRowID) { index, song in
-                            SongRowWithMenu(song: song) {
-                                onSelect(song, model.songs)
-                            }
-                            .padding(.horizontal, 12)
-
-                            if index < model.songs.count - 1 {
-                                Divider()
-                                    .background(Theme.separator.opacity(0.42))
-                                    .padding(.leading, 76)
-                            }
-                        }
-                    }
-                    .padding(.vertical, 2)
-                    .appSurface(cornerRadius: 24)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 2)
-                    .transition(.opacity.combined(with: .offset(y: 8)))
+                    dailyRecommendations
                 }
             }
-            .padding(.bottom, 178)
+            .padding(.bottom, 170)
             .chromeScrollTracking()
             .animation(Motion.standard, value: model.songs.count)
             .animation(Motion.standard, value: ranks.count)
@@ -313,10 +278,37 @@ struct RecommendView: View {
         }
     }
 
+    private var dailyRecommendations: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            IOS27SectionHeader(
+                title: "每日推荐",
+                subtitle: "\(model.songs.count) 首",
+                actionTitle: "播放全部"
+            ) {
+                guard let first = model.songs.first else { return }
+                onSelect(first, model.songs)
+            }
+
+            VStack(spacing: 0) {
+                ForEach(Array(model.songs.enumerated()), id: \.element.recommendRowID) { index, song in
+                    SongRowWithMenu(song: song) {
+                        onSelect(song, model.songs)
+                    }
+                    .padding(.horizontal, IOS27.pagePadding)
+
+                    if index < model.songs.count - 1 {
+                        IOS27RowDivider()
+                            .padding(.trailing, IOS27.pagePadding)
+                    }
+                }
+            }
+        }
+    }
+
     private var dailyHeader: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text("每日推荐")
-                .font(.system(size: 24, weight: .bold))
+                .font(.system(size: 22, weight: .bold))
                 .foregroundColor(Theme.text)
 
             Text("\(model.songs.count) 首")
@@ -555,51 +547,50 @@ struct RankCard: View {
     private let side: CGFloat = 158
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            RoundedRectangle(cornerRadius: 19, style: .continuous)
-                .fill(Theme.chip)
-            if let url = rank.cover.flatMap(URL.init(string:)) {
-                CoverImage(url: url, size: side, radius: 19, showsBorder: false,
-                           placeholderSymbol: "chart.bar.fill")
-            } else {
-                Image(systemName: "chart.bar.fill")
-                    .font(.system(size: 24))
-                    .foregroundColor(Theme.secondaryText)
-                    .frame(width: side, height: side)
-            }
+        VStack(alignment: .leading, spacing: 7) {
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Theme.chip)
+                if let url = rank.cover.flatMap(URL.init(string:)) {
+                    CoverImage(url: url, size: side, radius: 8, showsBorder: false,
+                               placeholderSymbol: "chart.bar.fill")
+                        .frame(width: side, height: side)
+                        .clipped()
+                } else {
+                    Image(systemName: "chart.bar.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(Theme.secondaryText)
+                        .frame(width: side, height: side)
+                }
 
-            LinearGradient(
-                stops: [
-                    .init(color: .clear, location: 0.35),
-                    .init(color: .black.opacity(0.74), location: 1)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-
-            HStack(spacing: 3) {
-                Image(systemName: "chart.bar.fill")
-                    .font(.system(size: 9, weight: .bold))
                 Text("TOP")
                     .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(Color.black.opacity(0.62))
+                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    .padding(7)
             }
-            .foregroundColor(.white.opacity(0.88))
-            .padding(10)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(width: side, height: side)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Theme.text.opacity(0.08), lineWidth: 0.5)
+            )
 
-            Text(rank.name)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundColor(.white)
-                .lineLimit(2)
-                .padding(12)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(rank.name)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Theme.text)
+                    .lineLimit(1)
+                Text("酷狗排行榜")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(Theme.secondaryText)
+                    .lineLimit(1)
+            }
+            .frame(width: side, alignment: .leading)
         }
-        .frame(width: side, height: side)
-        .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 19, style: .continuous)
-                .stroke(Color.white.opacity(0.16), lineWidth: 0.7)
-        )
-        .shadow(color: .black.opacity(0.22), radius: 12, x: 0, y: 8)
     }
 }
 
@@ -780,7 +771,7 @@ struct RankDetailSheet: View {
     private var info: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(rank.name)
-                .font(.system(size: 28, weight: .bold))
+                .font(.system(size: 27, weight: .bold))
                 .foregroundColor(Theme.text)
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
@@ -1106,7 +1097,7 @@ struct PlaylistDetailSheet: View {
     private var info: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(playlist.name)
-                .font(.system(size: 28, weight: .bold))
+                .font(.system(size: 27, weight: .bold))
                 .foregroundColor(Theme.text)
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
@@ -1366,7 +1357,7 @@ struct SectionTitle: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(title)
-                .font(.system(size: 24, weight: .bold))
+                .font(.system(size: 22, weight: .bold))
                 .foregroundColor(Theme.text)
             if let subtitle = subtitle {
                 Text(subtitle)
@@ -1399,6 +1390,7 @@ struct ProfileView: View {
     var onOpenPlayer: () -> Void = {}
     @State private var quality: AudioQuality = Preferences.quality
     @State private var showLogin = false
+    @State private var showSettings = false
     @State private var vipText = ""
     @State private var playlists: [CloudPlaylist] = []
     @State private var playlistsLoading = false
@@ -1406,6 +1398,7 @@ struct ProfileView: View {
     @State private var selectedPlaylist: CloudPlaylist?
     @State private var selectedImported: ImportedPlaylist?
     @State private var libraryTarget: LibraryKind?
+    @State private var libraryScrollTarget: String?
     @State private var albumTarget: AlbumTarget?
     @State private var showImport = false
     @State private var toast = ""
@@ -1414,23 +1407,63 @@ struct ProfileView: View {
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 18) {
-                accountCard
-                libraryAlbumSection
-                libraryIndexRows
-                playlistsSection
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if !auth.isLoggedIn {
+                        loginBanner
+                    }
 
+                    libraryAlbumSection
+                        .id("library-albums")
+
+                    libraryIndexRows
+
+                    playlistsSection
+                        .id("library-playlists")
+                }
+                .padding(.bottom, 176)
+                .chromeScrollTracking()
             }
-            .padding(16)
-            .padding(.bottom, 182)
-            .chromeScrollTracking()
+            .coordinateSpace(name: ChromeScrollSpace.name)
+            .onChange(of: libraryScrollTarget) { target in
+                guard let target else { return }
+                withAnimation(Motion.standard) {
+                    proxy.scrollTo(target, anchor: .top)
+                }
+                libraryScrollTarget = nil
+            }
         }
-        .coordinateSpace(name: ChromeScrollSpace.name)
         .background(AppBackground())
         .gradientNavigationBlur()
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showSettings = true
+                } label: {
+                    UserAvatarView(url: userProfile.profile.flatMap { $0.avatarURL }.flatMap(URL.init(string:)),
+                                   size: 30,
+                                   borderWidth: 0.6)
+                        .overlay(alignment: .bottomTrailing) {
+                            if !auth.isLoggedIn {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(IOS27.accent)
+                                    .background(Circle().fill(Theme.background).frame(width: 10, height: 10))
+                            }
+                        }
+                }
+                .buttonStyle(IOS27PressStyle(pressedOpacity: 0.55, pressedScale: 0.95))
+                .accessibilityLabel("账户与设置")
+            }
+        }
         .sheet(isPresented: $showLogin) {
             LoginView().environmentObject(player).environmentObject(auth)
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environmentObject(player)
+                .environmentObject(auth)
         }
         .sheet(isPresented: $showImport) {
             PlaylistImportView()
@@ -1504,26 +1537,41 @@ struct ProfileView: View {
                                       cover: song.coverURL,
                                       artist: song.artist))
         }
-        return Array(albums.prefix(6))
+        return Array(albums.prefix(4))
     }
 
     private var libraryIndexRows: some View {
-        VStack(spacing: 0) {
+        IOS27PlainGroup {
+            libraryIndexRow(icon: "music.note.list",
+                            title: "播放列表",
+                            count: playlists.count + importedStore.playlists.count) {
+                libraryScrollTarget = "library-playlists"
+            }
+            IOS27RowDivider(leading: 46)
+            libraryIndexRow(icon: "square.stack",
+                            title: "专辑",
+                            count: libraryAlbums.count) {
+                libraryScrollTarget = "library-albums"
+            }
+            IOS27RowDivider(leading: 46)
             libraryIndexRow(icon: "music.note",
                             title: "歌曲",
                             count: library.favorites.count) {
                 libraryTarget = .favorites
             }
-            Divider()
-                .background(Theme.separator.opacity(0.55))
-                .padding(.leading, 56)
+            IOS27RowDivider(leading: 46)
             libraryIndexRow(icon: "clock",
                             title: "最近播放",
                             count: library.recent.count) {
                 libraryTarget = .recent
             }
+            IOS27RowDivider(leading: 46)
+            libraryIndexRow(icon: "arrow.down.circle",
+                            title: "已导入",
+                            count: importedStore.playlists.count) {
+                libraryScrollTarget = "library-playlists"
+            }
         }
-        .appSurface(cornerRadius: 22)
     }
 
     private func libraryIndexRow(icon: String,
@@ -1532,129 +1580,120 @@ struct ProfileView: View {
                                  action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 14) {
-                Image(systemName: icon)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(Theme.accent)
-                    .frame(width: 28)
+                IOS27IndexIcon(systemName: icon, size: 19)
                 Text(title)
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(Theme.text)
                 Spacer(minLength: 0)
                 Text("\(count)")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 14, weight: .regular))
                     .foregroundColor(Theme.secondaryText)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Theme.tertiaryText)
+                IOS27Chevron()
             }
-            .padding(.horizontal, 18)
-            .frame(height: 54)
+            .padding(.horizontal, IOS27.pagePadding)
+            .frame(height: 50)
             .contentShape(Rectangle())
         }
-        .buttonStyle(GlassPressButtonStyle())
+        .buttonStyle(IOS27RowButtonStyle())
     }
 
     @ViewBuilder
     private var libraryAlbumSection: some View {
         if !libraryAlbums.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text("最近添加")
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(Theme.text)
-                    Text("专辑")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(Theme.secondaryText)
-                    Spacer()
-                }
-                .padding(.horizontal, 2)
+            VStack(alignment: .leading, spacing: 0) {
+                IOS27SectionHeader(title: "最近添加", subtitle: "专辑")
 
                 LazyVGrid(
-                    columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
-                    alignment: .leading,
-                    spacing: 16
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
+                    spacing: 8
                 ) {
                     ForEach(libraryAlbums) { album in
                         Button {
                             albumTarget = album
                         } label: {
-                            VStack(alignment: .leading, spacing: 7) {
-                                CoverImage(url: album.cover, size: 164, radius: 19, showsBorder: false)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .shadow(color: .black.opacity(0.14), radius: 8, x: 0, y: 5)
-                                Text(album.name)
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(Theme.text)
-                                    .lineLimit(1)
-                                Text(album.artist)
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundColor(Theme.secondaryText)
-                                    .lineLimit(1)
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .fill(Theme.chip)
+                                CoverImage(url: album.cover, size: 140, radius: 7, showsBorder: false)
+                                    .aspectRatio(1, contentMode: .fill)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .clipped()
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
+                            .aspectRatio(1, contentMode: .fit)
+                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .stroke(Theme.text.opacity(0.08), lineWidth: 0.5)
+                            )
                         }
-                        .buttonStyle(GlassPressButtonStyle())
+                        .buttonStyle(IOS27PressStyle(pressedOpacity: 0.62, pressedScale: 0.97))
+                        .accessibilityLabel(album.name)
                     }
                 }
+                .padding(.horizontal, IOS27.pagePadding)
+                .padding(.bottom, 18)
             }
         }
     }
 
-    private var playlistsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Text("播放列表")
-                    .font(.system(size: 24, weight: .bold))
+    private var loginBanner: some View {
+        Button { showLogin = true } label: {
+            HStack(spacing: 13) {
+                Image(systemName: "person.crop.circle.badge.plus")
+                    .font(.system(size: 22, weight: .medium))
                     .foregroundColor(Theme.text)
-                Text("\(playlists.count + importedStore.playlists.count) 个")
-                    .font(.system(size: 12))
+                    .frame(width: 32)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("登录酷狗账号")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                    Text("同步云歌单、头像与会员状态")
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundColor(Theme.secondaryText)
+                }
+                Spacer(minLength: 8)
+                IOS27Chevron()
+            }
+            .padding(.horizontal, IOS27.pagePadding)
+            .frame(height: 62)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(IOS27RowButtonStyle())
+    }
+
+    private var playlistsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("播放列表")
+                    .font(IOS27.sectionTitle)
+                    .tracking(IOS27.sectionTracking)
+                    .foregroundColor(Theme.text)
+                Text("\(playlists.count + importedStore.playlists.count)")
+                    .font(IOS27.caption)
                     .foregroundColor(Theme.secondaryText)
                 Spacer()
-                Button { showImport = true } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text("导入")
-                            .font(.system(size: 13, weight: .medium))
+                Menu {
+                    Button { showImport = true } label: {
+                        Label("导入外部歌单", systemImage: "square.and.arrow.down")
                     }
-                    .foregroundColor(Theme.accent)
-                    .frame(height: 32)
-                }
-                .buttonStyle(GlassPressButtonStyle())
-
-                if auth.isLoggedIn {
-                    Button { Task { await loadPlaylists() } } label: {
-                        Text(playlistsLoading ? "同步中…" : "同步")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(Theme.accent)
-                            .frame(height: 32)
+                    if auth.isLoggedIn {
+                        Button { Task { await loadPlaylists() } } label: {
+                            Label(playlistsLoading ? "正在同步…" : "同步云歌单", systemImage: "arrow.clockwise")
+                        }
+                        .disabled(playlistsLoading)
                     }
-                    .buttonStyle(GlassPressButtonStyle())
-                    .disabled(playlistsLoading)
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 22, weight: .regular))
+                        .foregroundColor(Theme.text)
+                        .frame(width: 40, height: 40)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(IOS27PressStyle(pressedOpacity: 0.45, pressedScale: 0.95))
             }
-
-            if !auth.isLoggedIn {
-                Button { showLogin = true } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "person.crop.circle.badge.plus")
-                            .font(.system(size: 15))
-                            .foregroundColor(Theme.accent)
-                        Text("登录后同步酷狗云歌单")
-                            .font(.system(size: 13))
-                            .foregroundColor(Theme.secondaryText)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(Theme.tertiaryText)
-                    }
-                    .padding(.horizontal, 14)
-                    .frame(height: 48)
-                    .appSurface(cornerRadius: 18)
-                }
-                .buttonStyle(GlassPressButtonStyle())
-            }
+            .padding(.horizontal, IOS27.pagePadding)
+            .padding(.top, IOS27.sectionSpacing)
+            .padding(.bottom, 8)
 
             if playlistsLoading && playlists.isEmpty && importedStore.playlists.isEmpty {
                 HStack(spacing: 8) {
@@ -1663,47 +1702,43 @@ struct ProfileView: View {
                         .font(.system(size: 13))
                         .foregroundColor(Theme.secondaryText)
                 }
-                .padding(.vertical, 8)
+                .padding(.horizontal, IOS27.pagePadding)
+                .padding(.vertical, 18)
             } else if playlists.isEmpty && importedStore.playlists.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(playlistsMessage.isEmpty ? "还没有歌单，点右上角「导入」从网易云、QQ 音乐、酷狗或汽水搬一个过来。" : playlistsMessage)
-                        .font(.system(size: 13))
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(playlistsMessage.isEmpty ? "还没有播放列表，可以从右上角导入网易云、QQ 音乐、酷狗或汽水歌单。" : playlistsMessage)
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                     if auth.isLoggedIn {
                         Button("重新同步") { Task { await loadPlaylists() } }
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(Theme.accent)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(IOS27.accent)
                     }
                 }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .appSurface(cornerRadius: 20)
+                .padding(.horizontal, IOS27.pagePadding)
+                .padding(.vertical, 14)
             } else {
-                VStack(spacing: 0) {
+                IOS27PlainGroup {
                     ForEach(importedStore.playlists) { playlist in
                         importedRow(playlist)
                         if playlist.id != importedStore.playlists.last?.id || !playlists.isEmpty {
-                            divider
+                            IOS27RowDivider(leading: 76)
                         }
                     }
-                    ForEach(playlists) { playlist in
+                    ForEach(Array(playlists.enumerated()), id: \.element.id) { index, playlist in
                         cloudRow(playlist)
-                        if playlist.id != playlists.last?.id {
-                            divider
+                        if index < playlists.count - 1 {
+                            IOS27RowDivider(leading: 76)
                         }
                     }
                 }
-                .appSurface(cornerRadius: 24)
             }
         }
-        .padding(.top, 2)
     }
 
     private var divider: some View {
-        Divider()
-            .background(Theme.separator.opacity(0.46))
-            .padding(.leading, 88)
+        IOS27RowDivider(leading: 76)
     }
 
     private func importedRow(_ playlist: ImportedPlaylist) -> some View {
@@ -1712,7 +1747,6 @@ struct ProfileView: View {
         } label: {
             HStack(spacing: 12) {
                 artworkView(url: playlist.coverURL)
-                    .frame(width: 60, height: 60)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(playlist.name)
                         .font(.system(size: 17, weight: .semibold))
@@ -1721,12 +1755,12 @@ struct ProfileView: View {
                     HStack(spacing: 5) {
                         Text(playlist.source)
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(Theme.accent)
+                            .foregroundColor(Theme.secondaryText)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
                             .background(
                                 RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                    .fill(Theme.accent.opacity(0.12))
+                                    .fill(Theme.chip)
                             )
                         Text("\(playlist.songs.count) 首")
                             .font(.system(size: 13))
@@ -1734,12 +1768,10 @@ struct ProfileView: View {
                     }
                 }
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Theme.tertiaryText)
+                IOS27Chevron()
             }
-            .padding(.horizontal, 14)
-            .frame(minHeight: 78)
+            .padding(.horizontal, IOS27.pagePadding)
+            .frame(minHeight: 66)
             .contentShape(Rectangle())
         }
         .buttonStyle(AppleMusicListRowButtonStyle())
@@ -1758,7 +1790,6 @@ struct ProfileView: View {
         } label: {
             HStack(spacing: 12) {
                 artworkView(url: playlist.cover.flatMap(URL.init(string:)))
-                    .frame(width: 60, height: 60)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(playlist.name)
                         .font(.system(size: 17, weight: .semibold))
@@ -1769,19 +1800,18 @@ struct ProfileView: View {
                         .foregroundColor(Theme.secondaryText)
                 }
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Theme.tertiaryText)
+                IOS27Chevron()
             }
-            .padding(.horizontal, 14)
-            .frame(minHeight: 78)
+            .padding(.horizontal, IOS27.pagePadding)
+            .frame(minHeight: 66)
             .contentShape(Rectangle())
         }
         .buttonStyle(AppleMusicListRowButtonStyle())
     }
 
     private func artworkView(url: URL?) -> some View {
-        CoverImage(url: url, size: 60, radius: 12, showsBorder: false)
+        CoverImage(url: url, size: 52, radius: 7, showsBorder: false)
+            .frame(width: 52, height: 52)
     }
 
     private func loadProfile() async {
@@ -2123,6 +2153,7 @@ struct LibrarySongsView: View {
             }
             .listStyle(.plain)
             .background(AppBackground())
+            .gradientNavigationBlur()
             .navigationTitle(kind.title)
             .navigationBarTitleDisplayMode(.large)
             .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜索\(kind.title)")
@@ -2205,9 +2236,6 @@ struct QueueView: View {
         NavigationView {
             List {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("播放队列")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(Theme.text)
                     HStack(spacing: 6) {
                         Text("\(songs.count) 首")
                         if totalSeconds > 0 {
@@ -2277,8 +2305,9 @@ struct QueueView: View {
             .environment(\.editMode, $editMode)
             .listStyle(.plain)
             .background(AppBackground())
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
+            .gradientNavigationBlur()
+            .navigationTitle("播放队列")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(editMode == .active ? "完成" : "编辑") {
@@ -2357,22 +2386,30 @@ struct ImportedPlaylistDetailSheet: View {
             ScrollView {
                 VStack(spacing: 0) {
                     ZStack(alignment: .bottomLeading) {
-                        CollectionHero(coverURL: playlist.coverURL ?? playlist.songs.first?.coverURL, height: 280)
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(playlist.source.uppercased())
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(Theme.accent)
+                        CollectionHero(coverURL: playlist.coverURL ?? playlist.songs.first?.coverURL, height: 300)
+                        LinearGradient(
+                            colors: [.clear, Color.black.opacity(0.22), Color.black.opacity(0.58)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("导入歌单 · \(playlist.source)")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.70))
+                                .textCase(.uppercase)
                             Text(playlist.name)
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundColor(Theme.text)
+                                .font(.system(size: 27, weight: .bold))
+                                .tracking(-0.4)
+                                .foregroundColor(.white)
                                 .lineLimit(3)
-                            Text("\(playlist.songs.count) 首 · 导入歌单")
-                                .font(.system(size: 13))
-                                .foregroundColor(Theme.secondaryText)
+                            Text("\(playlist.songs.count) 首")
+                                .font(.system(size: 13, weight: .regular))
+                                .foregroundColor(.white.opacity(0.64))
                         }
-                        .padding(16)
+                        .padding(.horizontal, IOS27.pagePadding)
+                        .padding(.bottom, 16)
                     }
-                    .frame(height: 280)
+                    .frame(height: 300)
 
                     HStack(spacing: 10) {
                         Button {

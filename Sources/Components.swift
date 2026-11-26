@@ -17,17 +17,17 @@ struct MiniPlayerFramePreferenceKey: PreferenceKey {
 
 enum Theme {
     static let background = Color("Background")
-    // 半透明卡片让背景和专辑色透出来，正文只用黑/白两级。
-    static let card = Color("Card").opacity(0.82)
-    // iOS 26 Apple Music 的强调色：Apple Music 红。
-    static let accent = Color(red: 0.98, green: 0.18, blue: 0.30)
+    // iOS 27.2 的 Apple Music 已经去掉整页彩色卡片：内容直接落在纸面背景上，
+    // 只有浮层 chrome 使用材质。card/chip 仅作为兼容旧页面的轻底色。
+    static let card = Color("Card")
+    static let accent = Color("Accent")
     static let onAccent = Color.white
     static let text = Color("TextPrimary")
-    static let secondaryText = Color("TextPrimary").opacity(0.72)
-    static let tertiaryText = Color("TextPrimary").opacity(0.46)
-    static let chip = Color("Chip").opacity(0.84)
-    static let separator = Color("TextPrimary").opacity(0.16)
-    static let border = Color("TextPrimary").opacity(0.12)
+    static let secondaryText = Color("TextSecondary")
+    static let tertiaryText = Color("TextTertiary")
+    static let chip = Color("Chip")
+    static let separator = Color("Separator")
+    static let border = Color("TextPrimary").opacity(0.10)
 
     static var accentGradient: LinearGradient {
         LinearGradient(
@@ -88,24 +88,12 @@ struct AppSurface: ViewModifier {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(fill)
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(colorScheme == .dark ? 0.065 : 0.20),
-                                    Color.white.opacity(colorScheme == .dark ? 0.012 : 0.055),
-                                    Color.clear
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .stroke(Theme.text.opacity(colorScheme == .dark ? 0.16 : 0.09), lineWidth: 0.6)
+                        .stroke(Theme.separator.opacity(0.50), lineWidth: 0.5)
                 }
             )
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .shadow(color: elevated ? Color.black.opacity(colorScheme == .dark ? 0.28 : 0.10) : .clear,
-                    radius: elevated ? 16 : 0, x: 0, y: elevated ? 8 : 0)
+            .shadow(color: elevated ? Color.black.opacity(colorScheme == .dark ? 0.20 : 0.07) : .clear,
+                    radius: elevated ? 14 : 0, x: 0, y: elevated ? 7 : 0)
     }
 }
 
@@ -154,10 +142,9 @@ struct GlassRowBackground: View {
 struct GlassPressButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.972 : 1.0)
-            .opacity(configuration.isPressed ? 0.88 : 1.0)
-            .animation(.interactiveSpring(response: 0.24, dampingFraction: 0.82),
-                       value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .opacity(configuration.isPressed ? 0.64 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -663,14 +650,16 @@ struct ToastView: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 13, weight: .medium))
+            .font(.system(size: 14, weight: .medium))
             .foregroundColor(.white)
             .multilineTextAlignment(.center)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(Color.black.opacity(0.82))
+            .padding(.horizontal, 18)
+            .padding(.vertical, 11)
+            .background(.ultraThinMaterial)
+            .background(Color.black.opacity(0.52))
             .clipShape(Capsule())
-            .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.5))
+            .overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.18), radius: 10, x: 0, y: 4)
             .padding(.horizontal, 24)
             .padding(.top, 10)
             .transition(.move(edge: .top).combined(with: .opacity))
@@ -712,12 +701,12 @@ struct SongRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            CoverImage(url: song.coverURL, size: 52, radius: 9)
+            CoverImage(url: song.coverURL, size: 52, radius: 7, showsBorder: false)
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
                     Text(song.SongName)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(Theme.text)
                         .lineLimit(1)
                     if song.needsPurchase {
@@ -733,14 +722,14 @@ struct SongRow: View {
                     }
                 }
                 Text(song.artist)
-                    .font(.system(size: 13))
+                    .font(.system(size: 13, weight: .regular))
                     .foregroundColor(Theme.secondaryText)
                     .lineLimit(1)
             }
             Spacer(minLength: 6)
             if let durationText {
                 Text(durationText)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Theme.tertiaryText)
                     .monospacedDigit()
             }
@@ -754,7 +743,7 @@ struct SongRow: View {
                     .frame(width: 24, height: 30)
             }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 7)
         .contentShape(Rectangle())
         .contextMenu {
             Button {
@@ -836,18 +825,13 @@ struct GlassHalfSheet<Content: View>: View {
 
             VStack(spacing: 0) {
                 Button(action: close) {
-                    VStack(spacing: 2) {
-                        Capsule()
-                            .fill(Theme.text.opacity(0.24))
-                            .frame(width: 40, height: 5)
-                        Text("点击关闭")
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundColor(Theme.tertiaryText)
-                    }
-                    .padding(.top, 8)
-                    .padding(.bottom, 3)
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
+                    Capsule()
+                        .fill(Theme.text.opacity(0.24))
+                        .frame(width: 38, height: 5)
+                        .padding(.top, 8)
+                        .padding(.bottom, 7)
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
 
@@ -857,10 +841,10 @@ struct GlassHalfSheet<Content: View>: View {
             .background(
                 ZStack {
                     Rectangle().fill(.ultraThinMaterial)
-                    Theme.background.opacity(colorScheme == .dark ? 0.10 : 0.05)
+                    Theme.background.opacity(colorScheme == .dark ? 0.22 : 0.16)
                 }
             )
-            .clipShape(TopRoundedRectangle(radius: 26))
+            .clipShape(TopRoundedRectangle(radius: 28))
             .overlay(alignment: .top) {
                 Rectangle()
                     .fill(Theme.text.opacity(0.10))

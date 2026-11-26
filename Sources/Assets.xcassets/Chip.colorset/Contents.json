@@ -6,9 +6,9 @@
         "color-space": "srgb",
         "components": {
           "alpha": "1.000",
-          "red": "0xEA",
-          "green": "0xF1",
-          "blue": "0xFB"
+          "red": "0xF2",
+          "green": "0xF2",
+          "blue": "0xF7"
         }
       }
     },
@@ -18,9 +18,9 @@
         "color-space": "srgb",
         "components": {
           "alpha": "1.000",
-          "red": "0x15",
+          "red": "0x1C",
           "green": "0x1C",
-          "blue": "0x27"
+          "blue": "0x1E"
         }
       },
       "appearances": [

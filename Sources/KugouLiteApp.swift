@@ -11,11 +11,11 @@ struct KugouLiteApp: App {
         // 导航栏改成 Apple Music 式的磨砂玻璃：保留背景模糊，但去掉
         // 系统默认的不透明黑底和分割线，滚动时内容从玻璃下面经过。
         let navigationAppearance = UINavigationBarAppearance()
-        // 先用系统默认背景把 material 的渲染路径打开，再把底色清空，
-        // 只保留 blur；configureWithTransparentBackground 在 iOS 15 上
-        // 会把 large title 的 scrollEdge 背景一起清掉，滚动时标题会压在卡片上。
-        navigationAppearance.configureWithDefaultBackground()
-        navigationAppearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
+        // iOS 27 的导航栏在顶部是透明的，只有内容滚到其下方时才出现渐变磨砂。
+        // 真正的模糊由 GradientNavigationBlur 安装；这里不再叠一条永久材质带，
+        // 否则大标题下面会始终有一条与纸面底色不同的 44pt 灰条。
+        navigationAppearance.configureWithTransparentBackground()
+        navigationAppearance.backgroundEffect = nil
         navigationAppearance.backgroundColor = .clear
         navigationAppearance.shadowColor = .clear
         UINavigationBar.appearance().standardAppearance = navigationAppearance
@@ -42,7 +42,6 @@ struct RootView: View {
     // 歌词/材质并重算 Root 布局，主线程被占住一帧，表现就是「卡一下，
     // 然后才变成圆形旋转」。常驻后收起结束不再有这次拆除。
     @State private var isPlayerOpen = false
-    @State private var showSettings = false
     @State private var tab = 0
     // 播放页转场由 Root 统一驱动：Apple Music 式整页 sheet 上滑/下滑。
     @State private var playerProgress: CGFloat = 0
@@ -135,7 +134,6 @@ struct RootView: View {
         )
         .onAppear { applyInterfaceStyle() }
         .onChange(of: tab) { value in
-            ChromeState.shared.reset()
             if value != 2 {
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }
@@ -301,24 +299,9 @@ struct RootView: View {
             ProfileView(onOpenPlayer: { openPlayer() })
                 .navigationTitle("资料库")
                 .navigationBarTitleDisplayMode(.large)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button {
-                            showSettings = true
-                        } label: {
-                            Image(systemName: "gearshape")
-                        }
-                        .accessibilityLabel("设置")
-                    }
-                }
         }
         .navigationViewStyle(.stack)
         .background(AppBackground().ignoresSafeArea())
-        .sheet(isPresented: $showSettings) {
-            SettingsView()
-                .environmentObject(PlayerEngine.shared)
-                .environmentObject(auth)
-        }
     }
 
     private var searchTab: some View {
@@ -353,7 +336,7 @@ private struct DiscoverTab: View {
                 },
                 onOpenPlayer: onOpenPlayer
             )
-            .navigationTitle("现在就听")
+            .navigationTitle("主页")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {

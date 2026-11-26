@@ -41,10 +41,10 @@ struct SearchPageView: View {
         HStack(spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 16, weight: .regular))
                     .foregroundColor(Theme.secondaryText)
                 TextField("搜索歌曲、歌手", text: $searchModel.query)
-                    .font(.system(size: 15))
+                    .font(.system(size: 16, weight: .regular))
                     .foregroundColor(Theme.text)
                     .focused($searchFocused)
                     .submitLabel(.search)
@@ -61,8 +61,14 @@ struct SearchPageView: View {
                 }
             }
             .padding(.horizontal, 14)
-            .frame(height: 46)
-            .appSearchField(cornerRadius: 23)
+            .frame(height: 44)
+            .background(.ultraThinMaterial)
+            .background(Theme.background.opacity(0.42))
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Theme.text.opacity(0.10), lineWidth: 0.5)
+            )
 
             if searchFocused {
                 Button {
@@ -106,21 +112,20 @@ struct SearchPageView: View {
                 }
 
                 if !searchModel.songs.isEmpty {
-                    Text("歌曲")
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(Theme.text)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 18)
-                        .padding(.bottom, 2)
+                    IOS27SectionHeader(title: "歌曲", subtitle: searchModel.songs.count > 0 ? "\(searchModel.songs.count) 首" : nil)
                 }
 
-                ForEach(searchModel.songs) { song in
+                ForEach(Array(searchModel.songs.enumerated()), id: \.element.id) { index, song in
                     SongRowWithMenu(song: song) {
                         searchFocused = false
                         onSelect(song)
                     }
-                    .padding(.horizontal, 18)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .padding(.horizontal, IOS27.pagePadding)
+
+                    if index < searchModel.songs.count - 1 {
+                        IOS27RowDivider(leading: 64)
+                            .padding(.trailing, IOS27.pagePadding)
+                    }
                 }
 
                 if searchModel.isLoadingMore {
@@ -146,7 +151,8 @@ struct SearchPageView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("最近搜索")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(IOS27.sectionTitle)
+                        .tracking(IOS27.sectionTracking)
                         .foregroundColor(Theme.text)
                     Spacer()
                     if !historyWords.isEmpty {
@@ -164,14 +170,15 @@ struct SearchPageView: View {
                         .buttonStyle(GlassPressButtonStyle())
                     }
                 }
+                .padding(.horizontal, IOS27.pagePadding)
 
                 if historyWords.isEmpty {
                     Text("搜歌手、歌名或专辑，点一首就能听")
-                        .font(.system(size: 13))
+                        .font(.system(size: 14))
                         .foregroundColor(Theme.tertiaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(14)
-                        .appSurface(cornerRadius: 18)
+                        .padding(.horizontal, IOS27.pagePadding)
+                        .padding(.vertical, 12)
                 } else {
                     VStack(spacing: 0) {
                         ForEach(Array(historyWords.enumerated()), id: \.element) { index, word in
@@ -185,7 +192,7 @@ struct SearchPageView: View {
                                     searchModel.submit(word)
                                 } label: {
                                     Text(word)
-                                        .font(.system(size: 14))
+                                        .font(.system(size: 16, weight: .regular))
                                         .foregroundColor(Theme.text)
                                         .lineLimit(1)
                                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -205,17 +212,16 @@ struct SearchPageView: View {
                                 }
                                 .buttonStyle(GlassPressButtonStyle())
                             }
-                            .padding(.horizontal, 14)
-                            .frame(minHeight: 44)
+                            .padding(.horizontal, IOS27.pagePadding)
+                            .frame(minHeight: 46)
 
                             if index < historyWords.count - 1 {
-                                Divider()
-                                    .background(Theme.separator)
-                                    .padding(.leading, 42)
+                                IOS27RowDivider(leading: 44)
+                                    .padding(.trailing, IOS27.pagePadding)
                             }
                         }
                     }
-                    .appSurface(cornerRadius: 18)
+                    .background(Theme.background)
                 }
             }
 
@@ -223,13 +229,15 @@ struct SearchPageView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text("热门搜索")
-                            .font(.system(size: 24, weight: .bold))
+                            .font(IOS27.sectionTitle)
+                            .tracking(IOS27.sectionTracking)
                             .foregroundColor(Theme.text)
-                        Text("大家都在听")
-                            .font(.system(size: 12, weight: .medium))
+                        Text("大家都在搜")
+                            .font(IOS27.caption)
                             .foregroundColor(Theme.secondaryText)
                         Spacer()
                     }
+                    .padding(.horizontal, IOS27.pagePadding)
 
                     LazyVGrid(
                         columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
@@ -242,11 +250,12 @@ struct SearchPageView: View {
                             }
                         }
                     }
+                    .padding(.horizontal, IOS27.pagePadding)
                 }
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 12)
+        .padding(.horizontal, 0)
+        .padding(.top, 4)
     }
 }
 
@@ -256,54 +265,37 @@ private struct SearchCategoryTile: View {
     let index: Int
     let action: () -> Void
 
-    private static let palettes: [[Color]] = [
-        [Color(red: 0.94, green: 0.18, blue: 0.30), Color(red: 0.99, green: 0.45, blue: 0.34)],
-        [Color(red: 0.30, green: 0.46, blue: 0.98), Color(red: 0.48, green: 0.72, blue: 1.00)],
-        [Color(red: 0.42, green: 0.22, blue: 0.82), Color(red: 0.72, green: 0.46, blue: 0.98)],
-        [Color(red: 0.16, green: 0.62, blue: 0.50), Color(red: 0.42, green: 0.86, blue: 0.68)],
-        [Color(red: 0.92, green: 0.48, blue: 0.12), Color(red: 1.00, green: 0.72, blue: 0.26)],
-        [Color(red: 0.18, green: 0.62, blue: 0.84), Color(red: 0.44, green: 0.86, blue: 0.96)],
-        [Color(red: 0.66, green: 0.20, blue: 0.52), Color(red: 0.94, green: 0.44, blue: 0.70)],
-        [Color(red: 0.34, green: 0.36, blue: 0.44), Color(red: 0.62, green: 0.64, blue: 0.72)]
-    ]
-
-    private var palette: [Color] {
-        Self.palettes[index % Self.palettes.count]
-    }
-
     var body: some View {
         Button(action: action) {
             ZStack(alignment: .bottomLeading) {
-                LinearGradient(colors: palette,
-                               startPoint: .topLeading,
-                               endPoint: .bottomTrailing)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Theme.chip)
 
-                Image(systemName: index < 3 ? "chart.line.uptrend.xyaxis" : "music.note")
-                    .font(.system(size: 34, weight: .bold))
-                    .foregroundColor(.white.opacity(0.20))
-                    .padding(14)
+                Image(systemName: index < 3 ? "arrow.up.right" : "magnifyingglass")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Theme.tertiaryText)
+                    .padding(12)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(word)
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(.white)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(Theme.text)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                     Text(index < 3 ? "热门 TOP \(index + 1)" : "热门搜索")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.66))
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundColor(Theme.secondaryText)
                 }
-                .padding(14)
+                .padding(12)
             }
-            .frame(height: 98)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .frame(height: 82)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color.white.opacity(0.22), lineWidth: 0.8)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Theme.text.opacity(0.08), lineWidth: 0.5)
             )
-            .shadow(color: palette[0].opacity(0.22), radius: 12, x: 0, y: 8)
         }
-        .buttonStyle(GlassPressButtonStyle())
+        .buttonStyle(IOS27PressStyle(pressedOpacity: 0.62, pressedScale: 0.98))
     }
 }
