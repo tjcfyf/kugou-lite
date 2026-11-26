@@ -79,13 +79,33 @@ struct AppSurface: ViewModifier {
     var cornerRadius: CGFloat = 18
     var elevated: Bool = false
     var fill: Color = Theme.card
+    @Environment(\.colorScheme) private var colorScheme
 
     func body(content: Content) -> some View {
         content
             .background(
-                LiquidGlassBackdrop(cornerRadius: cornerRadius, tint: fill.opacity(0.16))
+                ZStack {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(fill)
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(colorScheme == .dark ? 0.065 : 0.20),
+                                    Color.white.opacity(colorScheme == .dark ? 0.012 : 0.055),
+                                    Color.clear
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(Theme.text.opacity(colorScheme == .dark ? 0.16 : 0.09), lineWidth: 0.6)
+                }
             )
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .shadow(color: elevated ? Color.black.opacity(colorScheme == .dark ? 0.28 : 0.10) : .clear,
+                    radius: elevated ? 16 : 0, x: 0, y: elevated ? 8 : 0)
     }
 }
 
@@ -378,7 +398,6 @@ struct SongActionsSheet: View {
 /// 歌曲右侧三个点的可点菜单；用于歌单/我喜欢等自定义行，避免点三个点变成播放。
 struct SongMoreMenu: View {
     let song: Song
-    @EnvironmentObject private var player: PlayerEngine
     @ObservedObject private var library = LibraryStore.shared
 
     private var isFavorite: Bool {
@@ -388,12 +407,12 @@ struct SongMoreMenu: View {
     var body: some View {
         Menu {
             Button {
-                player.playNext(song)
+                PlayerEngine.shared.playNext(song)
             } label: {
                 Label("下一首播放", systemImage: "arrow.up.forward")
             }
             Button {
-                player.appendToQueue(song)
+                PlayerEngine.shared.appendToQueue(song)
             } label: {
                 Label("加入播放列表", systemImage: "text.badge.plus")
             }
@@ -401,9 +420,9 @@ struct SongMoreMenu: View {
                 Task {
                     let added = await library.toggleFavorite(song)
                     if let added = added {
-                        player.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
+                        PlayerEngine.shared.showToast(added ? "已加入我喜欢" : "已从我喜欢移除")
                     } else {
-                        player.showToast(library.favoritesMessage)
+                        PlayerEngine.shared.showToast(library.favoritesMessage)
                     }
                 }
             } label: {
@@ -412,7 +431,7 @@ struct SongMoreMenu: View {
             }
             Button {
                 UIPasteboard.general.string = "\(song.SongName) - \(song.artist)"
-                player.showToast("已复制歌曲信息")
+                PlayerEngine.shared.showToast("已复制歌曲信息")
             } label: {
                 Label("复制歌名和歌手", systemImage: "doc.on.doc")
             }

@@ -1406,11 +1406,11 @@ struct ProfileView: View {
     @EnvironmentObject private var auth: AuthStore
     @ObservedObject private var library = LibraryStore.shared
     @ObservedObject private var importedStore = ImportedPlaylistStore.shared
+    @ObservedObject private var userProfile = UserProfileStore.shared
     private var player: PlayerEngine { PlayerEngine.shared }
     var onOpenPlayer: () -> Void = {}
     @State private var quality: AudioQuality = Preferences.quality
     @State private var showLogin = false
-    @State private var profile: KugouProfile?
     @State private var vipText = ""
     @State private var playlists: [CloudPlaylist] = []
     @State private var playlistsLoading = false
@@ -1818,11 +1818,10 @@ struct ProfileView: View {
 
     private func loadProfile() async {
         guard auth.isLoggedIn else {
-            profile = nil
             vipText = ""
             return
         }
-        profile = await KGUser.profile()
+        await userProfile.refresh()
         vipText = await KGUser.vipText() ?? ""
     }
 
@@ -1840,7 +1839,7 @@ struct ProfileView: View {
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(Theme.accent)
                         .lineLimit(1)
-                } else if let signature = profile?.signature, !signature.isEmpty {
+                } else if let signature = userProfile.profile?.signature, !signature.isEmpty {
                     Text(signature)
                         .font(.system(size: 12))
                         .foregroundColor(Theme.secondaryText)
@@ -1875,34 +1874,14 @@ struct ProfileView: View {
     }
 
     private var displayName: String {
-        if let nickname = profile?.nickname, !nickname.isEmpty { return nickname }
+        if let nickname = userProfile.profile?.nickname, !nickname.isEmpty { return nickname }
         return auth.isLoggedIn ? "酷狗用户" : "未登录"
     }
 
     private var avatarView: some View {
-        Group {
-            if let raw = profile?.avatarURL, let url = URL(string: raw) {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    avatarPlaceholder
-                }
-            } else {
-                avatarPlaceholder
-            }
-        }
-        .frame(width: 64, height: 64)
-        .clipShape(Circle())
-        .overlay(Circle().stroke(Theme.separator, lineWidth: 0.6))
-    }
-
-    private var avatarPlaceholder: some View {
-        ZStack {
-            Circle().fill(Theme.chip)
-            Image(systemName: "person.crop.circle.fill")
-                .font(.system(size: 30))
-                .foregroundColor(Theme.accent)
-        }
+        UserAvatarView(url: userProfile.profile.flatMap { $0.avatarURL }.flatMap(URL.init(string:)),
+                       size: 64,
+                       borderWidth: 0.8)
     }
 
     private var qualityCard: some View {

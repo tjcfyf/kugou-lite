@@ -333,6 +333,7 @@ private struct DiscoverTab: View {
 
     @StateObject private var model = SearchModel()
     @StateObject private var recommendModel = RecommendModel()
+    @ObservedObject private var userProfile = UserProfileStore.shared
 
     var body: some View {
         NavigationView {
@@ -357,14 +358,16 @@ private struct DiscoverTab: View {
                     Button {
                         onOpenProfile()
                     } label: {
-                        Image(systemName: "person.crop.circle")
-                            .font(.system(size: 22, weight: .medium))
-                            .foregroundColor(Theme.text.opacity(0.86))
+                        UserAvatarView(url: userProfile.profile.flatMap { $0.avatarURL }.flatMap(URL.init(string:)),
+                                       size: 30,
+                                       borderWidth: 0.6)
                     }
+                    .buttonStyle(AppleMusicPressStyle())
                     .accessibilityLabel("账号与资料库")
                 }
             }
             .task { await recommendModel.load() }
+            .task { await userProfile.refresh() }
         }
         .navigationViewStyle(.stack)
     }
@@ -389,11 +392,11 @@ private struct SearchTab: View {
 }
 
 private struct ToastOverlay: View {
-    @EnvironmentObject private var player: PlayerEngine
+    @State private var toast: String?
 
     var body: some View {
         Group {
-            if let toast = player.toast {
+            if let toast {
                 ToastView(text: toast)
                     .transition(
                         .asymmetric(
@@ -403,7 +406,9 @@ private struct ToastOverlay: View {
                     )
             }
         }
-        .animation(Motion.standard, value: player.toast)
+        .animation(Motion.standard, value: toast)
+        .onAppear { toast = PlayerEngine.shared.toast }
+        .onReceive(PlayerEngine.shared.$toast) { toast = $0 }
     }
 }
 

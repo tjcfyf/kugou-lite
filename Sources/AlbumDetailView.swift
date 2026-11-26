@@ -9,7 +9,6 @@ struct AlbumTarget: Identifiable, Equatable {
 
 struct AlbumDetailSheet: View {
     let target: AlbumTarget
-    @EnvironmentObject private var player: PlayerEngine
     @Environment(\.dismiss) private var dismiss
     @State private var songs: [Song] = []
     @State private var loading = true
@@ -86,7 +85,7 @@ struct AlbumDetailSheet: View {
                 HStack(spacing: 10) {
                     Button {
                         guard let first = songs.first else { return }
-                        player.play(first, in: songs)
+                        PlayerEngine.shared.play(first, in: songs)
                         dismiss()
                     } label: {
                         HStack(spacing: 7) {
@@ -105,7 +104,7 @@ struct AlbumDetailSheet: View {
 
                     Button {
                         guard !songs.isEmpty else { return }
-                        player.play(songs.randomElement() ?? songs[0], in: songs.shuffled())
+                        PlayerEngine.shared.play(songs.randomElement() ?? songs[0], in: songs.shuffled())
                         dismiss()
                     } label: {
                         Image(systemName: "shuffle")
@@ -157,7 +156,7 @@ struct AlbumDetailSheet: View {
             ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
                 VStack(spacing: 0) {
                     SongRowWithMenu(song: song, index: index + 1) {
-                        player.play(song, in: songs)
+                        PlayerEngine.shared.play(song, in: songs)
                         dismiss()
                     }
                     .padding(.horizontal, 14)

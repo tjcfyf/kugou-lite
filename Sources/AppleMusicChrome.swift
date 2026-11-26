@@ -13,13 +13,14 @@ enum AppleMusicTheme {
 struct AppleMusicFloatingChrome: View {
     @Binding var tab: Int
     let onOpenPlayer: () -> Void
-    @EnvironmentObject private var player: PlayerEngine
     @ObservedObject private var chrome = ChromeState.shared
     @Namespace private var selectionNamespace
+    @State private var hasTrack = false
+    @State private var currentID: String?
 
     var body: some View {
         VStack(spacing: 10) {
-            if player.current != nil {
+            if hasTrack {
                 AppleMusicMiniPlayer(onOpenPlayer: onOpenPlayer)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                     .padding(.horizontal, 2)
@@ -44,7 +45,18 @@ struct AppleMusicFloatingChrome: View {
         .padding(.horizontal, 14)
         .padding(.bottom, LiquidGlassMetrics.bottomMargin)
         .animation(Motion.chromeMorph, value: chrome.compact)
-        .animation(Motion.silky, value: player.current?.id)
+        .animation(Motion.chromeMorph, value: hasTrack)
+        .animation(Motion.chromeMorph, value: currentID)
+        .onAppear {
+            hasTrack = PlayerEngine.shared.current != nil
+            currentID = PlayerEngine.shared.current?.id
+        }
+        .onReceive(PlayerEngine.shared.$current) { song in
+            withAnimation(Motion.chromeMorph) {
+                hasTrack = song != nil
+                currentID = song?.id
+            }
+        }
     }
 
     private func barButton(title: String, icon: String, tag: Int) -> some View {
@@ -116,21 +128,22 @@ struct AppleMusicFloatingChrome: View {
 /// 浮动迷你播放条：液态玻璃胶囊，可左右轻扫切上一首/下一首。
 struct AppleMusicMiniPlayer: View {
     let onOpenPlayer: () -> Void
-    @EnvironmentObject private var player: PlayerEngine
+    @State private var song: Song?
+    @State private var isPlaying = false
 
     var body: some View {
         HStack(spacing: 10) {
             Button(action: onOpenPlayer) {
                 HStack(spacing: 11) {
-                    CoverImage(url: player.current?.coverURL, size: 42, radius: 9)
+                    CoverImage(url: song?.coverURL, size: 42, radius: 9)
                         .shadow(color: .black.opacity(0.16), radius: 4, x: 0, y: 2)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(player.current?.SongName ?? "")
+                        Text(song?.SongName ?? "")
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(Theme.text)
                             .lineLimit(1)
-                        Text(player.current?.artist ?? "")
+                        Text(song?.artist ?? "")
                             .font(.system(size: 12, weight: .regular))
                             .foregroundColor(Theme.secondaryText)
                             .lineLimit(1)
@@ -142,17 +155,17 @@ struct AppleMusicMiniPlayer: View {
             }
             .buttonStyle(AppleMusicPressStyle())
 
-            Button { player.toggle() } label: {
-                Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
+            Button { PlayerEngine.shared.toggle() } label: {
+                Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 19, weight: .semibold))
                     .foregroundColor(Theme.text)
                     .frame(width: 36, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(AppleMusicPressStyle())
-            .accessibilityLabel(player.isPlaying ? "暂停" : "播放")
+            .accessibilityLabel(isPlaying ? "暂停" : "播放")
 
-            Button { player.next() } label: {
+            Button { PlayerEngine.shared.next() } label: {
                 Image(systemName: "forward.fill")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(Theme.text.opacity(0.86))
@@ -173,11 +186,21 @@ struct AppleMusicMiniPlayer: View {
                     guard abs(horizontal) > abs(value.translation.height),
                           abs(horizontal) > 42 else { return }
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(Motion.silky) {
-                        if horizontal < 0 { player.next() } else { player.previous() }
+                    withAnimation(Motion.quick) {
+                        if horizontal < 0 { PlayerEngine.shared.next() } else { PlayerEngine.shared.previous() }
                     }
                 }
         )
+        .onAppear {
+            song = PlayerEngine.shared.current
+            isPlaying = PlayerEngine.shared.isPlaying
+        }
+        .onReceive(PlayerEngine.shared.$current) { updated in
+            song = updated
+        }
+        .onReceive(PlayerEngine.shared.$isPlaying) { playing in
+            withAnimation(Motion.quick) { isPlaying = playing }
+        }
     }
 }
 
